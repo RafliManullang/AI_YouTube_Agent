@@ -1,0 +1,11 @@
+node_modules/
+video_engine/node_modules/
+video_engine/out/
+out/
+.remotion/
+__pycache__/
+client_secret.json
+token.json
+token.pickle
+.env
+client_secret*.json
