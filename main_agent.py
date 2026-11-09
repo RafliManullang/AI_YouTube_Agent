@@ -1,7 +1,7 @@
 """
 AI YouTube Agent
-Alur kerja: riset topik + naskah (Gemini) -> suara + waktu tiap kata (Edge-TTS)
--> gambar visual (Pollinations) -> render video (Remotion) -> unggah ke YouTube.
+Alur kerja: riset topik + naskah per adegan (Gemini) -> suara + waktu tiap kata (Edge-TTS)
+-> video latar gratis (Pexels, opsional) -> render video beranimasi (Remotion) -> unggah ke YouTube.
 
 Cara pakai (contoh):
     python main_agent.py                      # jalan penuh sampai unggah
@@ -18,11 +18,8 @@ import subprocess
 import sys
 import time
 import traceback
-import urllib.parse
-from io import BytesIO
 
 import requests
-from PIL import Image, ImageDraw
 
 try:
     from dotenv import load_dotenv
@@ -49,6 +46,7 @@ if load_dotenv:
     load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 GEMINI_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
+PEXELS_KEY = os.getenv("PEXELS_API_KEY") or ""  # opsional: video latar gratis dari Pexels
 # Kalau model pertama tidak tersedia, agen otomatis mencoba yang berikutnya
 GEMINI_MODELS = [
     m for m in [
@@ -61,12 +59,8 @@ GEMINI_MODELS = [
 VOICE = os.getenv("VOICE", "id-ID-ArdiNeural")  # suara cowok; cewek: id-ID-GadisNeural
 VOICE_RATE = os.getenv("VOICE_RATE", "+15%")
 PRIVACY = os.getenv("YOUTUBE_PRIVACY", "private")  # private / unlisted / public
-FPS = 30
-IMG_W, IMG_H = 1080, 1920
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
-
-# Pollinations versi gratis hanya mengizinkan 1 gambar tiap 45 detik per koneksi internet
-POLLINATIONS_GAP_SECONDS = 46
+SCENE_TYPES = ("flow", "mindmap", "counter")
 
 
 def info(msg):
@@ -74,7 +68,7 @@ def info(msg):
 
 
 # ========================================================
-# 2. RISET DAN NASKAH (GEMINI)
+# 2. RISET DAN NASKAH PER ADEGAN (GEMINI)
 # ========================================================
 def load_history():
     try:
@@ -124,23 +118,39 @@ Kamu adalah scriptwriter YouTube Shorts edukasi berbahasa Indonesia, gaya Kok Bi
 {topic_rule}
 {avoid}
 
-Tulis naskah narasi yang seru, cepat, dan santai ala kreator konten modern, sekitar 80-100 kata
-(durasi sekitar 35-40 detik). Mulai dengan kalimat pembuka yang bikin penasaran.
-Naskah hanya berisi kalimat yang diucapkan: tanpa instruksi panggung, tanpa emoji, tanpa tanda bintang,
-tanpa hashtag, dan jangan pakai singkatan yang sulit dibaca.
+Pecah video menjadi 5 sampai 6 ADEGAN berurutan. Setiap adegan punya narasi yang diucapkan dan
+visual infografis beranimasi. Total seluruh narasi sekitar 80-100 kata (durasi 35-40 detik).
+Gaya narasi: seru, cepat, santai ala kreator konten modern. Adegan pertama harus kalimat pembuka yang
+bikin penasaran, adegan terakhir penutup singkat. Narasi hanya berisi kalimat yang diucapkan:
+tanpa instruksi panggung, tanpa emoji, tanpa tanda bintang, tanpa hashtag.
 
-Buat tepat 3 prompt gambar (dalam bahasa Inggris) untuk 3 scene berurutan. Gaya visual: infografis dan
-animasi digital, misalnya isometric 3D cutaway, diagram alur, mind map, atau skema transparan.
-Setiap prompt harus menggambarkan bagian cerita yang sesuai urutan naskah.
-Semua gambar tidak boleh mengandung tulisan, huruf, atau logo.
+Aturan visual tiap adegan (field "type"):
+- "flow"    : alur langkah berurutan. "points" berisi 3 sampai 4 langkah.
+- "mindmap" : peta pikiran dengan judul di tengah. "points" berisi 3 sampai 5 cabang.
+- "counter" : angka besar yang menghitung naik. Wajib isi "number" (angka saja) dan "unit"
+              (satuannya). "points" berisi 2 sampai 3 label pendek. Pakai HANYA kalau ada angka
+              yang benar-benar faktual, jangan mengarang angka.
+Pakai campuran tipe, minimal ada satu "flow" dan satu "mindmap".
+"title" maksimal 4 kata. Setiap isi "points" maksimal 4 kata, tanpa emoji dan tanpa tanda baca.
+"footage_query" berisi 2 sampai 3 kata bahasa Inggris untuk mencari video latar gratis yang umum dan
+mudah ditemukan (contoh: "elevator building", "rice cooking", "underground tunnel").
 
 Keluarkan HANYA JSON murni dengan format persis ini:
 {{
   "title": "Judul menarik maksimal 60 karakter",
   "description": "Deskripsi singkat 2-3 kalimat. #Shorts #Sains #Teknologi",
   "tags": ["sains", "teknologi", "carakerja", "shorts", "edukasi"],
-  "full_script": "Seluruh teks narasi dari awal sampai akhir.",
-  "prompts": ["prompt scene 1", "prompt scene 2", "prompt scene 3"]
+  "scenes": [
+    {{
+      "narration": "Kalimat yang diucapkan pada adegan ini.",
+      "title": "Judul adegan",
+      "type": "flow",
+      "points": ["langkah satu", "langkah dua", "langkah tiga"],
+      "number": null,
+      "unit": null,
+      "footage_query": "elevator building"
+    }}
+  ]
 }}
 """
 
@@ -181,18 +191,61 @@ def research_and_write(forced_topic=None):
     raise RuntimeError(f"Gemini gagal membuat naskah: {last_error}")
 
 
+def clean_text(value, limit):
+    text = re.sub(r"[*#_`]", "", str(value or "")).strip()
+    return text[:limit]
+
+
 def validate_content(data):
-    for key in ("title", "description", "tags", "full_script", "prompts"):
+    for key in ("title", "description", "tags", "scenes"):
         if key not in data:
             raise ValueError(f"JSON dari Gemini kekurangan kolom '{key}'.")
-    if not isinstance(data["prompts"], list) or not data["prompts"]:
-        raise ValueError("Kolom 'prompts' kosong.")
+    if not isinstance(data["scenes"], list) or len(data["scenes"]) < 3:
+        raise ValueError("Jumlah adegan terlalu sedikit.")
     if not isinstance(data["tags"], list):
         data["tags"] = [str(data["tags"])]
-    data["full_script"] = re.sub(r"[*#_`]", "", str(data["full_script"])).strip()
+
+    scenes = []
+    for raw in data["scenes"][:7]:
+        narration = clean_text(raw.get("narration"), 400)
+        if len(narration.split()) < 4:
+            continue
+        scene_type = raw.get("type") if raw.get("type") in SCENE_TYPES else "flow"
+        points = [clean_text(p, 40) for p in (raw.get("points") or []) if str(p).strip()]
+        number = raw.get("number")
+        try:
+            number = float(number) if number is not None else None
+        except (TypeError, ValueError):
+            number = None
+        if number is not None and number == int(number):
+            number = int(number)
+
+        # Perbaiki kombinasi yang tidak lengkap supaya tampilan tidak kosong
+        if scene_type == "counter" and number is None:
+            scene_type = "flow"
+        if not points:
+            points = [clean_text(raw.get("title"), 40) or "Intinya"]
+        if scene_type == "flow" and len(points) < 2:
+            scene_type = "mindmap"
+
+        scenes.append({
+            "narration": narration,
+            "title": clean_text(raw.get("title"), 40) or "Tahukah kamu",
+            "type": scene_type,
+            "points": points[:5],
+            "number": number,
+            "unit": clean_text(raw.get("unit"), 40) or None,
+            "footage_query": clean_text(raw.get("footage_query"), 60),
+        })
+
+    if len(scenes) < 3:
+        raise ValueError("Adegan yang valid terlalu sedikit.")
+
+    data["scenes"] = scenes
+    data["full_script"] = " ".join(s["narration"] for s in scenes)
     if len(data["full_script"].split()) < 20:
         raise ValueError("Naskah terlalu pendek.")
-    data["title"] = str(data["title"]).strip()[:80]
+    data["title"] = clean_text(data["title"], 80)
 
 
 # ========================================================
@@ -252,101 +305,95 @@ async def generate_voice_and_timestamps(text, output_audio_path):
     return words, round(total_duration, 2)
 
 
+def assign_scene_times(scenes, words, duration):
+    """Tentukan kapan tiap adegan mulai dan selesai, berdasarkan jumlah kata narasinya."""
+    counts = [max(1, len(s["narration"].split())) for s in scenes]
+    total_count = sum(counts)
+    cumulative = 0
+    for i, scene in enumerate(scenes):
+        if i == 0:
+            scene["start"] = 0.0
+        else:
+            idx = min(len(words) - 1, round(cumulative / total_count * len(words)))
+            scene["start"] = float(words[idx]["start"])
+        cumulative += counts[i]
+
+    # Pastikan urutan waktu masuk akal dan tiap adegan minimal 1,5 detik
+    for i in range(1, len(scenes)):
+        scenes[i]["start"] = max(scenes[i]["start"], scenes[i - 1]["start"] + 1.5)
+    for i in range(len(scenes) - 1, 0, -1):
+        scenes[i]["start"] = min(scenes[i]["start"], duration - 1.5 * (len(scenes) - i))
+    for i, scene in enumerate(scenes):
+        scene["end"] = scenes[i + 1]["start"] if i + 1 < len(scenes) else float(duration)
+        scene["start"] = round(scene["start"], 2)
+        scene["end"] = round(scene["end"], 2)
+
+
 # ========================================================
-# 4. GAMBAR VISUAL (POLLINATIONS)
+# 4. VIDEO LATAR GRATIS (PEXELS, OPSIONAL)
 # ========================================================
-def fit_to_vertical(img):
-    """Potong dan ubah ukuran gambar supaya pas 1080x1920 tanpa gepeng."""
-    img = img.convert("RGB")
-    target_ratio = IMG_W / IMG_H
-    w, h = img.size
-    if w / h > target_ratio:
-        new_w = int(h * target_ratio)
-        left = (w - new_w) // 2
-        img = img.crop((left, 0, left + new_w, h))
-    else:
-        new_h = int(w / target_ratio)
-        top = (h - new_h) // 2
-        img = img.crop((0, top, w, top + new_h))
-    return img.resize((IMG_W, IMG_H), Image.LANCZOS)
+def pick_pexels_file(videos, min_seconds):
+    """Pilih satu file video vertikal dengan ukuran sedang dari hasil pencarian Pexels."""
+    for video in videos:
+        if video.get("duration", 0) < min_seconds:
+            continue
+        candidates = [
+            f for f in video.get("video_files", [])
+            if f.get("file_type") == "video/mp4"
+            and (f.get("width") or 0) >= 540
+            and (f.get("height") or 0) >= (f.get("width") or 0)
+        ]
+        if candidates:
+            # ambil yang paling kecil tapi masih cukup tajam supaya cepat diunduh dan dirender
+            candidates.sort(key=lambda f: (f.get("width") or 0) * (f.get("height") or 0))
+            return candidates[0].get("link")
+    return None
 
 
-def make_placeholder(path, index):
-    """Gambar cadangan bergaya skema teknis, dipakai kalau gambar AI gagal dibuat."""
-    palettes = [((11, 15, 25), (20, 90, 120)), ((20, 12, 40), (110, 50, 140)), ((10, 25, 20), (30, 120, 90))]
-    top, bottom = palettes[index % len(palettes)]
-    img = Image.new("RGB", (IMG_W, IMG_H))
-    draw = ImageDraw.Draw(img)
-    for y in range(IMG_H):
-        t = y / IMG_H
-        color = tuple(int(top[i] + (bottom[i] - top[i]) * t) for i in range(3))
-        draw.line([(0, y), (IMG_W, y)], fill=color)
-    # garis kotak tipis ala kertas gambar teknik
-    overlay = Image.new("RGBA", (IMG_W, IMG_H), (0, 0, 0, 0))
-    odraw = ImageDraw.Draw(overlay)
-    for x in range(0, IMG_W, 90):
-        odraw.line([(x, 0), (x, IMG_H)], fill=(255, 255, 255, 25), width=2)
-    for y in range(0, IMG_H, 90):
-        odraw.line([(0, y), (IMG_W, y)], fill=(255, 255, 255, 25), width=2)
-    img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
-    img.save(path, "JPEG", quality=90)
-
-
-def download_image(prompt, seed, dest_path):
-    encoded = urllib.parse.quote(prompt + ", technical infographic, clean render, no text, no watermark")
-    url = (
-        f"https://image.pollinations.ai/prompt/{encoded}"
-        f"?width={IMG_W}&height={IMG_H}&nologo=true&seed={seed}"
-    )
-    for attempt in range(1, 5):
-        wait = POLLINATIONS_GAP_SECONDS + 4
-        try:
-            res = requests.get(url, timeout=180)
-            content_type = res.headers.get("content-type", "")
-            if res.status_code == 200 and content_type.startswith("image"):
-                img = Image.open(BytesIO(res.content))
-                img.load()  # memastikan gambar benar-benar bisa dibaca
-                fit_to_vertical(img).save(dest_path, "JPEG", quality=92)
-                return True
-            # Batas gratis tercapai (kode 402) -> ikuti waktu tunggu yang diminta server
-            match = re.search(r"[Rr]etry after (\d+)s", res.text or "")
-            if match:
-                wait = int(match.group(1)) + 3
-            info(f"  -> Server gambar menolak (kode {res.status_code}), menunggu {wait} detik...")
-        except Exception as e:
-            info(f"  -> Gambar gagal diunduh ({str(e)[:100]}), percobaan {attempt}/4...")
-        time.sleep(wait)
-    return False
-
-
-def generate_images(prompts):
-    info("[3/5] Membuat gambar visual (sekitar 45 detik per gambar karena batas versi gratis)...")
+def fetch_stock_videos(scenes):
+    info("[3/5] Menyiapkan visual latar...")
     os.makedirs(PUBLIC_DIR, exist_ok=True)
 
-    # Hapus gambar lama supaya tidak terpakai lagi tanpa sengaja
+    # Hapus klip dan gambar lama supaya tidak terpakai lagi tanpa sengaja
     for name in os.listdir(PUBLIC_DIR):
-        if re.fullmatch(r"scene_\d+\.(png|jpg)", name):
+        if re.fullmatch(r"scene_\d+\.(png|jpg|mp4)", name):
             os.remove(os.path.join(PUBLIC_DIR, name))
 
-    image_names = []
-    last_download = 0.0
-    for idx, prompt in enumerate(prompts):
-        filename = f"scene_{idx}.jpg"
-        filepath = os.path.join(PUBLIC_DIR, filename)
+    if not PEXELS_KEY:
+        info("  -> PEXELS_API_KEY belum diisi: memakai latar animasi bawaan (tetap bergerak dan berwarna).")
+        return
 
-        gap = POLLINATIONS_GAP_SECONDS - (time.time() - last_download)
-        if last_download and gap > 0:
-            info(f"  -> Menunggu {int(gap)} detik sebelum gambar berikutnya...")
-            time.sleep(gap)
+    for i, scene in enumerate(scenes):
+        query = scene.get("footage_query")
+        if not query:
+            continue
+        try:
+            res = requests.get(
+                "https://api.pexels.com/videos/search",
+                headers={"Authorization": PEXELS_KEY},
+                params={"query": query, "orientation": "portrait", "size": "medium", "per_page": 8},
+                timeout=30,
+            )
+            res.raise_for_status()
+            link = pick_pexels_file(res.json().get("videos", []), scene["end"] - scene["start"] + 1)
+            if not link:
+                info(f"  -> Adegan {i + 1}: tidak ada video cocok untuk '{query}', pakai latar animasi.")
+                continue
 
-        info(f"  -> Gambar {idx + 1}/{len(prompts)}")
-        ok = download_image(prompt, 12 + idx, filepath)
-        last_download = time.time()
-        if not ok:
-            info(f"  -> Gambar {idx + 1} gagal, memakai gambar cadangan.")
-            make_placeholder(filepath, idx)
-        image_names.append(filename)
-    return image_names
+            filename = f"scene_{i}.mp4"
+            filepath = os.path.join(PUBLIC_DIR, filename)
+            with requests.get(link, timeout=120, stream=True) as clip:
+                clip.raise_for_status()
+                with open(filepath, "wb") as f:
+                    for block in clip.iter_content(chunk_size=1024 * 256):
+                        f.write(block)
+            if os.path.getsize(filepath) < 10_000:
+                os.remove(filepath)
+                continue
+            scene["video"] = filename
+            info(f"  -> Adegan {i + 1}: video latar '{query}' siap.")
+        except Exception as e:
+            info(f"  -> Adegan {i + 1}: video latar gagal diunduh ({str(e)[:100]}), pakai latar animasi.")
 
 
 # ========================================================
@@ -356,8 +403,8 @@ def run_command(cmd, cwd):
     subprocess.run(cmd, cwd=cwd, check=True)
 
 
-def render_remotion_video(words, images, duration):
-    info("[4/5] Menjalankan Remotion (membuat video dengan teks kinetik)...")
+def render_remotion_video(words, scenes, duration):
+    info("[4/5] Menjalankan Remotion (membuat video beranimasi)...")
     npm = shutil.which("npm")
     npx = shutil.which("npx")
     if not npm or not npx:
@@ -373,13 +420,30 @@ def render_remotion_video(words, images, duration):
     if os.path.exists(output_mp4):
         os.remove(output_mp4)
 
-    props_path = os.path.join(REMOTION_DIR, "render_props.json")
     props = {
         "audioUrl": "voice.mp3",
-        "images": [os.path.basename(i) for i in images],
+        "scenes": [
+            {
+                "type": s["type"],
+                "title": s["title"],
+                "points": s["points"],
+                "number": s.get("number"),
+                "unit": s.get("unit"),
+                "start": s["start"],
+                "end": s["end"],
+                **({"video": s["video"]} if s.get("video") else {}),
+            }
+            for s in scenes
+        ],
         "words": words,
         "durationInSeconds": duration,
     }
+    # Musik latar: taruh file bgm.mp3 di video_engine/public, otomatis dipakai dengan volume pelan
+    if os.path.exists(os.path.join(PUBLIC_DIR, "bgm.mp3")):
+        props["bgmUrl"] = "bgm.mp3"
+        info("  -> Musik latar bgm.mp3 ditemukan dan dipakai.")
+
+    props_path = os.path.join(REMOTION_DIR, "render_props.json")
     with open(props_path, "w", encoding="utf-8") as f:
         json.dump(props, f, ensure_ascii=False)
 
@@ -485,15 +549,16 @@ def main():
 
     try:
         data = research_and_write(args.topik)
-        info(f"  -> Topik dipilih: {data['title']}")
+        info(f"  -> Topik dipilih: {data['title']} ({len(data['scenes'])} adegan)")
 
         os.makedirs(PUBLIC_DIR, exist_ok=True)
         audio_dest = os.path.join(PUBLIC_DIR, "voice.mp3")
         words, duration = asyncio.run(generate_voice_and_timestamps(data["full_script"], audio_dest))
         info(f"  -> Durasi video: {duration} detik, {len(words)} kata")
 
-        images = generate_images(data["prompts"])
-        final_video = render_remotion_video(words, images, duration)
+        assign_scene_times(data["scenes"], words, duration)
+        fetch_stock_videos(data["scenes"])
+        final_video = render_remotion_video(words, data["scenes"], duration)
         info(f"  -> Video selesai: {final_video}")
 
         if args.tanpa_upload:

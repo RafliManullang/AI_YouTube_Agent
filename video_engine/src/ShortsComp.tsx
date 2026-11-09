@@ -2,29 +2,21 @@ import React from "react";
 import {
   AbsoluteFill,
   Audio,
-  Img,
+  Sequence,
   interpolate,
   spring,
   staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { Background } from "./Background";
+import { Counter, FlowDiagram, MindMap } from "./Diagrams";
+import { Palette, SceneData, ShortsProps, WordItem, paletteFor } from "./types";
 
-export type WordItem = {
-  word: string;
-  start: number;
-  end: number;
-};
-
-export type ShortsProps = {
-  audioUrl: string;
-  images: string[];
-  words: WordItem[];
-  durationInSeconds: number;
-};
+export type { ShortsProps, WordItem } from "./types";
 
 const CHUNK_SIZE = 4; // jumlah kata yang tampil bersamaan di layar
-const FADE_SECONDS = 0.5; // lama transisi antar gambar
+const FADE_SECONDS = 0.45; // lama transisi antar adegan
 
 // Kelompokkan kata menjadi beberapa baris pendek supaya teks tidak menumpuk
 const buildChunks = (words: WordItem[]): WordItem[][] => {
@@ -35,9 +27,54 @@ const buildChunks = (words: WordItem[]): WordItem[][] => {
   return chunks;
 };
 
+type SceneViewProps = {
+  scene: SceneData;
+  palette: Palette;
+  lengthFrames: number;
+  isFirst: boolean;
+};
+
+const SceneView: React.FC<SceneViewProps> = ({
+  scene,
+  palette,
+  lengthFrames,
+  isFirst,
+}) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const fade = isFirst
+    ? 1
+    : interpolate(frame, [0, FADE_SECONDS * fps], [0, 1], {
+        extrapolateRight: "clamp",
+      });
+  const slide = isFirst
+    ? 0
+    : interpolate(frame, [0, FADE_SECONDS * fps], [60, 0], {
+        extrapolateRight: "clamp",
+      });
+
+  const diagramProps = { scene, palette, lengthFrames };
+
+  return (
+    <AbsoluteFill style={{ opacity: fade }}>
+      <Background palette={palette} video={scene.video} />
+      <AbsoluteFill style={{ transform: `translateY(${slide}px)` }}>
+        {scene.type === "mindmap" ? (
+          <MindMap {...diagramProps} />
+        ) : scene.type === "counter" ? (
+          <Counter {...diagramProps} />
+        ) : (
+          <FlowDiagram {...diagramProps} />
+        )}
+      </AbsoluteFill>
+    </AbsoluteFill>
+  );
+};
+
 export const ShortsComp: React.FC<ShortsProps> = ({
   audioUrl,
-  images,
+  bgmUrl,
+  scenes,
   words,
   durationInSeconds,
 }) => {
@@ -45,79 +82,62 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   const { fps } = useVideoConfig();
   const time = frame / fps;
 
-  const safeImages = images ?? [];
+  const safeScenes = scenes ?? [];
   const safeWords = words ?? [];
   const total = Math.max(1, durationInSeconds || 40);
-  const sceneLength = total / Math.max(1, safeImages.length);
 
-  // ---------- Gambar latar: tiap scene punya zoom sendiri + transisi halus ----------
-  const renderScene = (name: string, index: number) => {
-    const sceneStart = index * sceneLength;
-    const sceneEnd = sceneStart + sceneLength;
-    const isFirst = index === 0;
-    const isLast = index === safeImages.length - 1;
-
-    const opacity = interpolate(
-      time,
-      [
-        sceneStart - FADE_SECONDS,
-        sceneStart,
-        sceneEnd,
-        sceneEnd + FADE_SECONDS,
-      ],
-      [isFirst ? 1 : 0, 1, 1, isLast ? 1 : 0],
-      { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-    );
-
-    if (opacity <= 0) return null;
-
-    // zoom pelan dari 1.0 ke 1.15 selama scene berjalan
-    const progress = interpolate(time, [sceneStart, sceneEnd], [0, 1], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    });
-    const scale = 1 + progress * 0.15;
-
-    return (
-      <AbsoluteFill key={`${name}-${index}`} style={{ opacity }}>
-        <Img
-          src={staticFile(name)}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            transform: `scale(${scale})`,
-          }}
-        />
-      </AbsoluteFill>
-    );
-  };
+  // Warna teks aktif mengikuti warna adegan yang sedang tayang
+  let currentIndex = 0;
+  safeScenes.forEach((scene, i) => {
+    if (time >= scene.start) currentIndex = i;
+  });
+  const activePalette = paletteFor(currentIndex);
 
   // ---------- Teks kinetik ----------
   const chunks = buildChunks(safeWords);
   const activeChunk = chunks.find((chunk) => {
     const first = chunk[0];
     const last = chunk[chunk.length - 1];
-    // tampil sedikit sebelum kata pertama dan bertahan sampai kata terakhir selesai
     return time >= first.start - 0.15 && time <= last.end + 0.35;
   });
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#0b0f19" }}>
-      {safeImages.map(renderScene)}
+      {safeScenes.length === 0 ? (
+        <Background palette={paletteFor(0)} />
+      ) : null}
 
-      {/* Lapisan gelap supaya tulisan mudah dibaca */}
+      {safeScenes.map((scene, i) => {
+        const from = Math.round(scene.start * fps);
+        const next = safeScenes[i + 1];
+        const to = Math.round((next ? next.start : total) * fps);
+        const extra = next ? Math.round(FADE_SECONDS * fps) : 0;
+        const length = Math.max(1, to - from + extra);
+        return (
+          <Sequence key={i} from={from} durationInFrames={length}>
+            <SceneView
+              scene={scene}
+              palette={paletteFor(i)}
+              lengthFrames={Math.max(1, to - from)}
+              isFirst={i === 0}
+            />
+          </Sequence>
+        );
+      })}
+
+      {/* Lapisan gelap tipis di bawah supaya teks mudah dibaca */}
       <AbsoluteFill
         style={{
           background:
-            "linear-gradient(to top, rgba(0,0,0,0.85) 10%, transparent 55%, rgba(0,0,0,0.55) 100%)",
+            "linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 38%)",
         }}
       />
 
-      {/* Suara narasi */}
+      {/* Suara narasi dan musik latar */}
       {audioUrl ? <Audio src={staticFile(audioUrl)} /> : null}
+      {bgmUrl ? <Audio src={staticFile(bgmUrl)} volume={0.1} loop /> : null}
 
-      {/* Teks kinetik: diletakkan agak di bawah tengah, di atas area tombol Shorts */}
+      {/* Teks kinetik: di atas area tombol Shorts */}
       <AbsoluteFill
         style={{
           justifyContent: "flex-end",
@@ -146,7 +166,6 @@ export const ShortsComp: React.FC<ShortsProps> = ({
               config: { damping: 12, stiffness: 200, mass: 0.6 },
             });
             const scale = hasStarted ? 0.92 + 0.1 * pop : 0.92;
-            const shownOpacity = hasStarted ? 1 : 0.35;
 
             return (
               <span
@@ -157,8 +176,8 @@ export const ShortsComp: React.FC<ShortsProps> = ({
                   fontWeight: 900,
                   lineHeight: 1.1,
                   letterSpacing: 1,
-                  color: isActive ? "#FFE600" : "#FFFFFF",
-                  opacity: shownOpacity,
+                  color: isActive ? activePalette.accent : "#FFFFFF",
+                  opacity: hasStarted ? 1 : 0.4,
                   textTransform: "uppercase",
                   transform: `scale(${scale})`,
                   textShadow:
@@ -172,15 +191,15 @@ export const ShortsComp: React.FC<ShortsProps> = ({
         </div>
       </AbsoluteFill>
 
-      {/* Garis kemajuan tipis di bagian atas */}
+      {/* Garis kemajuan di bagian atas */}
       <div
         style={{
           position: "absolute",
           top: 0,
           left: 0,
-          height: 10,
+          height: 12,
           width: `${Math.min(100, (time / total) * 100)}%`,
-          backgroundColor: "#FFE600",
+          background: `linear-gradient(90deg, ${activePalette.accent}, ${activePalette.accent2})`,
         }}
       />
     </AbsoluteFill>
