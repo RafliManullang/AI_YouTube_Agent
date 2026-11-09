@@ -1,0 +1,8 @@
+edge-tts>=7.0.0
+google-genai>=1.0.0
+google-api-python-client
+google-auth-oauthlib
+google-auth-httplib2
+requests
+Pillow
+python-dotenv
