@@ -22,6 +22,14 @@ Klik dua kali `jalankan_agen.bat`. Untuk uji coba tanpa unggah, buka terminal di
 jalankan_agen.bat --tanpa-upload
 ```
 
+Kalau videonya sudah kamu tonton dan bagus, unggah video yang itu juga (tanpa membuat video baru) dengan:
+
+```
+jalankan_agen.bat --unggah-saja
+```
+
+Alurnya jadi hemat: buat dengan `--tanpa-upload`, tonton, lalu `--unggah-saja`. Jangan membuat video baru di antaranya, karena video lama akan tertimpa. Judul dan deskripsinya tersimpan otomatis di `video_engine/out/catatan_video.json`.
+
 Pilihan lain: `--topik "cara kerja lift gedung"` untuk menentukan topik sendiri, dan
 `--privasi unlisted` atau `--privasi public` untuk mengubah status video.
 

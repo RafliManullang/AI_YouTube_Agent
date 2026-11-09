@@ -6,6 +6,7 @@ Alur kerja: riset topik + naskah per adegan (Gemini) -> suara + waktu tiap kata 
 Cara pakai (contoh):
     python main_agent.py                      # jalan penuh sampai unggah
     python main_agent.py --tanpa-upload       # berhenti setelah video jadi (untuk uji coba)
+    python main_agent.py --unggah-saja        # unggah video yang sudah jadi, tanpa membuat baru
     python main_agent.py --topik "cara kerja lift gedung"
 """
 import argparse
@@ -41,6 +42,8 @@ REMOTION_DIR = os.path.join(BASE_DIR, "video_engine")
 PUBLIC_DIR = os.path.join(REMOTION_DIR, "public")
 OUT_DIR = os.path.join(REMOTION_DIR, "out")
 HISTORY_PATH = os.path.join(BASE_DIR, "riwayat_topik.json")
+VIDEO_PATH = os.path.join(OUT_DIR, "shorts_final.mp4")
+META_PATH = os.path.join(OUT_DIR, "catatan_video.json")  # judul, deskripsi, tag video terakhir
 
 if load_dotenv:
     load_dotenv(os.path.join(BASE_DIR, ".env"))
@@ -66,6 +69,31 @@ SCENE_TYPES = ("flow", "mindmap", "counter")
 
 def info(msg):
     print(msg, flush=True)
+
+
+def save_video_notes(data):
+    """Simpan judul, deskripsi, dan tag supaya video yang sudah jadi bisa diunggah belakangan."""
+    os.makedirs(OUT_DIR, exist_ok=True)
+    notes = {"title": data["title"], "description": data["description"], "tags": data["tags"]}
+    with open(META_PATH, "w", encoding="utf-8") as f:
+        json.dump(notes, f, ensure_ascii=False, indent=2)
+
+
+def load_video_notes():
+    """Baca catatan video terakhir. Kalau tidak ada (video lama), pakai judul dari riwayat."""
+    try:
+        with open(META_PATH, "r", encoding="utf-8") as f:
+            notes = json.load(f)
+        if notes.get("title"):
+            return notes
+    except Exception:
+        pass
+    history = load_history()
+    return {
+        "title": history[-1] if history else "Fakta Sains Menarik",
+        "description": "Fakta sains dan cara kerja benda sehari-hari. #Shorts #Sains #Teknologi",
+        "tags": ["sains", "teknologi", "carakerja", "shorts", "edukasi"],
+    }
 
 
 # ========================================================
@@ -583,6 +611,8 @@ def upload_video(video_path, content_data, privacy):
 def main():
     parser = argparse.ArgumentParser(description="AI YouTube Agent")
     parser.add_argument("--tanpa-upload", action="store_true", help="Buat video saja, jangan diunggah")
+    parser.add_argument("--unggah-saja", action="store_true",
+                        help="Unggah video yang sudah jadi (hasil terakhir) tanpa membuat video baru")
     parser.add_argument("--topik", default=None, help="Tentukan topik sendiri (kalau kosong, dipilih acak)")
     parser.add_argument(
         "--privasi", default=PRIVACY, choices=["private", "unlisted", "public"],
@@ -591,6 +621,14 @@ def main():
     args = parser.parse_args()
 
     try:
+        if args.unggah_saja:
+            if not os.path.exists(VIDEO_PATH) or os.path.getsize(VIDEO_PATH) < 10_000:
+                raise RuntimeError("Belum ada video jadi. Buat dulu dengan: jalankan_agen.bat --tanpa-upload")
+            notes = load_video_notes()
+            info(f"Mengunggah video yang sudah jadi: {notes['title']}")
+            upload_video(VIDEO_PATH, notes, args.privasi)
+            return
+
         data = research_and_write(args.topik)
         info(f"  -> Topik dipilih: {data['title']} ({len(data['scenes'])} adegan)")
 
@@ -605,9 +643,10 @@ def main():
             data["description"] += "\n\nVideo latar: " + ", ".join(sorted(credits))
         final_video = render_remotion_video(words, data["scenes"], duration)
         info(f"  -> Video selesai: {final_video}")
+        save_video_notes(data)
 
         if args.tanpa_upload:
-            info("Unggah dilewati (--tanpa-upload). Video bisa dicek dulu di folder video_engine/out.")
+            info("Unggah dilewati (--tanpa-upload). Kalau videonya sudah bagus, unggah dengan: jalankan_agen.bat --unggah-saja")
         else:
             upload_video(final_video, data, args.privasi)
         save_history(data["title"])
