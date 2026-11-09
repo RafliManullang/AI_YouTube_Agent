@@ -4,8 +4,8 @@ Agen ini membuat video YouTube Shorts sendiri, dari cari topik sampai diunggah:
 
 1. Gemini memilih topik (cara kerja benda, fakta sains, atau cerita sejarah) dan menulis naskah.
 2. Edge-TTS mengubah naskah jadi suara Bahasa Indonesia, gratis, plus waktu tiap kata.
-3. Pollinations membuat 3 gambar visual bergaya infografis 3D.
-4. Remotion menyatukan gambar, suara, dan teks kinetik jadi video.
+3. Gemini juga menentukan visual tiap adegan (diagram alur, mind map, atau angka yang menghitung naik), dan Pexels (gratis, opsional) memberi video latar yang bergerak.
+4. Remotion menyatukan semuanya dengan suara dan teks kinetik jadi video, dengan latar berwarna yang terus bergerak.
 5. Video diunggah ke YouTube.
 
 ## Persiapan sekali saja
@@ -27,8 +27,9 @@ Pilihan lain: `--topik "cara kerja lift gedung"` untuk menentukan topik sendiri,
 
 ## Hal yang perlu diketahui
 
-- Satu kali jalan butuh sekitar 3 sampai 5 menit, karena gambar gratis dibatasi 1 gambar tiap 45 detik.
-- Kalau gambar gagal dibuat, agen memakai gambar cadangan supaya video tetap jadi.
+- Satu kali jalan butuh sekitar 2 sampai 4 menit.
+- Video latar (opsional): daftar gratis di pexels.com/api, lalu isi `PEXELS_API_KEY` di `.env`. Kalau kosong atau gagal, video tetap jadi dengan latar animasi bawaan.
+- Musik latar (opsional): taruh file musik bebas hak cipta bernama `bgm.mp3` di folder `video_engine/public`. Otomatis dipakai dengan volume pelan.
 - Video hasil ada di `video_engine/out/shorts_final.mp4`.
 - Status bawaan video adalah `private` supaya hasil pertama bisa dicek dulu. Untuk langsung publik, isi `YOUTUBE_PRIVACY=public` di file `.env`, atau jalankan dengan `--privasi public`.
 - Jangan pernah mengunggah `.env`, `client_secret.json`, atau `token.json` ke GitHub.
