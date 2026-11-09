@@ -1,20 +1,31 @@
+import React from "react";
 import { Composition } from "remotion";
-import { ShortsComp } from "./ShortsComp";
+import { ShortsComp, ShortsProps } from "./ShortsComp";
 
-export const Root = () => {
+const FPS = 30;
+
+const defaultProps: ShortsProps = {
+  audioUrl: "",
+  images: [],
+  words: [],
+  durationInSeconds: 40,
+};
+
+export const Root: React.FC = () => {
   return (
     <Composition
       id="ShortsComp"
       component={ShortsComp}
-      durationInFrames={30 * 45}
-      fps={30}
+      durationInFrames={FPS * defaultProps.durationInSeconds}
+      fps={FPS}
       width={1080}
       height={1920}
-      defaultProps={{
-        audioUrl: "",
-        images: [] as string[],
-        words: [] as Array<{ word: string; start: number; end: number }>,
-        durationInSeconds: 45,
+      defaultProps={defaultProps}
+      // Panjang video mengikuti durasi suara yang dikirim dari main_agent.py,
+      // jadi tidak perlu lagi memasukkan angka durasi lewat perintah terminal.
+      calculateMetadata={({ props }) => {
+        const seconds = Math.max(5, props.durationInSeconds || 40);
+        return { durationInFrames: Math.ceil(seconds * FPS) };
       }}
     />
   );

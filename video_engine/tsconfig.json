@@ -5,10 +5,12 @@
     "lib": ["dom", "esnext"],
     "jsx": "react-jsx",
     "strict": true,
+    "noEmit": true,
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
-  }
+  },
+  "include": ["src", "remotion.config.ts"]
 }

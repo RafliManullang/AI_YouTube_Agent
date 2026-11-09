@@ -1,11 +1,22 @@
+# Paket dan lingkungan
 node_modules/
 video_engine/node_modules/
+venv/
+.venv/
+__pycache__/
+
+# Hasil render dan file buatan agen (dibuat ulang setiap dijalankan)
 video_engine/out/
 out/
 .remotion/
-__pycache__/
+video_engine/public/scene_*
+video_engine/public/voice.mp3
+video_engine/render_props.json
+riwayat_topik.json
+
+# Rahasia: JANGAN pernah diunggah ke GitHub
+.env
 client_secret.json
+client_secret*.json
 token.json
 token.pickle
-.env
-client_secret*.json
