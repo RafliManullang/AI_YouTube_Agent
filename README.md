@@ -30,5 +30,5 @@ Pilihan lain: `--topik "cara kerja lift gedung"` untuk menentukan topik sendiri,
 - Satu kali jalan butuh sekitar 3 sampai 5 menit, karena gambar gratis dibatasi 1 gambar tiap 45 detik.
 - Kalau gambar gagal dibuat, agen memakai gambar cadangan supaya video tetap jadi.
 - Video hasil ada di `video_engine/out/shorts_final.mp4`.
-- Status bawaan video adalah `private`. Proyek Google Cloud yang belum diverifikasi oleh YouTube memang hanya boleh mengunggah video privat.
+- Status bawaan video adalah `private` supaya hasil pertama bisa dicek dulu. Untuk langsung publik, isi `YOUTUBE_PRIVACY=public` di file `.env`, atau jalankan dengan `--privasi public`.
 - Jangan pernah mengunggah `.env`, `client_secret.json`, atau `token.json` ke GitHub.
