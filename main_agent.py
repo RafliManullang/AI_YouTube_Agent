@@ -6,6 +6,7 @@ Alur kerja: riset topik + naskah per adegan (Gemini) -> suara + waktu tiap kata 
 Cara pakai (contoh):
     python main_agent.py                      # jalan penuh sampai unggah
     python main_agent.py --tanpa-upload       # berhenti setelah video jadi (untuk uji coba)
+    python main_agent.py --unggah-saja        # unggah video yang sudah jadi, tanpa membuat baru
     python main_agent.py --topik "cara kerja lift gedung"
 """
 import argparse
@@ -41,12 +42,15 @@ REMOTION_DIR = os.path.join(BASE_DIR, "video_engine")
 PUBLIC_DIR = os.path.join(REMOTION_DIR, "public")
 OUT_DIR = os.path.join(REMOTION_DIR, "out")
 HISTORY_PATH = os.path.join(BASE_DIR, "riwayat_topik.json")
+VIDEO_PATH = os.path.join(OUT_DIR, "shorts_final.mp4")
+META_PATH = os.path.join(OUT_DIR, "catatan_video.json")  # judul, deskripsi, tag video terakhir
 
 if load_dotenv:
     load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 GEMINI_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
 PEXELS_KEY = os.getenv("PEXELS_API_KEY") or ""  # opsional: video latar gratis dari Pexels
+PIXABAY_KEY = os.getenv("PIXABAY_API_KEY") or ""  # opsional: video latar gratis dari Pixabay
 # Kalau model pertama tidak tersedia, agen otomatis mencoba yang berikutnya
 GEMINI_MODELS = [
     m for m in [
@@ -65,6 +69,31 @@ SCENE_TYPES = ("flow", "mindmap", "counter")
 
 def info(msg):
     print(msg, flush=True)
+
+
+def save_video_notes(data):
+    """Simpan judul, deskripsi, dan tag supaya video yang sudah jadi bisa diunggah belakangan."""
+    os.makedirs(OUT_DIR, exist_ok=True)
+    notes = {"title": data["title"], "description": data["description"], "tags": data["tags"]}
+    with open(META_PATH, "w", encoding="utf-8") as f:
+        json.dump(notes, f, ensure_ascii=False, indent=2)
+
+
+def load_video_notes():
+    """Baca catatan video terakhir. Kalau tidak ada (video lama), pakai judul dari riwayat."""
+    try:
+        with open(META_PATH, "r", encoding="utf-8") as f:
+            notes = json.load(f)
+        if notes.get("title"):
+            return notes
+    except Exception:
+        pass
+    history = load_history()
+    return {
+        "title": history[-1] if history else "Fakta Sains Menarik",
+        "description": "Fakta sains dan cara kerja benda sehari-hari. #Shorts #Sains #Teknologi",
+        "tags": ["sains", "teknologi", "carakerja", "shorts", "edukasi"],
+    }
 
 
 # ========================================================
@@ -350,23 +379,22 @@ def pick_pexels_file(videos, min_seconds):
     return None
 
 
-def fetch_stock_videos(scenes):
-    info("[3/5] Menyiapkan visual latar...")
-    os.makedirs(PUBLIC_DIR, exist_ok=True)
-
-    # Hapus klip dan gambar lama supaya tidak terpakai lagi tanpa sengaja
-    for name in os.listdir(PUBLIC_DIR):
-        if re.fullmatch(r"scene_\d+\.(png|jpg|mp4)", name):
-            os.remove(os.path.join(PUBLIC_DIR, name))
-
-    if not PEXELS_KEY:
-        info("  -> PEXELS_API_KEY belum diisi: memakai latar animasi bawaan (tetap bergerak dan berwarna).")
-        return
-
-    for i, scene in enumerate(scenes):
-        query = scene.get("footage_query")
-        if not query:
+def pick_pixabay_file(hits, min_seconds):
+    """Pilih satu video dari hasil pencarian Pixabay (ukuran sedang cukup karena latarnya digelapkan)."""
+    for hit in hits:
+        if hit.get("duration", 0) < min_seconds:
             continue
+        files = hit.get("videos") or {}
+        for size in ("medium", "small"):
+            clip = files.get(size) or {}
+            if clip.get("url") and clip.get("size", 0) > 0:
+                return clip["url"]
+    return None
+
+
+def find_clip_link(query, min_seconds):
+    """Cari video latar: Pexels dulu kalau ada key-nya, lalu Pixabay. Hasil: (link, nama sumber)."""
+    if PEXELS_KEY:
         try:
             res = requests.get(
                 "https://api.pexels.com/videos/search",
@@ -375,7 +403,48 @@ def fetch_stock_videos(scenes):
                 timeout=30,
             )
             res.raise_for_status()
-            link = pick_pexels_file(res.json().get("videos", []), scene["end"] - scene["start"] + 1)
+            link = pick_pexels_file(res.json().get("videos", []), min_seconds)
+            if link:
+                return link, "Pexels"
+        except Exception as e:
+            info(f"  -> Pexels gagal ({str(e)[:80]}), mencoba sumber lain...")
+    if PIXABAY_KEY:
+        try:
+            res = requests.get(
+                "https://pixabay.com/api/videos/",
+                params={"key": PIXABAY_KEY, "q": query[:100], "per_page": 10, "safesearch": "true"},
+                timeout=30,
+            )
+            res.raise_for_status()
+            link = pick_pixabay_file(res.json().get("hits", []), min_seconds)
+            if link:
+                return link, "Pixabay"
+        except Exception as e:
+            info(f"  -> Pixabay gagal ({str(e)[:80]}).")
+    return None, None
+
+
+def fetch_stock_videos(scenes):
+    """Unduh video latar tiap adegan. Hasilnya: daftar nama sumber yang dipakai (untuk kredit)."""
+    info("[3/5] Menyiapkan visual latar...")
+    os.makedirs(PUBLIC_DIR, exist_ok=True)
+
+    # Hapus klip dan gambar lama supaya tidak terpakai lagi tanpa sengaja
+    for name in os.listdir(PUBLIC_DIR):
+        if re.fullmatch(r"scene_\d+\.(png|jpg|mp4)", name):
+            os.remove(os.path.join(PUBLIC_DIR, name))
+
+    credits = set()
+    if not PEXELS_KEY and not PIXABAY_KEY:
+        info("  -> Key video latar belum diisi: memakai latar animasi bawaan (tetap bergerak dan berwarna).")
+        return credits
+
+    for i, scene in enumerate(scenes):
+        query = scene.get("footage_query")
+        if not query:
+            continue
+        try:
+            link, source = find_clip_link(query, scene["end"] - scene["start"] + 1)
             if not link:
                 info(f"  -> Adegan {i + 1}: tidak ada video cocok untuk '{query}', pakai latar animasi.")
                 continue
@@ -391,9 +460,11 @@ def fetch_stock_videos(scenes):
                 os.remove(filepath)
                 continue
             scene["video"] = filename
-            info(f"  -> Adegan {i + 1}: video latar '{query}' siap.")
+            credits.add(source)
+            info(f"  -> Adegan {i + 1}: video latar '{query}' siap (dari {source}).")
         except Exception as e:
             info(f"  -> Adegan {i + 1}: video latar gagal diunduh ({str(e)[:100]}), pakai latar animasi.")
+    return credits
 
 
 # ========================================================
@@ -540,6 +611,8 @@ def upload_video(video_path, content_data, privacy):
 def main():
     parser = argparse.ArgumentParser(description="AI YouTube Agent")
     parser.add_argument("--tanpa-upload", action="store_true", help="Buat video saja, jangan diunggah")
+    parser.add_argument("--unggah-saja", action="store_true",
+                        help="Unggah video yang sudah jadi (hasil terakhir) tanpa membuat video baru")
     parser.add_argument("--topik", default=None, help="Tentukan topik sendiri (kalau kosong, dipilih acak)")
     parser.add_argument(
         "--privasi", default=PRIVACY, choices=["private", "unlisted", "public"],
@@ -548,6 +621,14 @@ def main():
     args = parser.parse_args()
 
     try:
+        if args.unggah_saja:
+            if not os.path.exists(VIDEO_PATH) or os.path.getsize(VIDEO_PATH) < 10_000:
+                raise RuntimeError("Belum ada video jadi. Buat dulu dengan: jalankan_agen.bat --tanpa-upload")
+            notes = load_video_notes()
+            info(f"Mengunggah video yang sudah jadi: {notes['title']}")
+            upload_video(VIDEO_PATH, notes, args.privasi)
+            return
+
         data = research_and_write(args.topik)
         info(f"  -> Topik dipilih: {data['title']} ({len(data['scenes'])} adegan)")
 
@@ -557,12 +638,15 @@ def main():
         info(f"  -> Durasi video: {duration} detik, {len(words)} kata")
 
         assign_scene_times(data["scenes"], words, duration)
-        fetch_stock_videos(data["scenes"])
+        credits = fetch_stock_videos(data["scenes"])
+        if credits:
+            data["description"] += "\n\nVideo latar: " + ", ".join(sorted(credits))
         final_video = render_remotion_video(words, data["scenes"], duration)
         info(f"  -> Video selesai: {final_video}")
+        save_video_notes(data)
 
         if args.tanpa_upload:
-            info("Unggah dilewati (--tanpa-upload). Video bisa dicek dulu di folder video_engine/out.")
+            info("Unggah dilewati (--tanpa-upload). Kalau videonya sudah bagus, unggah dengan: jalankan_agen.bat --unggah-saja")
         else:
             upload_video(final_video, data, args.privasi)
         save_history(data["title"])
