@@ -6,12 +6,13 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { Sfx } from "./Sfx";
 import { Palette, SceneData } from "./types";
 
-const TITLE_FONT = "Impact, 'Arial Black', sans-serif";
-const BODY_FONT = "'Arial Black', Arial, sans-serif";
+export const TITLE_FONT = "Impact, 'Arial Black', sans-serif";
+export const BODY_FONT = "'Arial Black', Arial, sans-serif";
 
-type DiagramProps = {
+export type DiagramProps = {
   scene: SceneData;
   palette: Palette;
   lengthFrames: number;
@@ -107,6 +108,7 @@ export const FlowDiagram: React.FC<DiagramProps> = ({
 
         return (
           <React.Fragment key={i}>
+            <Sfx name="pop" at={delays[i]} />
             <div
               style={{
                 position: "absolute",
@@ -243,6 +245,7 @@ export const MindMap: React.FC<DiagramProps> = ({
 
   return (
     <>
+      <Sfx name="pop" at={3} />
       <svg
         width={1080}
         height={1920}
@@ -301,6 +304,10 @@ export const MindMap: React.FC<DiagramProps> = ({
         {scene.title}
       </div>
 
+      {nodes.map((node) => (
+        <Sfx key={`sfx-${node.delay}-${node.label}`} name="pop" at={node.delay} />
+      ))}
+
       {nodes.map((node, i) => {
         const p = spring({
           frame: frame - node.delay,
@@ -347,7 +354,7 @@ export const MindMap: React.FC<DiagramProps> = ({
 // ------------------------------------------------------------
 // Penghitung angka: cincin terisi + angka menghitung naik
 // ------------------------------------------------------------
-const formatNumber = (value: number, decimals: number): string =>
+export const formatNumber = (value: number, decimals: number): string =>
   value.toLocaleString("id-ID", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
@@ -380,6 +387,11 @@ export const Counter: React.FC<DiagramProps> = ({ scene, palette }) => {
   return (
     <>
       <SceneTitle title={scene.title} palette={palette} />
+      <Sfx name="pop" at={6} />
+      <Sfx name="ding" at={fps * 2.2} />
+      {scene.points.slice(0, 3).map((label, i) => (
+        <Sfx key={`chip-${label}-${i}`} name="pop" at={Math.round(fps * (1.8 + i * 0.5))} volume={0.2} />
+      ))}
       <svg
         width={1080}
         height={1920}

@@ -20,3 +20,5 @@ client_secret.json
 client_secret*.json
 token.json
 token.pickle
+
+video_engine/thumbnail_props.json
