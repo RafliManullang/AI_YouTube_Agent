@@ -8,6 +8,14 @@ Agen ini membuat video YouTube Shorts sendiri, dari cari topik sampai diunggah:
 4. Remotion menyatukan semuanya dengan suara dan teks kinetik jadi video, dengan latar berwarna yang terus bergerak.
 5. Video diunggah ke YouTube.
 
+## Isi videonya
+
+- Jenis adegan: diagram alur, peta pikiran, angka yang menghitung naik, garis waktu sejarah, grafik batang, dan perbandingan sebelum-sesudah. Gemini memilih yang paling cocok untuk tiap bagian cerita.
+- Tema warna (pelangi, neon, senja, hutan, samudra, emas, kosmik) dipilih Gemini sesuai suasana topik.
+- Suara dibuat per adegan dengan kecepatan dan nada yang berbeda (semangat, santai, misterius, tegas) supaya tidak monoton. Pengaturannya ada di `TONES` di `main_agent.py`.
+- Efek suara (bunyi saat kartu muncul, desiran antar adegan, dentang saat angka selesai) dibuat sendiri dan bebas hak cipta. Matikan dengan menulis `SFX=off` di `.env`.
+- Thumbnail dibuat otomatis (`video_engine/out/thumbnail.jpg`) dan dipasang saat unggah. Kalau gagal dipasang, biasanya karena channel belum diverifikasi nomor teleponnya di YouTube, dan videonya tetap terunggah.
+
 ## Persiapan sekali saja
 
 1. Pasang Python dan Node.js.
@@ -29,6 +37,13 @@ jalankan_agen.bat --unggah-saja
 ```
 
 Alurnya jadi hemat: buat dengan `--tanpa-upload`, tonton, lalu `--unggah-saja`. Jangan membuat video baru di antaranya, karena video lama akan tertimpa. Judul dan deskripsinya tersimpan otomatis di `video_engine/out/catatan_video.json`.
+
+Supaya video tayang tepat jam tertentu tanpa komputermu harus menyala saat itu, pakai `--jadwal`. Video diunggah dulu, lalu YouTube sendiri yang menayangkannya (jam WIB):
+
+```
+jalankan_agen.bat --jadwal 13:00
+jalankan_agen.bat --unggah-saja --jadwal 19:30
+```
 
 Pilihan lain: `--topik "cara kerja lift gedung"` untuk menentukan topik sendiri, dan
 `--privasi unlisted` atau `--privasi public` untuk mengubah status video.

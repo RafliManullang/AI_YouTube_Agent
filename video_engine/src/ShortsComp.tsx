@@ -2,6 +2,7 @@ import React from "react";
 import {
   AbsoluteFill,
   Audio,
+  Easing,
   Sequence,
   interpolate,
   spring,
@@ -11,6 +12,8 @@ import {
 } from "remotion";
 import { Background } from "./Background";
 import { Counter, FlowDiagram, MindMap } from "./Diagrams";
+import { BarChart, BeforeAfter, Timeline } from "./MoreDiagrams";
+import { Sfx, SfxEnabled } from "./Sfx";
 import { Palette, SceneData, ShortsProps, WordItem, paletteFor } from "./types";
 
 export type { ShortsProps, WordItem } from "./types";
@@ -31,25 +34,40 @@ type SceneViewProps = {
   scene: SceneData;
   palette: Palette;
   lengthFrames: number;
-  isFirst: boolean;
+  index: number;
 };
 
 const SceneView: React.FC<SceneViewProps> = ({
   scene,
   palette,
   lengthFrames,
-  isFirst,
+  index,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const fade = isFirst
-    ? 1
-    : interpolate(frame, [0, FADE_SECONDS * fps], [0, 1], {
-        extrapolateRight: "clamp",
-      });
-  const slide = isFirst
+  const isFirst = index === 0;
+
+  const t = interpolate(frame, [0, FADE_SECONDS * fps], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const eased = Easing.out(Easing.cubic)(t);
+  const fade = isFirst ? 1 : eased;
+
+  // Tiga gaya masuk yang bergantian supaya pergantian adegan tidak terasa sama terus
+  const mode = index % 3;
+  let transform = "none";
+  if (!isFirst) {
+    if (mode === 0) transform = `translateY(${(1 - eased) * 90}px)`;
+    else if (mode === 1) transform = `scale(${1.2 - 0.2 * eased})`;
+    else transform = `translateX(${(1 - eased) * (index % 2 ? 140 : -140)}px)`;
+  }
+
+  // Kilatan cahaya singkat tiap pergantian adegan
+  const flash = isFirst
     ? 0
-    : interpolate(frame, [0, FADE_SECONDS * fps], [60, 0], {
+    : interpolate(frame, [0, 7], [0.3, 0], {
+        extrapolateLeft: "clamp",
         extrapolateRight: "clamp",
       });
 
@@ -57,16 +75,26 @@ const SceneView: React.FC<SceneViewProps> = ({
 
   return (
     <AbsoluteFill style={{ opacity: fade }}>
+      {!isFirst ? <Sfx name="whoosh" at={0} /> : null}
       <Background palette={palette} video={scene.video} />
-      <AbsoluteFill style={{ transform: `translateY(${slide}px)` }}>
+      <AbsoluteFill style={{ transform }}>
         {scene.type === "mindmap" ? (
           <MindMap {...diagramProps} />
         ) : scene.type === "counter" ? (
           <Counter {...diagramProps} />
+        ) : scene.type === "timeline" ? (
+          <Timeline {...diagramProps} />
+        ) : scene.type === "barchart" ? (
+          <BarChart {...diagramProps} />
+        ) : scene.type === "compare" ? (
+          <BeforeAfter {...diagramProps} />
         ) : (
           <FlowDiagram {...diagramProps} />
         )}
       </AbsoluteFill>
+      {flash > 0 ? (
+        <AbsoluteFill style={{ backgroundColor: palette.accent, opacity: flash }} />
+      ) : null}
     </AbsoluteFill>
   );
 };
@@ -77,6 +105,8 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   scenes,
   words,
   durationInSeconds,
+  themeIndex = 0,
+  sfx = true,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -91,7 +121,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   safeScenes.forEach((scene, i) => {
     if (time >= scene.start) currentIndex = i;
   });
-  const activePalette = paletteFor(currentIndex);
+  const activePalette = paletteFor(currentIndex, themeIndex);
 
   // ---------- Teks kinetik ----------
   const chunks = buildChunks(safeWords);
@@ -102,9 +132,10 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   });
 
   return (
+    <SfxEnabled.Provider value={sfx}>
     <AbsoluteFill style={{ backgroundColor: "#0b0f19" }}>
       {safeScenes.length === 0 ? (
-        <Background palette={paletteFor(0)} />
+        <Background palette={paletteFor(0, themeIndex)} />
       ) : null}
 
       {safeScenes.map((scene, i) => {
@@ -117,9 +148,9 @@ export const ShortsComp: React.FC<ShortsProps> = ({
           <Sequence key={i} from={from} durationInFrames={length}>
             <SceneView
               scene={scene}
-              palette={paletteFor(i)}
+              palette={paletteFor(i, themeIndex)}
               lengthFrames={Math.max(1, to - from)}
-              isFirst={i === 0}
+              index={i}
             />
           </Sequence>
         );
@@ -203,5 +234,6 @@ export const ShortsComp: React.FC<ShortsProps> = ({
         }}
       />
     </AbsoluteFill>
+    </SfxEnabled.Provider>
   );
 };

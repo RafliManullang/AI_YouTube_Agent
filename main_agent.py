@@ -8,6 +8,7 @@ Cara pakai (contoh):
     python main_agent.py --tanpa-upload       # berhenti setelah video jadi (untuk uji coba)
     python main_agent.py --unggah-saja        # unggah video yang sudah jadi, tanpa membuat baru
     python main_agent.py --topik "cara kerja lift gedung"
+    python main_agent.py --jadwal 13:00       # unggah, lalu YouTube menayangkannya jam 13:00 WIB
 """
 import argparse
 import asyncio
@@ -18,7 +19,9 @@ import shutil
 import subprocess
 import sys
 import time
+import random
 import traceback
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -64,7 +67,19 @@ VOICE = os.getenv("VOICE", "id-ID-ArdiNeural")  # suara cowok; cewek: id-ID-Gadi
 VOICE_RATE = os.getenv("VOICE_RATE", "+15%")
 PRIVACY = os.getenv("YOUTUBE_PRIVACY", "private")  # private / unlisted / public
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
-SCENE_TYPES = ("flow", "mindmap", "counter")
+SCENE_TYPES = ("flow", "mindmap", "counter", "timeline", "barchart", "compare")
+# Urutan harus sama dengan THEMES di video_engine/src/types.ts
+THEME_NAMES = ("pelangi", "neon", "senja", "hutan", "samudra", "emas", "kosmik")
+CATEGORIES = ("CARA KERJA", "FAKTA SAINS", "KISAH NYATA")
+THUMB_PATH = os.path.join(OUT_DIR, "thumbnail.jpg")
+WIB = timezone(timedelta(hours=7))
+# Gaya suara per adegan: (tambahan kecepatan dalam persen, perubahan nada dalam Hz)
+TONES = {
+    "semangat": (8, 5),
+    "santai": (0, 0),
+    "misterius": (-12, -6),
+    "tegas": (3, -3),
+}
 
 
 def info(msg):
@@ -149,32 +164,57 @@ Kamu adalah scriptwriter YouTube Shorts edukasi berbahasa Indonesia, gaya Kok Bi
 
 Pecah video menjadi 5 sampai 6 ADEGAN berurutan. Setiap adegan punya narasi yang diucapkan dan
 visual infografis beranimasi. Total seluruh narasi sekitar 80-100 kata (durasi 35-40 detik).
-Gaya narasi: seru, cepat, santai ala kreator konten modern. Adegan pertama harus kalimat pembuka yang
-bikin penasaran, adegan terakhir penutup singkat. Narasi hanya berisi kalimat yang diucapkan:
+Gaya narasi: seru, cepat, santai ala kreator konten modern. Adegan pertama harus langsung menarik
+perhatian dalam 2 detik pertama (pertanyaan atau fakta yang mengejutkan), adegan terakhir penutup singkat
+yang bikin orang ingin menonton ulang. Narasi hanya berisi kalimat yang diucapkan:
 tanpa instruksi panggung, tanpa emoji, tanpa tanda bintang, tanpa hashtag.
 
 Aturan visual tiap adegan (field "type"):
-- "flow"    : alur langkah berurutan. "points" berisi 3 sampai 4 langkah.
-- "mindmap" : peta pikiran dengan judul di tengah. "points" berisi 3 sampai 5 cabang.
-- "counter" : angka besar yang menghitung naik. Wajib isi "number" (angka saja) dan "unit"
-              (satuannya). "points" berisi 2 sampai 3 label pendek. Pakai HANYA kalau ada angka
-              yang benar-benar faktual, jangan mengarang angka.
-Pakai campuran tipe, minimal ada satu "flow" dan satu "mindmap".
+- "flow"     : alur langkah berurutan. "points" berisi 3 sampai 4 langkah.
+- "mindmap"  : peta pikiran dengan judul di tengah. "points" berisi 3 sampai 5 cabang.
+- "counter"  : angka besar yang menghitung naik. Wajib isi "number" (angka saja) dan "unit"
+               (satuannya). "points" berisi 2 sampai 3 label pendek.
+- "timeline" : garis waktu untuk cerita sejarah atau kronologi. Isi "items" dengan 3 sampai 5 peristiwa
+               berurutan, tiap item berbentuk {{"label": "tahun atau waktu, maksimal 7 karakter",
+               "value": "kejadian, maksimal 7 kata"}}.
+- "barchart" : grafik batang untuk membandingkan angka. Isi "items" dengan 2 sampai 5 item berbentuk
+               {{"label": "nama maksimal 3 kata", "value": angka}} dan isi "unit" (satuan angka itu).
+- "compare"  : sebelum dan sesudah, atau dua hal yang dibandingkan. Isi "items" dengan TEPAT 2 item
+               berbentuk {{"label": "judul sisi maksimal 2 kata, misalnya Sebelum / Sesudah / Dulu / Kini",
+               "value": "penjelasan maksimal 8 kata"}}.
+Pakai "counter" dan "barchart" HANYA kalau angkanya benar-benar faktual, jangan mengarang angka.
+Pakai "timeline" hanya kalau memang ada urutan waktu. Pakai campuran minimal 3 tipe yang berbeda.
 "title" maksimal 4 kata. Setiap isi "points" maksimal 4 kata, tanpa emoji dan tanpa tanda baca.
 "footage_query" berisi 2 sampai 3 kata bahasa Inggris untuk mencari video latar gratis yang umum dan
 mudah ditemukan (contoh: "elevator building", "rice cooking", "underground tunnel").
+
+"tone" adalah gaya suara narator pada adegan itu. Pilih salah satu: "semangat" (pembuka atau momen seru),
+"santai" (penjelasan biasa), "misterius" (teka-teki atau rahasia), "tegas" (fakta penting atau penutup).
+Variasikan supaya suara tidak monoton, jangan semua adegan sama.
+
+"theme" adalah tema warna video, pilih satu sesuai suasana topik: "pelangi" (umum), "neon" (teknologi
+dan mesin), "senja" (budaya dan manusia), "hutan" (alam dan makanan), "samudra" (air dan cuaca),
+"emas" (sejarah), "kosmik" (sains dan antariksa).
+"category" salah satu dari: "CARA KERJA", "FAKTA SAINS", "KISAH NYATA".
+"thumbnail_text" adalah 2 sampai 4 kata huruf besar yang memancing penasaran untuk gambar sampul,
+boleh diakhiri tanda tanya, tanpa emoji.
 
 Keluarkan HANYA JSON murni dengan format persis ini:
 {{
   "title": "Judul menarik maksimal 60 karakter",
   "description": "Deskripsi singkat 2-3 kalimat. #Shorts #Sains #Teknologi",
   "tags": ["sains", "teknologi", "carakerja", "shorts", "edukasi"],
+  "theme": "neon",
+  "category": "CARA KERJA",
+  "thumbnail_text": "KOK BISA JATUH?",
   "scenes": [
     {{
       "narration": "Kalimat yang diucapkan pada adegan ini.",
       "title": "Judul adegan",
       "type": "flow",
+      "tone": "semangat",
       "points": ["langkah satu", "langkah dua", "langkah tiga"],
+      "items": [],
       "number": null,
       "unit": null,
       "footage_query": "elevator building"
@@ -225,6 +265,31 @@ def clean_text(value, limit):
     return text[:limit]
 
 
+def clean_items(raw_items, numeric):
+    """Rapikan daftar {label, value} dari Gemini. numeric=True berarti value wajib angka."""
+    items = []
+    for it in raw_items or []:
+        if not isinstance(it, dict):
+            continue
+        label = clean_text(it.get("label"), 24)
+        value = it.get("value")
+        if not label or value is None:
+            continue
+        if numeric:
+            try:
+                value = float(str(value).replace(",", "."))
+            except ValueError:
+                continue
+            if value == int(value):
+                value = int(value)
+        else:
+            value = clean_text(value, 70)
+            if not value:
+                continue
+        items.append({"label": label, "value": value})
+    return items
+
+
 def validate_content(data):
     for key in ("title", "description", "tags", "scenes"):
         if key not in data:
@@ -249,6 +314,21 @@ def validate_content(data):
         if number is not None and number == int(number):
             number = int(number)
 
+        # Jenis baru butuh data "items"; kalau tidak lengkap, turun ke tampilan yang lebih sederhana
+        items = []
+        if scene_type == "barchart":
+            items = clean_items(raw.get("items"), True)[:5]
+            if len(items) < 2 or min(i["value"] for i in items) < 0 or max(i["value"] for i in items) <= 0:
+                scene_type, items = "flow", []
+        elif scene_type == "timeline":
+            items = clean_items(raw.get("items"), False)[:5]
+            if len(items) < 3:
+                scene_type, items = "flow", []
+        elif scene_type == "compare":
+            items = clean_items(raw.get("items"), False)[:2]
+            if len(items) < 2:
+                scene_type, items = "flow", []
+
         # Perbaiki kombinasi yang tidak lengkap supaya tampilan tidak kosong
         if scene_type == "counter" and number is None:
             scene_type = "flow"
@@ -257,11 +337,14 @@ def validate_content(data):
         if scene_type == "flow" and len(points) < 2:
             scene_type = "mindmap"
 
+        tone = raw.get("tone") if raw.get("tone") in TONES else None
         scenes.append({
             "narration": narration,
             "title": clean_text(raw.get("title"), 40) or "Tahukah kamu",
             "type": scene_type,
+            "tone": tone,
             "points": points[:5],
+            "items": items,
             "number": number,
             "unit": clean_text(raw.get("unit"), 40) or None,
             "footage_query": clean_text(raw.get("footage_query"), 60),
@@ -270,11 +353,31 @@ def validate_content(data):
     if len(scenes) < 3:
         raise ValueError("Adegan yang valid terlalu sedikit.")
 
+    # Nada suara yang kosong diisi otomatis: pembuka bersemangat, penutup tegas, tengahnya bergantian
+    for i, scene in enumerate(scenes):
+        if scene["tone"] is None:
+            if i == 0:
+                scene["tone"] = "semangat"
+            elif i == len(scenes) - 1:
+                scene["tone"] = "tegas"
+            else:
+                scene["tone"] = "santai" if i % 2 else "semangat"
+
     data["scenes"] = scenes
     data["full_script"] = " ".join(s["narration"] for s in scenes)
     if len(data["full_script"].split()) < 20:
         raise ValueError("Naskah terlalu pendek.")
     data["title"] = clean_text(data["title"], 80)
+
+    # Tema warna, kategori, dan teks sampul
+    theme = str(data.get("theme") or "").strip().lower()
+    data["theme_index"] = THEME_NAMES.index(theme) if theme in THEME_NAMES else random.randrange(len(THEME_NAMES))
+    category = str(data.get("category") or "").strip().upper()
+    data["category"] = category if category in CATEGORIES else "FAKTA SAINS"
+    thumb = clean_text(data.get("thumbnail_text"), 32).upper()
+    if len(thumb.split()) < 1:
+        thumb = " ".join(data["title"].upper().split()[:3])
+    data["thumbnail_text"] = thumb
 
 
 # ========================================================
@@ -292,70 +395,83 @@ def estimate_words(text, duration):
     ]
 
 
-async def generate_voice_and_timestamps(text, output_audio_path):
+def base_rate_percent():
+    """Kecepatan dasar suara (angka persen) dari pengaturan VOICE_RATE."""
+    digits = re.sub(r"[^\d+-]", "", VOICE_RATE)
+    try:
+        return int(digits)
+    except ValueError:
+        return 15
+
+
+async def synth_segment(text, rate, pitch):
+    """Buat suara satu adegan. Hasil: (data mp3, daftar kata beserta waktunya)."""
     import edge_tts
 
-    info("[2/5] Membuat suara AI dan sinkronisasi kata demi kata...")
-    last_error = None
-    for attempt in range(1, 4):
-        try:
-            # boundary="WordBoundary" wajib: tanpa ini edge-tts hanya memberi waktu per kalimat
-            communicate = edge_tts.Communicate(text, VOICE, rate=VOICE_RATE, boundary="WordBoundary")
-            words = []
-            with open(output_audio_path, "wb") as f:
-                async for chunk in communicate.stream():
-                    if chunk["type"] == "audio":
-                        f.write(chunk["data"])
-                    elif chunk["type"] == "WordBoundary":
-                        start = chunk["offset"] / 10_000_000
-                        length = chunk["duration"] / 10_000_000
-                        words.append({
-                            "word": chunk["text"],
-                            "start": round(start, 2),
-                            "end": round(start + length, 2),
-                        })
-            if os.path.getsize(output_audio_path) < 1000:
-                raise RuntimeError("File suara kosong.")
-            break
-        except Exception as e:
-            last_error = e
-            info(f"  -> Percobaan suara {attempt}/3 gagal: {e}")
-            await asyncio.sleep(3 * attempt)
-    else:
-        raise RuntimeError(f"Gagal membuat suara: {last_error}")
-
-    # Edge-TTS menghasilkan MP3 48 kbps (6000 byte per detik) -> perkiraan durasi
-    audio_seconds = os.path.getsize(output_audio_path) / 6000
-    if not words:
-        info("  -> Waktu kata tidak diterima, memakai perkiraan waktu rata.")
-        words = estimate_words(text, audio_seconds)
-
-    total_duration = max(words[-1]["end"], 1.0) + 1.0
-    return words, round(total_duration, 2)
+    # boundary="WordBoundary" wajib: tanpa ini edge-tts hanya memberi waktu per kalimat
+    communicate = edge_tts.Communicate(text, VOICE, rate=rate, pitch=pitch, boundary="WordBoundary")
+    audio = bytearray()
+    words = []
+    async for chunk in communicate.stream():
+        if chunk["type"] == "audio":
+            audio.extend(chunk["data"])
+        elif chunk["type"] == "WordBoundary":
+            start = chunk["offset"] / 10_000_000
+            length = chunk["duration"] / 10_000_000
+            words.append({"word": chunk["text"], "start": start, "end": start + length})
+    return bytes(audio), words
 
 
-def assign_scene_times(scenes, words, duration):
-    """Tentukan kapan tiap adegan mulai dan selesai, berdasarkan jumlah kata narasinya."""
-    counts = [max(1, len(s["narration"].split())) for s in scenes]
-    total_count = sum(counts)
-    cumulative = 0
+async def generate_scene_voices(scenes, output_audio_path):
+    """Suara dibuat per adegan dengan kecepatan dan nada berbeda supaya tidak monoton.
+    Sekaligus menentukan waktu mulai dan selesai tiap adegan secara tepat."""
+    info("[2/5] Membuat suara AI per adegan dan sinkronisasi kata demi kata...")
+    base = base_rate_percent()
+    all_words = []
+    offset = 0.0
+
+    with open(output_audio_path, "wb") as out:
+        for i, scene in enumerate(scenes):
+            d_rate, d_pitch = TONES[scene["tone"]]
+            # percobaan ketiga memakai suara polos, kalau-kalau pengaturan nada ditolak server
+            attempts = [(base + d_rate, d_pitch), (base + d_rate, d_pitch), (base, 0)]
+            result, last_error = None, None
+            for n, (rate, pitch) in enumerate(attempts, 1):
+                try:
+                    audio, words = await synth_segment(scene["narration"], f"{rate:+d}%", f"{pitch:+d}Hz")
+                    if len(audio) < 800:
+                        raise RuntimeError("File suara kosong.")
+                    result = (audio, words)
+                    break
+                except Exception as e:
+                    last_error = e
+                    info(f"  -> Adegan {i + 1}, percobaan suara {n}/3 gagal: {e}")
+                    await asyncio.sleep(2 * n)
+            if result is None:
+                raise RuntimeError(f"Gagal membuat suara adegan {i + 1}: {last_error}")
+
+            audio, words = result
+            # Edge-TTS menghasilkan MP3 48 kbps (6000 byte per detik) -> panjang adegan
+            seconds = len(audio) / 6000
+            if not words:
+                words = estimate_words(scene["narration"], seconds)
+            for w in words:
+                all_words.append({
+                    "word": w["word"],
+                    "start": round(w["start"] + offset, 2),
+                    "end": round(w["end"] + offset, 2),
+                })
+            scene["start"] = round(offset, 2)
+            out.write(audio)
+            offset += seconds
+
+    if os.path.getsize(output_audio_path) < 1000:
+        raise RuntimeError("File suara kosong.")
+
+    duration = round(offset + 0.6, 2)
     for i, scene in enumerate(scenes):
-        if i == 0:
-            scene["start"] = 0.0
-        else:
-            idx = min(len(words) - 1, round(cumulative / total_count * len(words)))
-            scene["start"] = float(words[idx]["start"])
-        cumulative += counts[i]
-
-    # Pastikan urutan waktu masuk akal dan tiap adegan minimal 1,5 detik
-    for i in range(1, len(scenes)):
-        scenes[i]["start"] = max(scenes[i]["start"], scenes[i - 1]["start"] + 1.5)
-    for i in range(len(scenes) - 1, 0, -1):
-        scenes[i]["start"] = min(scenes[i]["start"], duration - 1.5 * (len(scenes) - i))
-    for i, scene in enumerate(scenes):
-        scene["end"] = scenes[i + 1]["start"] if i + 1 < len(scenes) else float(duration)
-        scene["start"] = round(scene["start"], 2)
-        scene["end"] = round(scene["end"], 2)
+        scene["end"] = scenes[i + 1]["start"] if i + 1 < len(scenes) else duration
+    return all_words, duration
 
 
 # ========================================================
@@ -474,7 +590,7 @@ def run_command(cmd, cwd):
     subprocess.run(cmd, cwd=cwd, check=True)
 
 
-def render_remotion_video(words, scenes, duration):
+def render_remotion_video(words, scenes, duration, theme_index=0):
     info("[4/5] Menjalankan Remotion (membuat video beranimasi)...")
     npm = shutil.which("npm")
     npx = shutil.which("npx")
@@ -498,6 +614,7 @@ def render_remotion_video(words, scenes, duration):
                 "type": s["type"],
                 "title": s["title"],
                 "points": s["points"],
+                "items": s.get("items") or [],
                 "number": s.get("number"),
                 "unit": s.get("unit"),
                 "start": s["start"],
@@ -508,6 +625,9 @@ def render_remotion_video(words, scenes, duration):
         ],
         "words": words,
         "durationInSeconds": duration,
+        "themeIndex": theme_index,
+        # Efek suara bisa dimatikan dengan menulis SFX=off di file .env
+        "sfx": os.getenv("SFX", "on").strip().lower() != "off",
     }
     # Musik latar: taruh file bgm.mp3 di video_engine/public, otomatis dipakai dengan volume pelan
     if os.path.exists(os.path.join(PUBLIC_DIR, "bgm.mp3")):
@@ -524,6 +644,34 @@ def render_remotion_video(words, scenes, duration):
     if not os.path.exists(output_mp4) or os.path.getsize(output_mp4) < 10_000:
         raise RuntimeError("Video hasil render tidak ditemukan atau rusak.")
     return output_mp4
+
+
+def render_thumbnail(data, scenes):
+    """Buat gambar sampul. Kalau gagal, videonya tetap lanjut tanpa sampul."""
+    if os.path.exists(THUMB_PATH):
+        os.remove(THUMB_PATH)
+    try:
+        info("  -> Membuat thumbnail...")
+        props = {
+            "text": data["thumbnail_text"],
+            "category": data["category"],
+            "themeIndex": data["theme_index"],
+        }
+        first_video = next((s["video"] for s in scenes if s.get("video")), None)
+        if first_video:
+            props["video"] = first_video
+        with open(os.path.join(REMOTION_DIR, "thumbnail_props.json"), "w", encoding="utf-8") as f:
+            json.dump(props, f, ensure_ascii=False)
+        cmd = [
+            shutil.which("npx"), "remotion", "still", "src/index.ts", "Thumbnail", THUMB_PATH,
+            "--props=thumbnail_props.json", "--frame=30", "--image-format=jpeg",
+        ]
+        run_command(cmd, REMOTION_DIR)
+        if not os.path.exists(THUMB_PATH):
+            raise RuntimeError("file thumbnail tidak terbentuk")
+        info(f"  -> Thumbnail siap: {THUMB_PATH}")
+    except Exception as e:
+        info(f"  -> Thumbnail gagal dibuat ({str(e)[:100]}). Tidak masalah, videonya tetap jadi.")
 
 
 # ========================================================
@@ -562,7 +710,19 @@ def get_yt_service():
     return build("youtube", "v3", credentials=creds)
 
 
-def upload_video(video_path, content_data, privacy):
+def next_publish_time(text):
+    """Ubah jam seperti '13:00' menjadi waktu tayang berikutnya (WIB). Minimal 15 menit dari sekarang."""
+    m = re.fullmatch(r"(\d{1,2})[:.](\d{2})", str(text).strip())
+    if not m or int(m.group(1)) > 23 or int(m.group(2)) > 59:
+        raise ValueError("Format jadwal salah. Contoh yang benar: --jadwal 13:00")
+    now = datetime.now(WIB)
+    target = now.replace(hour=int(m.group(1)), minute=int(m.group(2)), second=0, microsecond=0)
+    if target - now < timedelta(minutes=15):
+        target += timedelta(days=1)
+    return target
+
+
+def upload_video(video_path, content_data, privacy, publish_at=None):
     from googleapiclient.errors import HttpError
     from googleapiclient.http import MediaFileUpload
 
@@ -589,6 +749,12 @@ def upload_video(video_path, content_data, privacy):
         },
     }
 
+    if publish_at is not None:
+        # Video diunggah sebagai privat, lalu YouTube sendiri yang menayangkannya pada jam yang dipilih
+        body["status"]["privacyStatus"] = "private"
+        body["status"]["publishAt"] = publish_at.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        info(f"  -> Dijadwalkan tayang: {publish_at.strftime('%d-%m-%Y jam %H:%M')} WIB")
+
     media = MediaFileUpload(video_path, chunksize=8 * 1024 * 1024, resumable=True, mimetype="video/mp4")
     request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
     response = None
@@ -599,6 +765,19 @@ def upload_video(video_path, content_data, privacy):
                 info(f"  -> Terunggah {int(status.progress() * 100)}%")
     except HttpError as e:
         raise RuntimeError(f"YouTube menolak unggahan: {e}") from e
+
+    if os.path.exists(THUMB_PATH):
+        try:
+            youtube.thumbnails().set(
+                videoId=response["id"],
+                media_body=MediaFileUpload(THUMB_PATH, mimetype="image/jpeg"),
+            ).execute()
+            info("  -> Thumbnail terpasang.")
+        except Exception as e:
+            info(
+                f"  -> Thumbnail gagal dipasang ({str(e)[:120]}). Videonya tetap aman. "
+                "Biasanya karena channel belum diverifikasi nomor teleponnya di YouTube."
+            )
 
     info("\n=======================================================")
     info(f" SUKSES! Video: https://youtu.be/{response['id']}")
@@ -613,6 +792,8 @@ def main():
     parser.add_argument("--tanpa-upload", action="store_true", help="Buat video saja, jangan diunggah")
     parser.add_argument("--unggah-saja", action="store_true",
                         help="Unggah video yang sudah jadi (hasil terakhir) tanpa membuat video baru")
+    parser.add_argument("--jadwal", default=None, metavar="JAM",
+                        help="Jam tayang di YouTube (WIB), contoh: 13:00. Video diunggah dulu, tayang otomatis di jam itu")
     parser.add_argument("--topik", default=None, help="Tentukan topik sendiri (kalau kosong, dipilih acak)")
     parser.add_argument(
         "--privasi", default=PRIVACY, choices=["private", "unlisted", "public"],
@@ -621,34 +802,37 @@ def main():
     args = parser.parse_args()
 
     try:
+        publish_at = next_publish_time(args.jadwal) if args.jadwal else None
+
         if args.unggah_saja:
             if not os.path.exists(VIDEO_PATH) or os.path.getsize(VIDEO_PATH) < 10_000:
                 raise RuntimeError("Belum ada video jadi. Buat dulu dengan: jalankan_agen.bat --tanpa-upload")
             notes = load_video_notes()
             info(f"Mengunggah video yang sudah jadi: {notes['title']}")
-            upload_video(VIDEO_PATH, notes, args.privasi)
+            upload_video(VIDEO_PATH, notes, args.privasi, publish_at)
             return
 
         data = research_and_write(args.topik)
         info(f"  -> Topik dipilih: {data['title']} ({len(data['scenes'])} adegan)")
+        info(f"  -> Tema warna: {THEME_NAMES[data['theme_index']]}")
 
         os.makedirs(PUBLIC_DIR, exist_ok=True)
         audio_dest = os.path.join(PUBLIC_DIR, "voice.mp3")
-        words, duration = asyncio.run(generate_voice_and_timestamps(data["full_script"], audio_dest))
+        words, duration = asyncio.run(generate_scene_voices(data["scenes"], audio_dest))
         info(f"  -> Durasi video: {duration} detik, {len(words)} kata")
 
-        assign_scene_times(data["scenes"], words, duration)
         credits = fetch_stock_videos(data["scenes"])
         if credits:
             data["description"] += "\n\nVideo latar: " + ", ".join(sorted(credits))
-        final_video = render_remotion_video(words, data["scenes"], duration)
+        final_video = render_remotion_video(words, data["scenes"], duration, data["theme_index"])
         info(f"  -> Video selesai: {final_video}")
+        render_thumbnail(data, data["scenes"])
         save_video_notes(data)
 
         if args.tanpa_upload:
             info("Unggah dilewati (--tanpa-upload). Kalau videonya sudah bagus, unggah dengan: jalankan_agen.bat --unggah-saja")
         else:
-            upload_video(final_video, data, args.privasi)
+            upload_video(final_video, data, args.privasi, publish_at)
         save_history(data["title"])
 
     except Exception as e:
