@@ -13,6 +13,7 @@ import {
 import { BACKGROUND_VARIANTS, Background } from "./Background";
 import { Counter, FlowDiagram, MindMap } from "./Diagrams";
 import { FootageScene, Gauge } from "./ExtraScenes";
+import { Cutaway, MicroScale, Story } from "./TopicScenes";
 import { BarChart, BeforeAfter, Timeline } from "./MoreDiagrams";
 import { Ambience, Sfx, SfxEnabled } from "./Sfx";
 import { Palette, SceneData, ShortsProps, WordItem, paletteFor } from "./types";
@@ -106,11 +107,16 @@ const SceneView: React.FC<SceneViewProps> = ({
   return (
     <AbsoluteFill style={{ opacity: fade }}>
       {!isFirst ? <Sfx name="whoosh" at={0} /> : null}
+      {/* tiap pergantian klip rekaman diberi desiran kecil */}
+      {(scene.clips ?? []).slice(1).map((c, i) => (
+        <Sfx key={i} name="whoosh" at={Math.round(c.start * fps)} volume={0.16} />
+      ))}
       <Ambience sound={scene.sound} lengthFrames={lengthFrames} fps={fps} />
       <Background
         palette={palette}
         video={scene.video}
         videoSeconds={scene.videoSeconds}
+        clips={scene.clips}
         variant={(bgSeed + index * 5) % BACKGROUND_VARIANTS}
         seed={bgSeed + index}
         footageStrength={scene.type === "footage" ? 1 : 0.62}
@@ -126,6 +132,12 @@ const SceneView: React.FC<SceneViewProps> = ({
           <BarChart {...diagramProps} />
         ) : scene.type === "compare" ? (
           <BeforeAfter {...diagramProps} />
+        ) : scene.type === "cutaway" ? (
+          <Cutaway {...diagramProps} />
+        ) : scene.type === "microscale" ? (
+          <MicroScale {...diagramProps} />
+        ) : scene.type === "story" ? (
+          <Story {...diagramProps} />
         ) : scene.type === "gauge" ? (
           <Gauge {...diagramProps} />
         ) : scene.type === "footage" ? (
@@ -217,6 +229,17 @@ export const ShortsComp: React.FC<ShortsProps> = ({
         }}
       />
 
+      {/* Hook: dentuman di detik pertama, lalu bunyi kecil tiap frasa subtitle dan tiap kata kunci */}
+      <Sfx name="impact" at={3} volume={0.4} />
+      {phrases.map((ph, i) => (
+        <Sfx key={`t${i}`} name="tick" at={Math.round((ph[0].start - SUBTITLE_LEAD) * fps)} volume={0.1} />
+      ))}
+      {safeWords
+        .filter((w) => w.emphasis)
+        .map((w, i) => (
+          <Sfx key={`e${i}`} name="pop" at={Math.round(w.start * fps)} volume={0.26} />
+        ))}
+
       {/* Suara narasi dan musik latar */}
       {audioUrl ? <Audio src={staticFile(audioUrl)} /> : null}
       {bgmUrl ? (
@@ -278,19 +301,21 @@ export const ShortsComp: React.FC<ShortsProps> = ({
               fps,
               config: { damping: 12, stiffness: 220, mass: 0.5 },
             });
-            const scale = 0.85 + 0.2 * pop;
+            const emph = !!item.emphasis;
+            const scale = emph ? 0.7 + 0.45 * pop : 0.85 + 0.2 * pop;
 
             return (
               <span
                 key={`${item.start}-${index}`}
                 style={{
                   fontFamily: "Impact, 'Arial Black', sans-serif",
-                  fontSize: 84,
+                  fontSize: emph ? 104 : 84,
                   fontWeight: 900,
                   lineHeight: 1.1,
                   letterSpacing: 1,
-                  color: isActive ? (speaker?.color ?? activePalette.accent) : "#FFFFFF",
+                  color: emph ? "#FFE14D" : isActive ? (speaker?.color ?? activePalette.accent) : "#FFFFFF",
                   textTransform: "uppercase",
+                  margin: emph ? "0 16px" : 0,
                   transform: `scale(${scale})`,
                   textShadow:
                     "0 6px 0 #000, 4px 4px 0 #000, -4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000",

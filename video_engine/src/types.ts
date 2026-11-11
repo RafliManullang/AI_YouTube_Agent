@@ -3,6 +3,7 @@ export type WordItem = {
   start: number;
   end: number;
   who?: "shela" | "flay"; // siapa yang bicara (mode obrolan)
+  emphasis?: boolean; // kata kunci yang ditonjolkan di subtitle
 };
 
 export type SceneType =
@@ -13,7 +14,17 @@ export type SceneType =
   | "barchart"
   | "compare"
   | "gauge"
-  | "footage";
+  | "footage"
+  | "cutaway" // potongan melintang / tembus pandang
+  | "microscale" // zoom dari benda utuh ke tingkat mikro
+  | "story"; // ilustrasi buku cerita dengan karakter berekspresi
+
+export type ClipData = {
+  file: string; // nama file video di folder public
+  start: number; // detik, relatif terhadap awal adegan
+  end: number;
+  seconds: number; // panjang klip asli
+};
 
 // Suara latar tiap adegan (angin, deru mesin, dan seterusnya)
 export type AmbienceName = "angin" | "gesekan" | "benturan" | "mesin" | "air" | "hening";
@@ -36,6 +47,10 @@ export type SceneData = {
   end: number; // detik
   video?: string; // nama file video latar di folder public (opsional)
   videoSeconds?: number; // panjang klip video latar (detik)
+  clips?: ClipData[]; // beberapa klip bergantian dalam satu adegan (satu per kalimat)
+  variant?: "device" | "ground"; // untuk cutaway
+  mood?: "senang" | "takut" | "kaget" | "sedih" | "tegang" | "bangga"; // untuk story
+  weather?: "cerah" | "hujan" | "salju" | "badai" | "malam" | "kabut"; // untuk story
   sound?: AmbienceName;
 };
 
@@ -128,6 +143,15 @@ export const THEMES: Theme[] = [
       { bg1: "#0b0620", bg2: "#4c1d95", accent: "#c4b5fd", accent2: "#67e8f9" },
       { bg1: "#120a2e", bg2: "#7e22ce", accent: "#f0abfc", accent2: "#fde047" },
       { bg1: "#0a0f2c", bg2: "#3730a3", accent: "#a5b4fc", accent2: "#fb7185" },
+    ],
+  },
+  {
+    // nuansa foto tua dan kertas kuno, untuk cerita sejarah
+    name: "sepia",
+    palettes: [
+      { bg1: "#2b1d10", bg2: "#8a5a2b", accent: "#f4d58d", accent2: "#d97757" },
+      { bg1: "#241a12", bg2: "#6b4a2e", accent: "#f2c94c", accent2: "#c9a66b" },
+      { bg1: "#33210f", bg2: "#a1662f", accent: "#ffe3a3", accent2: "#e08e45" },
     ],
   },
 ];

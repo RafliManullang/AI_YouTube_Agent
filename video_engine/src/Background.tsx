@@ -3,11 +3,12 @@ import {
   AbsoluteFill,
   Loop,
   OffthreadVideo,
+  Sequence,
   staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { Palette } from "./types";
+import { ClipData, Palette } from "./types";
 
 type Props = {
   palette: Palette;
@@ -15,6 +16,7 @@ type Props = {
   variant?: number; // gaya latar (0 sampai 5), supaya tiap adegan dan tiap video tidak terlihat sama
   seed?: number;
   videoSeconds?: number; // panjang klip asli; kalau diisi, klip diputar ulang sampai adegan selesai
+  clips?: ClipData[]; // beberapa klip bergantian (satu per kalimat); menggantikan "video" kalau ada
   footageStrength?: number; // makin besar, video asli makin jelas (0 sampai 1)
 };
 
@@ -33,6 +35,7 @@ export const Background: React.FC<Props> = ({
   seed = 0,
   footageStrength = 0.45,
   videoSeconds,
+  clips,
 }) => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
@@ -204,15 +207,39 @@ export const Background: React.FC<Props> = ({
         overflow: "hidden",
       }}
     >
-      {video ? (
+      {video || (clips && clips.length > 0) ? (
         <AbsoluteFill>
-          {videoSeconds && videoSeconds >= 1.5 ? (
-            <Loop durationInFrames={Math.max(1, Math.floor((videoSeconds - 0.1) * fps))}>
-              {clip}
-            </Loop>
-          ) : (
-            clip
-          )}
+          {clips && clips.length > 0
+            ? clips.map((c, i) => {
+                const from = Math.round(c.start * fps);
+                const len = Math.max(1, Math.round((c.end - c.start) * fps));
+                const one = (
+                  <OffthreadVideo
+                    src={staticFile(c.file)}
+                    muted
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      transform: `scale(${1.05 + ((frame - from) / fps) * 0.015})`,
+                    }}
+                  />
+                );
+                return (
+                  <Sequence key={i} from={from} durationInFrames={len}>
+                    {c.seconds && c.seconds >= 1.5 ? (
+                      <Loop durationInFrames={Math.max(1, Math.floor((c.seconds - 0.1) * fps))}>{one}</Loop>
+                    ) : (
+                      one
+                    )}
+                  </Sequence>
+                );
+              })
+            : videoSeconds && videoSeconds >= 1.5 ? (
+                <Loop durationInFrames={Math.max(1, Math.floor((videoSeconds - 0.1) * fps))}>{clip}</Loop>
+              ) : (
+                clip
+              )}
           <AbsoluteFill
             style={{
               background: `linear-gradient(180deg, ${palette.bg1}${alpha(0.88 - footageStrength * 0.6)}, ${palette.bg2}${alpha(0.7 - footageStrength * 0.45)})`,
