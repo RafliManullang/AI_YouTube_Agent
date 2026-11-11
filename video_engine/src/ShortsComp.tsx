@@ -10,24 +10,52 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { Background } from "./Background";
+import { BACKGROUND_VARIANTS, Background } from "./Background";
 import { Counter, FlowDiagram, MindMap } from "./Diagrams";
+import { FootageScene, Gauge } from "./ExtraScenes";
 import { BarChart, BeforeAfter, Timeline } from "./MoreDiagrams";
-import { Sfx, SfxEnabled } from "./Sfx";
+import { Ambience, Sfx, SfxEnabled } from "./Sfx";
 import { Palette, SceneData, ShortsProps, WordItem, paletteFor } from "./types";
 
 export type { ShortsProps, WordItem } from "./types";
 
-const CHUNK_SIZE = 4; // jumlah kata yang tampil bersamaan di layar
 const FADE_SECONDS = 0.45; // lama transisi antar adegan
+const MAX_PHRASE_WORDS = 3; // jumlah kata maksimal dalam satu frasa subtitle
+const SUBTITLE_LEAD = 0.04; // kata muncul sedikit lebih awal supaya terasa pas dengan suara
 
-// Kelompokkan kata menjadi beberapa baris pendek supaya teks tidak menumpuk
-const buildChunks = (words: WordItem[]): WordItem[][] => {
-  const chunks: WordItem[][] = [];
-  for (let i = 0; i < words.length; i += CHUNK_SIZE) {
-    chunks.push(words.slice(i, i + CHUNK_SIZE));
-  }
-  return chunks;
+const SPEAKER_STYLE: Record<string, { name: string; color: string }> = {
+  shela: { name: "SHELA", color: "#ff7ac0" },
+  flay: { name: "FLAY", color: "#58d6ff" },
+};
+
+// Kelompokkan kata jadi frasa pendek: berhenti di tanda baca, ganti pembicara, ganti adegan, atau 3 kata
+const buildPhrases = (words: WordItem[], sceneStarts: number[]): WordItem[][] => {
+  const phrases: WordItem[][] = [];
+  let current: WordItem[] = [];
+  const sceneOf = (t: number) => {
+    let idx = 0;
+    sceneStarts.forEach((st, i) => {
+      if (t >= st - 0.01) idx = i;
+    });
+    return idx;
+  };
+  words.forEach((w, i) => {
+    const prev = current[current.length - 1];
+    if (
+      prev &&
+      (prev.who !== w.who ||
+        sceneOf(prev.start) !== sceneOf(w.start) ||
+        current.length >= MAX_PHRASE_WORDS ||
+        /[.,!?;:]$/.test(prev.word) ||
+        (current.length >= 2 && current.map((x) => x.word).join("").length > 18))
+    ) {
+      phrases.push(current);
+      current = [];
+    }
+    current.push(w);
+    if (i === words.length - 1) phrases.push(current);
+  });
+  return phrases.filter((p) => p.length > 0);
 };
 
 type SceneViewProps = {
@@ -35,6 +63,7 @@ type SceneViewProps = {
   palette: Palette;
   lengthFrames: number;
   index: number;
+  bgSeed: number;
 };
 
 const SceneView: React.FC<SceneViewProps> = ({
@@ -42,6 +71,7 @@ const SceneView: React.FC<SceneViewProps> = ({
   palette,
   lengthFrames,
   index,
+  bgSeed,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -76,7 +106,15 @@ const SceneView: React.FC<SceneViewProps> = ({
   return (
     <AbsoluteFill style={{ opacity: fade }}>
       {!isFirst ? <Sfx name="whoosh" at={0} /> : null}
-      <Background palette={palette} video={scene.video} />
+      <Ambience sound={scene.sound} lengthFrames={lengthFrames} fps={fps} />
+      <Background
+        palette={palette}
+        video={scene.video}
+        videoSeconds={scene.videoSeconds}
+        variant={(bgSeed + index * 5) % BACKGROUND_VARIANTS}
+        seed={bgSeed + index}
+        footageStrength={scene.type === "footage" ? 1 : 0.62}
+      />
       <AbsoluteFill style={{ transform }}>
         {scene.type === "mindmap" ? (
           <MindMap {...diagramProps} />
@@ -88,6 +126,10 @@ const SceneView: React.FC<SceneViewProps> = ({
           <BarChart {...diagramProps} />
         ) : scene.type === "compare" ? (
           <BeforeAfter {...diagramProps} />
+        ) : scene.type === "gauge" ? (
+          <Gauge {...diagramProps} />
+        ) : scene.type === "footage" ? (
+          <FootageScene {...diagramProps} />
         ) : (
           <FlowDiagram {...diagramProps} />
         )}
@@ -107,6 +149,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   durationInSeconds,
   themeIndex = 0,
   sfx = true,
+  bgSeed = 0,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -124,12 +167,21 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   const activePalette = paletteFor(currentIndex, themeIndex);
 
   // ---------- Teks kinetik ----------
-  const chunks = buildChunks(safeWords);
-  const activeChunk = chunks.find((chunk) => {
-    const first = chunk[0];
-    const last = chunk[chunk.length - 1];
-    return time >= first.start - 0.15 && time <= last.end + 0.35;
+  const phrases = buildPhrases(
+    safeWords,
+    safeScenes.map((sc) => sc.start),
+  );
+  // Frasa aktif: yang kata pertamanya sudah mulai, dan belum digantikan frasa berikutnya
+  let activeIdx = -1;
+  phrases.forEach((ph, i) => {
+    if (time >= ph[0].start - SUBTITLE_LEAD) activeIdx = i;
   });
+  let activePhrase = activeIdx >= 0 ? phrases[activeIdx] : undefined;
+  if (activePhrase) {
+    const lastEnd = activePhrase[activePhrase.length - 1].end;
+    if (time > lastEnd + 0.3) activePhrase = undefined; // jeda panjang: subtitle hilang, tidak menggantung
+  }
+  const speaker = activePhrase ? SPEAKER_STYLE[activePhrase[0].who ?? ""] : undefined;
 
   return (
     <SfxEnabled.Provider value={sfx}>
@@ -151,6 +203,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
               palette={paletteFor(i, themeIndex)}
               lengthFrames={Math.max(1, to - from)}
               index={i}
+              bgSeed={bgSeed}
             />
           </Sequence>
         );
@@ -166,7 +219,18 @@ export const ShortsComp: React.FC<ShortsProps> = ({
 
       {/* Suara narasi dan musik latar */}
       {audioUrl ? <Audio src={staticFile(audioUrl)} /> : null}
-      {bgmUrl ? <Audio src={staticFile(bgmUrl)} volume={0.1} loop /> : null}
+      {bgmUrl ? (
+        <Audio
+          src={staticFile(bgmUrl)}
+          loop
+          volume={(f) => {
+            const sec = f / fps;
+            const fadeIn = Math.min(1, sec / 1.5);
+            const fadeOut = Math.min(1, Math.max(0, (total - sec) / 1.5));
+            return 0.13 * Math.min(fadeIn, fadeOut);
+          }}
+        />
+      ) : null}
 
       {/* Teks kinetik: di atas area tombol Shorts */}
       <AbsoluteFill
@@ -178,37 +242,54 @@ export const ShortsComp: React.FC<ShortsProps> = ({
           paddingBottom: 420,
         }}
       >
+        {speaker ? (
+          <div
+            style={{
+              alignSelf: "center",
+              marginBottom: 18,
+              padding: "4px 26px",
+              borderRadius: 30,
+              backgroundColor: speaker.color,
+              color: "#0b0f19",
+              fontFamily: "Impact, 'Arial Black', sans-serif",
+              fontSize: 36,
+              letterSpacing: 2,
+            }}
+          >
+            {speaker.name}
+          </div>
+        ) : null}
         <div
           style={{
             display: "flex",
             flexWrap: "wrap",
             justifyContent: "center",
-            gap: "14px 36px",
+            gap: "10px 30px",
+            minHeight: 96,
           }}
         >
-          {activeChunk?.map((item, index) => {
-            const isActive = time >= item.start && time <= item.end;
-            const hasStarted = time >= item.start;
+          {activePhrase?.map((item, index) => {
+            // hanya kata yang sudah diucapkan yang tampil, jadi penonton tidak membaca mendahului suara
+            if (time < item.start - SUBTITLE_LEAD) return null;
+            const isActive = time <= item.end;
 
-            // efek "membal" saat kata mulai diucapkan (dihitung per frame, bukan CSS transition)
             const pop = spring({
               frame: frame - Math.round(item.start * fps),
               fps,
-              config: { damping: 12, stiffness: 200, mass: 0.6 },
+              config: { damping: 12, stiffness: 220, mass: 0.5 },
             });
-            const scale = hasStarted ? 0.92 + 0.1 * pop : 0.92;
+            const scale = 0.85 + 0.2 * pop;
 
             return (
               <span
                 key={`${item.start}-${index}`}
                 style={{
                   fontFamily: "Impact, 'Arial Black', sans-serif",
-                  fontSize: 76,
+                  fontSize: 84,
                   fontWeight: 900,
                   lineHeight: 1.1,
                   letterSpacing: 1,
-                  color: isActive ? activePalette.accent : "#FFFFFF",
-                  opacity: hasStarted ? 1 : 0.4,
+                  color: isActive ? (speaker?.color ?? activePalette.accent) : "#FFFFFF",
                   textTransform: "uppercase",
                   transform: `scale(${scale})`,
                   textShadow:

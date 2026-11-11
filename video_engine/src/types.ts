@@ -2,6 +2,7 @@ export type WordItem = {
   word: string;
   start: number;
   end: number;
+  who?: "shela" | "flay"; // siapa yang bicara (mode obrolan)
 };
 
 export type SceneType =
@@ -10,7 +11,12 @@ export type SceneType =
   | "counter"
   | "timeline"
   | "barchart"
-  | "compare";
+  | "compare"
+  | "gauge"
+  | "footage";
+
+// Suara latar tiap adegan (angin, deru mesin, dan seterusnya)
+export type AmbienceName = "angin" | "gesekan" | "benturan" | "mesin" | "air" | "hening";
 
 // Dipakai oleh timeline (label = tahun, value = kejadian), barchart (label = nama, value = angka),
 // dan compare (label = judul sisi, value = isi)
@@ -29,6 +35,8 @@ export type SceneData = {
   start: number; // detik
   end: number; // detik
   video?: string; // nama file video latar di folder public (opsional)
+  videoSeconds?: number; // panjang klip video latar (detik)
+  sound?: AmbienceName;
 };
 
 export type ShortsProps = {
@@ -39,6 +47,7 @@ export type ShortsProps = {
   durationInSeconds: number;
   themeIndex?: number; // pilihan tema warna (lihat THEMES)
   sfx?: boolean; // efek suara, bawaan menyala
+  bgSeed?: number; // angka acak supaya gaya latar beda tiap video
 };
 
 export type ThumbnailProps = {

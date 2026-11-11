@@ -106,8 +106,8 @@ export const Root: React.FC = () => {
         component={Thumbnail}
         durationInFrames={60}
         fps={FPS}
-        width={1280}
-        height={720}
+        width={1080}
+        height={1920}
         defaultProps={thumbnailDefaults}
       />
     </>
