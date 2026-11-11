@@ -67,7 +67,15 @@ VOICE = os.getenv("VOICE", "id-ID-ArdiNeural")  # suara cowok; cewek: id-ID-Gadi
 VOICE_RATE = os.getenv("VOICE_RATE", "+15%")
 PRIVACY = os.getenv("YOUTUBE_PRIVACY", "private")  # private / unlisted / public
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
-SCENE_TYPES = ("flow", "mindmap", "counter", "timeline", "barchart", "compare")
+SCENE_TYPES = ("flow", "mindmap", "counter", "timeline", "barchart", "compare", "gauge", "footage")
+AMBIENCES = ("angin", "gesekan", "benturan", "mesin", "air", "hening")
+MUSICS = ("misterius", "semangat", "tenang")
+# Dua pembawa obrolan: nama -> (suara Edge-TTS, tambahan nada Hz). Bisa diganti lewat .env
+SPEAKERS = {
+    "shela": (os.getenv("VOICE_SHELA", "id-ID-GadisNeural"), 0),
+    "flay": (os.getenv("VOICE_FLAY", os.getenv("VOICE", "id-ID-ArdiNeural")), 0),
+}
+DIALOG = os.getenv("DIALOG", "on").strip().lower() != "off"  # DIALOG=off: satu narator saja
 # Urutan harus sama dengan THEMES di video_engine/src/types.ts
 THEME_NAMES = ("pelangi", "neon", "senja", "hutan", "samudra", "emas", "kosmik")
 CATEGORIES = ("CARA KERJA", "FAKTA SAINS", "KISAH NYATA")
@@ -157,17 +165,31 @@ def build_prompt(forced_topic, done_titles):
     if done_titles:
         avoid = "Jangan ulangi topik yang sudah pernah dibuat: " + "; ".join(done_titles[-30:]) + "."
 
+    if DIALOG:
+        style_rule = (
+            "FORMAT OBROLAN: video ini percakapan santai dua orang. Shela (cewek, penasaran, suka bertanya "
+            "dan menyahut spontan) dan Flay (cowok, paham topiknya, menjelaskan dengan seru). Tiap adegan "
+            "punya \"lines\" berisi 1 sampai 3 giliran bicara pendek (5 sampai 16 kata per giliran) dengan "
+            "\"speaker\" \"shela\" atau \"flay\". Bergantian secara natural: Shela bertanya atau kaget "
+            "(\"Hah, serius?\", \"Terus gimana?\"), Flay menjawab dengan fakta. Semua poin penting tetap "
+            "tersampaikan lewat obrolan, jangan sampai obrolannya melantur. Gaya bahasa lisan sehari-hari."
+        )
+    else:
+        style_rule = (
+            "FORMAT NARASI: satu narator (speaker selalu \"flay\"), tiap adegan punya \"lines\" berisi "
+            "1 giliran bicara 10 sampai 25 kata. Gaya seru, cepat, santai ala kreator konten modern."
+        )
     return f"""
 Kamu adalah scriptwriter YouTube Shorts edukasi berbahasa Indonesia, gaya Kok Bisa / Veritasium.
 {topic_rule}
 {avoid}
 
-Pecah video menjadi 5 sampai 6 ADEGAN berurutan. Setiap adegan punya narasi yang diucapkan dan
-visual infografis beranimasi. Total seluruh narasi sekitar 80-100 kata (durasi 35-40 detik).
-Gaya narasi: seru, cepat, santai ala kreator konten modern. Adegan pertama harus langsung menarik
-perhatian dalam 2 detik pertama (pertanyaan atau fakta yang mengejutkan), adegan terakhir penutup singkat
-yang bikin orang ingin menonton ulang. Narasi hanya berisi kalimat yang diucapkan:
-tanpa instruksi panggung, tanpa emoji, tanpa tanda bintang, tanpa hashtag.
+Pecah video menjadi 6 sampai 7 ADEGAN berurutan. Setiap adegan punya percakapan yang diucapkan dan
+visual beranimasi. Total seluruh ucapan sekitar 90-110 kata (durasi 38-45 detik).
+{style_rule}
+Adegan pertama harus langsung menarik perhatian dalam 2 detik pertama (pertanyaan atau fakta yang
+mengejutkan), adegan terakhir penutup singkat yang bikin orang ingin menonton ulang. Ucapan hanya berisi
+kalimat yang diucapkan: tanpa instruksi panggung, tanpa emoji, tanpa tanda bintang, tanpa hashtag.
 
 Aturan visual tiap adegan (field "type"):
 - "flow"     : alur langkah berurutan. "points" berisi 3 sampai 4 langkah.
@@ -179,14 +201,25 @@ Aturan visual tiap adegan (field "type"):
                "value": "kejadian, maksimal 7 kata"}}.
 - "barchart" : grafik batang untuk membandingkan angka. Isi "items" dengan 2 sampai 5 item berbentuk
                {{"label": "nama maksimal 3 kata", "value": angka}} dan isi "unit" (satuan angka itu).
+- "gauge"    : jam kecepatan dengan jarum yang naik, untuk membandingkan kecepatan, tekanan, suhu, atau
+               angka dramatis lain. Isi "items" dengan 1 sampai 2 item {{"label": "nama maksimal 3 kata",
+               "value": angka}} dan isi "unit". Dua item = dua jam berdampingan (misalnya ban mobil
+               lawan ban pesawat).
+- "footage"  : rekaman video asli layar penuh dengan judul besar. WAJIB dipakai untuk adegan pertama (hook)
+               dan boleh untuk 1 adegan lain. "points" berisi 1 label pendek (opsional). Wajib isi
+               "footage_query" yang menggambarkan kejadian nyatanya (contoh: "airplane landing runway").
 - "compare"  : sebelum dan sesudah, atau dua hal yang dibandingkan. Isi "items" dengan TEPAT 2 item
                berbentuk {{"label": "judul sisi maksimal 2 kata, misalnya Sebelum / Sesudah / Dulu / Kini",
                "value": "penjelasan maksimal 8 kata"}}.
 Pakai "counter" dan "barchart" HANYA kalau angkanya benar-benar faktual, jangan mengarang angka.
-Pakai "timeline" hanya kalau memang ada urutan waktu. Pakai campuran minimal 3 tipe yang berbeda.
+Pakai "timeline" hanya kalau memang ada urutan waktu. Pakai campuran minimal 4 tipe yang berbeda. Hindari tampilan abstrak: sebisa mungkin sebut benda nyatanya.
 "title" maksimal 4 kata. Setiap isi "points" maksimal 4 kata, tanpa emoji dan tanpa tanda baca.
-"footage_query" berisi 2 sampai 3 kata bahasa Inggris untuk mencari video latar gratis yang umum dan
-mudah ditemukan (contoh: "elevator building", "rice cooking", "underground tunnel").
+"footage_query" ISI UNTUK SEMUA adegan: 2 sampai 4 kata bahasa Inggris yang menggambarkan rekaman nyata
+untuk mencari video gratis (contoh: "elevator building", "rice cooking", "airplane landing tire smoke").
+Pakai benda atau kejadian konkret, bukan konsep abstrak.
+"sound" adalah suara latar adegan, pilih satu: "angin", "gesekan" (ban atau benda bergesek), "benturan",
+"mesin", "air", atau "hening". Pilih yang cocok dengan kejadian di adegan itu.
+"music" adalah musik latar seluruh video: "misterius", "semangat", atau "tenang".
 
 "tone" adalah gaya suara narator pada adegan itu. Pilih salah satu: "semangat" (pembuka atau momen seru),
 "santai" (penjelasan biasa), "misterius" (teka-teki atau rahasia), "tegas" (fakta penting atau penutup).
@@ -207,9 +240,10 @@ Keluarkan HANYA JSON murni dengan format persis ini:
   "theme": "neon",
   "category": "CARA KERJA",
   "thumbnail_text": "KOK BISA JATUH?",
+  "music": "misterius",
   "scenes": [
     {{
-      "narration": "Kalimat yang diucapkan pada adegan ini.",
+      "lines": [{{"speaker": "shela", "text": "Kalimat yang diucapkan."}}, {{"speaker": "flay", "text": "Jawabannya."}}],
       "title": "Judul adegan",
       "type": "flow",
       "tone": "semangat",
@@ -217,7 +251,8 @@ Keluarkan HANYA JSON murni dengan format persis ini:
       "items": [],
       "number": null,
       "unit": null,
-      "footage_query": "elevator building"
+      "footage_query": "elevator building",
+      "sound": "mesin"
     }}
   ]
 }}
@@ -265,6 +300,26 @@ def clean_text(value, limit):
     return text[:limit]
 
 
+def clean_lines(raw):
+    """Ambil giliran bicara dari Gemini. Kalau hanya ada 'narration', dijadikan satu giliran."""
+    lines = []
+    for ln in raw.get("lines") or []:
+        if not isinstance(ln, dict):
+            continue
+        text = clean_text(ln.get("text"), 220)
+        if len(text.split()) < 1:
+            continue
+        who = str(ln.get("speaker") or "").strip().lower()
+        if who not in SPEAKERS:
+            who = "flay" if not lines or lines[-1]["speaker"] == "shela" else "shela"
+        lines.append({"speaker": who if DIALOG else "flay", "text": text})
+    if not lines:
+        text = clean_text(raw.get("narration"), 400)
+        if text:
+            lines = [{"speaker": "flay", "text": text}]
+    return lines[:3]
+
+
 def clean_items(raw_items, numeric):
     """Rapikan daftar {label, value} dari Gemini. numeric=True berarti value wajib angka."""
     items = []
@@ -300,8 +355,9 @@ def validate_content(data):
         data["tags"] = [str(data["tags"])]
 
     scenes = []
-    for raw in data["scenes"][:7]:
-        narration = clean_text(raw.get("narration"), 400)
+    for raw in data["scenes"][:8]:
+        lines = clean_lines(raw)
+        narration = " ".join(l["text"] for l in lines)
         if len(narration.split()) < 4:
             continue
         scene_type = raw.get("type") if raw.get("type") in SCENE_TYPES else "flow"
@@ -328,6 +384,12 @@ def validate_content(data):
             items = clean_items(raw.get("items"), False)[:2]
             if len(items) < 2:
                 scene_type, items = "flow", []
+        elif scene_type == "gauge":
+            items = clean_items(raw.get("items"), True)[:2]
+            if not items and number is not None:
+                items = [{"label": clean_text(raw.get("title"), 24) or "Angka", "value": number}]
+            if not items or min(i["value"] for i in items) < 0 or max(i["value"] for i in items) <= 0:
+                scene_type, items = "flow", []
 
         # Perbaiki kombinasi yang tidak lengkap supaya tampilan tidak kosong
         if scene_type == "counter" and number is None:
@@ -338,8 +400,11 @@ def validate_content(data):
             scene_type = "mindmap"
 
         tone = raw.get("tone") if raw.get("tone") in TONES else None
+        sound = str(raw.get("sound") or "").strip().lower()
         scenes.append({
             "narration": narration,
+            "lines": lines,
+            "sound": sound if sound in AMBIENCES else "hening",
             "title": clean_text(raw.get("title"), 40) or "Tahukah kamu",
             "type": scene_type,
             "tone": tone,
@@ -363,6 +428,13 @@ def validate_content(data):
             else:
                 scene["tone"] = "santai" if i % 2 else "semangat"
 
+    # Adegan pembuka sebaiknya rekaman asli (hook). Kalau videonya tidak ada, nanti diturunkan otomatis.
+    if scenes[0]["type"] != "footage" and scenes[0].get("footage_query"):
+        scenes[0]["type"] = "footage"
+    for scene in scenes:
+        if scene["type"] == "footage" and not scene.get("footage_query"):
+            scene["type"] = "mindmap" if len(scene["points"]) >= 2 else "flow"
+
     data["scenes"] = scenes
     data["full_script"] = " ".join(s["narration"] for s in scenes)
     if len(data["full_script"].split()) < 20:
@@ -378,6 +450,13 @@ def validate_content(data):
     if len(thumb.split()) < 1:
         thumb = " ".join(data["title"].upper().split()[:3])
     data["thumbnail_text"] = thumb
+
+    music = str(data.get("music") or "").strip().lower()
+    if music not in MUSICS:
+        tones = [s["tone"] for s in scenes]
+        music = "misterius" if tones.count("misterius") >= 2 else "semangat" if tones.count("semangat") >= 3 else "tenang"
+    data["music"] = music
+    data["bg_seed"] = random.randrange(1, 1000)
 
 
 # ========================================================
@@ -404,12 +483,12 @@ def base_rate_percent():
         return 15
 
 
-async def synth_segment(text, rate, pitch):
-    """Buat suara satu adegan. Hasil: (data mp3, daftar kata beserta waktunya)."""
+async def synth_segment(text, rate, pitch, voice=None):
+    """Buat suara satu giliran bicara. Hasil: (data mp3, daftar kata beserta waktunya)."""
     import edge_tts
 
     # boundary="WordBoundary" wajib: tanpa ini edge-tts hanya memberi waktu per kalimat
-    communicate = edge_tts.Communicate(text, VOICE, rate=rate, pitch=pitch, boundary="WordBoundary")
+    communicate = edge_tts.Communicate(text, voice or VOICE, rate=rate, pitch=pitch, boundary="WordBoundary")
     audio = bytearray()
     words = []
     async for chunk in communicate.stream():
@@ -422,10 +501,25 @@ async def synth_segment(text, rate, pitch):
     return bytes(audio), words
 
 
+def align_words(words, text, who):
+    """Pakai tulisan asli (lengkap dengan tanda baca) kalau jumlah katanya sama, lalu tandai pembicaranya."""
+    tokens = text.split()
+    use_tokens = len(tokens) == len(words)
+    out = []
+    for i, w in enumerate(words):
+        out.append({
+            "word": tokens[i] if use_tokens else w["word"],
+            "start": w["start"],
+            "end": w["end"],
+            "who": who,
+        })
+    return out
+
+
 async def generate_scene_voices(scenes, output_audio_path):
-    """Suara dibuat per adegan dengan kecepatan dan nada berbeda supaya tidak monoton.
+    """Suara dibuat per giliran bicara (Shela atau Flay) dengan kecepatan dan nada sesuai adegan.
     Sekaligus menentukan waktu mulai dan selesai tiap adegan secara tepat."""
-    info("[2/5] Membuat suara AI per adegan dan sinkronisasi kata demi kata...")
+    info("[2/5] Membuat suara AI per giliran bicara dan sinkronisasi kata demi kata...")
     base = base_rate_percent()
     all_words = []
     offset = 0.0
@@ -433,37 +527,38 @@ async def generate_scene_voices(scenes, output_audio_path):
     with open(output_audio_path, "wb") as out:
         for i, scene in enumerate(scenes):
             d_rate, d_pitch = TONES[scene["tone"]]
-            # percobaan ketiga memakai suara polos, kalau-kalau pengaturan nada ditolak server
-            attempts = [(base + d_rate, d_pitch), (base + d_rate, d_pitch), (base, 0)]
-            result, last_error = None, None
-            for n, (rate, pitch) in enumerate(attempts, 1):
-                try:
-                    audio, words = await synth_segment(scene["narration"], f"{rate:+d}%", f"{pitch:+d}Hz")
-                    if len(audio) < 800:
-                        raise RuntimeError("File suara kosong.")
-                    result = (audio, words)
-                    break
-                except Exception as e:
-                    last_error = e
-                    info(f"  -> Adegan {i + 1}, percobaan suara {n}/3 gagal: {e}")
-                    await asyncio.sleep(2 * n)
-            if result is None:
-                raise RuntimeError(f"Gagal membuat suara adegan {i + 1}: {last_error}")
-
-            audio, words = result
-            # Edge-TTS menghasilkan MP3 48 kbps (6000 byte per detik) -> panjang adegan
-            seconds = len(audio) / 6000
-            if not words:
-                words = estimate_words(scene["narration"], seconds)
-            for w in words:
-                all_words.append({
-                    "word": w["word"],
-                    "start": round(w["start"] + offset, 2),
-                    "end": round(w["end"] + offset, 2),
-                })
+            lines = scene.get("lines") or [{"speaker": "flay", "text": scene["narration"]}]
             scene["start"] = round(offset, 2)
-            out.write(audio)
-            offset += seconds
+            for j, line in enumerate(lines):
+                voice, voice_pitch = SPEAKERS.get(line["speaker"], SPEAKERS["flay"])
+                # percobaan ketiga memakai suara polos, kalau-kalau pengaturan nada ditolak server
+                attempts = [(base + d_rate, d_pitch + voice_pitch), (base + d_rate, d_pitch + voice_pitch), (base, 0)]
+                result, last_error = None, None
+                for n, (rate, pitch) in enumerate(attempts, 1):
+                    try:
+                        audio, words = await synth_segment(line["text"], f"{rate:+d}%", f"{pitch:+d}Hz", voice)
+                        if len(audio) < 800:
+                            raise RuntimeError("File suara kosong.")
+                        result = (audio, words)
+                        break
+                    except Exception as e:
+                        last_error = e
+                        info(f"  -> Adegan {i + 1}.{j + 1}, percobaan suara {n}/3 gagal: {e}")
+                        await asyncio.sleep(2 * n)
+                if result is None:
+                    raise RuntimeError(f"Gagal membuat suara adegan {i + 1}: {last_error}")
+
+                audio, words = result
+                # Edge-TTS menghasilkan MP3 48 kbps (6000 byte per detik) -> panjang giliran bicara
+                seconds = len(audio) / 6000
+                if not words:
+                    words = estimate_words(line["text"], seconds)
+                for w in align_words(words, line["text"], line["speaker"]):
+                    w["start"] = round(w["start"] + offset, 2)
+                    w["end"] = round(w["end"] + offset, 2)
+                    all_words.append(w)
+                out.write(audio)
+                offset += seconds
 
     if os.path.getsize(output_audio_path) < 1000:
         raise RuntimeError("File suara kosong.")
@@ -491,7 +586,7 @@ def pick_pexels_file(videos, min_seconds):
         if candidates:
             # ambil yang paling kecil tapi masih cukup tajam supaya cepat diunduh dan dirender
             candidates.sort(key=lambda f: (f.get("width") or 0) * (f.get("height") or 0))
-            return candidates[0].get("link")
+            return candidates[0].get("link"), video.get("duration", 0)
     return None
 
 
@@ -504,7 +599,7 @@ def pick_pixabay_file(hits, min_seconds):
         for size in ("medium", "small"):
             clip = files.get(size) or {}
             if clip.get("url") and clip.get("size", 0) > 0:
-                return clip["url"]
+                return clip["url"], hit.get("duration", 0)
     return None
 
 
@@ -519,9 +614,9 @@ def find_clip_link(query, min_seconds):
                 timeout=30,
             )
             res.raise_for_status()
-            link = pick_pexels_file(res.json().get("videos", []), min_seconds)
-            if link:
-                return link, "Pexels"
+            found = pick_pexels_file(res.json().get("videos", []), min_seconds)
+            if found:
+                return found[0], "Pexels", found[1]
         except Exception as e:
             info(f"  -> Pexels gagal ({str(e)[:80]}), mencoba sumber lain...")
     if PIXABAY_KEY:
@@ -532,12 +627,29 @@ def find_clip_link(query, min_seconds):
                 timeout=30,
             )
             res.raise_for_status()
-            link = pick_pixabay_file(res.json().get("hits", []), min_seconds)
-            if link:
-                return link, "Pixabay"
+            found = pick_pixabay_file(res.json().get("hits", []), min_seconds)
+            if found:
+                return found[0], "Pixabay", found[1]
         except Exception as e:
             info(f"  -> Pixabay gagal ({str(e)[:80]}).")
-    return None, None
+    return None, None, 0
+
+
+def query_variants(query):
+    """Kalau pencarian lengkap tidak ketemu, coba versi yang lebih pendek dan umum."""
+    words = query.split()
+    variants = [query]
+    if len(words) > 2:
+        variants.append(" ".join(words[:2]))
+        variants.append(" ".join(words[-2:]))
+    if len(words) > 1:
+        variants.append(words[0])
+    seen, out = set(), []
+    for v in variants:
+        if v and v not in seen:
+            seen.add(v)
+            out.append(v)
+    return out
 
 
 def fetch_stock_videos(scenes):
@@ -552,7 +664,8 @@ def fetch_stock_videos(scenes):
 
     credits = set()
     if not PEXELS_KEY and not PIXABAY_KEY:
-        info("  -> Key video latar belum diisi: memakai latar animasi bawaan (tetap bergerak dan berwarna).")
+        info("  -> Key video latar belum diisi: memakai latar animasi bawaan. Isi PIXABAY_API_KEY di .env supaya video memakai rekaman asli.")
+        downgrade_footage(scenes)
         return credits
 
     for i, scene in enumerate(scenes):
@@ -560,7 +673,12 @@ def fetch_stock_videos(scenes):
         if not query:
             continue
         try:
-            link, source = find_clip_link(query, scene["end"] - scene["start"] + 1)
+            link, source, clip_seconds = None, None, 0
+            for q in query_variants(query):
+                # klip yang lebih pendek dari adegan boleh dipakai, nanti diputar ulang
+                link, source, clip_seconds = find_clip_link(q, 3)
+                if link:
+                    break
             if not link:
                 info(f"  -> Adegan {i + 1}: tidak ada video cocok untuk '{query}', pakai latar animasi.")
                 continue
@@ -576,11 +694,24 @@ def fetch_stock_videos(scenes):
                 os.remove(filepath)
                 continue
             scene["video"] = filename
+            scene["video_seconds"] = clip_seconds
             credits.add(source)
             info(f"  -> Adegan {i + 1}: video latar '{query}' siap (dari {source}).")
         except Exception as e:
             info(f"  -> Adegan {i + 1}: video latar gagal diunduh ({str(e)[:100]}), pakai latar animasi.")
+    downgrade_footage(scenes)
     return credits
+
+
+def downgrade_footage(scenes):
+    """Adegan 'footage' tanpa video tidak bisa tampil, jadi diganti tampilan infografis."""
+    for scene in scenes:
+        if scene["type"] == "footage" and not scene.get("video"):
+            if len(scene["points"]) >= 2:
+                scene["type"] = "mindmap"
+            else:
+                scene["type"] = "flow"
+                scene["points"] = (scene["points"] + [scene["title"], "Intinya"])[:3]
 
 
 # ========================================================
@@ -590,7 +721,7 @@ def run_command(cmd, cwd):
     subprocess.run(cmd, cwd=cwd, check=True)
 
 
-def render_remotion_video(words, scenes, duration, theme_index=0):
+def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0):
     info("[4/5] Menjalankan Remotion (membuat video beranimasi)...")
     npm = shutil.which("npm")
     npx = shutil.which("npx")
@@ -619,13 +750,15 @@ def render_remotion_video(words, scenes, duration, theme_index=0):
                 "unit": s.get("unit"),
                 "start": s["start"],
                 "end": s["end"],
-                **({"video": s["video"]} if s.get("video") else {}),
+                "sound": s.get("sound", "hening"),
+                **({"video": s["video"], "videoSeconds": s.get("video_seconds") or 0} if s.get("video") else {}),
             }
             for s in scenes
         ],
         "words": words,
         "durationInSeconds": duration,
         "themeIndex": theme_index,
+        "bgSeed": bg_seed,
         # Efek suara bisa dimatikan dengan menulis SFX=off di file .env
         "sfx": os.getenv("SFX", "on").strip().lower() != "off",
     }
@@ -633,6 +766,9 @@ def render_remotion_video(words, scenes, duration, theme_index=0):
     if os.path.exists(os.path.join(PUBLIC_DIR, "bgm.mp3")):
         props["bgmUrl"] = "bgm.mp3"
         info("  -> Musik latar bgm.mp3 ditemukan dan dipakai.")
+    elif music and os.getenv("BGM", "on").strip().lower() != "off" and os.path.exists(os.path.join(PUBLIC_DIR, "bgm", f"{music}.wav")):
+        props["bgmUrl"] = f"bgm/{music}.wav"
+        info(f"  -> Musik latar bawaan: {music}.")
 
     props_path = os.path.join(REMOTION_DIR, "render_props.json")
     with open(props_path, "w", encoding="utf-8") as f:
@@ -664,7 +800,7 @@ def render_thumbnail(data, scenes):
             json.dump(props, f, ensure_ascii=False)
         cmd = [
             shutil.which("npx"), "remotion", "still", "src/index.ts", "Thumbnail", THUMB_PATH,
-            "--props=thumbnail_props.json", "--frame=30", "--image-format=jpeg",
+            "--props=thumbnail_props.json", "--frame=30", "--image-format=jpeg", "--jpeg-quality=88",
         ]
         run_command(cmd, REMOTION_DIR)
         if not os.path.exists(THUMB_PATH):
@@ -824,7 +960,9 @@ def main():
         credits = fetch_stock_videos(data["scenes"])
         if credits:
             data["description"] += "\n\nVideo latar: " + ", ".join(sorted(credits))
-        final_video = render_remotion_video(words, data["scenes"], duration, data["theme_index"])
+        final_video = render_remotion_video(
+            words, data["scenes"], duration, data["theme_index"], data.get("music"), data.get("bg_seed", 0)
+        )
         info(f"  -> Video selesai: {final_video}")
         render_thumbnail(data, data["scenes"])
         save_video_notes(data)

@@ -14,7 +14,12 @@ Agen ini membuat video YouTube Shorts sendiri, dari cari topik sampai diunggah:
 - Tema warna (pelangi, neon, senja, hutan, samudra, emas, kosmik) dipilih Gemini sesuai suasana topik.
 - Suara dibuat per adegan dengan kecepatan dan nada yang berbeda (semangat, santai, misterius, tegas) supaya tidak monoton. Pengaturannya ada di `TONES` di `main_agent.py`.
 - Efek suara (bunyi saat kartu muncul, desiran antar adegan, dentang saat angka selesai) dibuat sendiri dan bebas hak cipta. Matikan dengan menulis `SFX=off` di `.env`.
-- Thumbnail dibuat otomatis (`video_engine/out/thumbnail.jpg`) dan dipasang saat unggah. Kalau gagal dipasang, biasanya karena channel belum diverifikasi nomor teleponnya di YouTube, dan videonya tetap terunggah.
+- Obrolan dua suara: Shela (cewek, yang bertanya dan kaget) dan Flay (cowok, yang menjelaskan). Subtitle muncul kata demi kata persis saat diucapkan, dengan label nama pembicara. Mau satu narator saja? Tulis `DIALOG=off` di `.env`. Suaranya bisa diganti lewat `VOICE_SHELA` dan `VOICE_FLAY`.
+- Rekaman asli: adegan pembuka (hook) memakai video nyata dari Pixabay atau Pexels, dan adegan lain memakai video itu sebagai latar yang jelas terlihat. Ini butuh `PIXABAY_API_KEY` di `.env`. Tanpa key, videonya tetap jadi tapi hanya memakai latar animasi.
+- Adegan jam kecepatan: jarum naik dramatis untuk membandingkan angka (misalnya tekanan ban mobil lawan ban pesawat).
+- Latar animasi punya 6 gaya yang diacak, jadi tiap video dan tiap adegan terlihat berbeda.
+- Suara latar sesuai kejadian (angin, gesekan ban, benturan, deru mesin, air) ditambah musik latar buatan sendiri (misterius, semangat, atau tenang). Musik bisa dimatikan dengan `BGM=off`. Mau pakai musikmu sendiri? Taruh `bgm.mp3` di `video_engine/public`.
+- Thumbnail dibuat otomatis berukuran tegak 9:16 (`video_engine/out/thumbnail.jpg`) dan dipasang saat unggah. Kalau gagal dipasang, biasanya karena channel belum diverifikasi nomor teleponnya di YouTube, dan videonya tetap terunggah.
 
 ## Persiapan sekali saja
 
