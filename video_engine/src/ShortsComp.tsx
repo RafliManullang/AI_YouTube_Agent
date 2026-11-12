@@ -14,6 +14,7 @@ import { BACKGROUND_VARIANTS, Background } from "./Background";
 import { Counter, FlowDiagram, MindMap } from "./Diagrams";
 import { FootageScene, Gauge } from "./ExtraScenes";
 import { Cutaway, MicroScale, Story } from "./TopicScenes";
+import { Mechanism } from "./Mechanisms";
 import { BarChart, BeforeAfter, Timeline } from "./MoreDiagrams";
 import { Ambience, Sfx, SfxEnabled } from "./Sfx";
 import { Palette, SceneData, ShortsProps, WordItem, paletteFor } from "./types";
@@ -119,7 +120,7 @@ const SceneView: React.FC<SceneViewProps> = ({
         clips={scene.clips}
         variant={(bgSeed + index * 5) % BACKGROUND_VARIANTS}
         seed={bgSeed + index}
-        footageStrength={scene.type === "footage" ? 1 : 0.62}
+        footageStrength={scene.type === "footage" ? 1 : scene.type === "mechanism" ? 0 : 0.62}
       />
       <AbsoluteFill style={{ transform }}>
         {scene.type === "mindmap" ? (
@@ -132,6 +133,8 @@ const SceneView: React.FC<SceneViewProps> = ({
           <BarChart {...diagramProps} />
         ) : scene.type === "compare" ? (
           <BeforeAfter {...diagramProps} />
+        ) : scene.type === "mechanism" ? (
+          <Mechanism {...diagramProps} />
         ) : scene.type === "cutaway" ? (
           <Cutaway {...diagramProps} />
         ) : scene.type === "microscale" ? (

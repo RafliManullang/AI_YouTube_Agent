@@ -6,3 +6,4 @@ google-auth-httplib2
 requests
 Pillow
 python-dotenv
+numpy

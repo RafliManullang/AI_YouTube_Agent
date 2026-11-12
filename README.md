@@ -26,6 +26,14 @@ Agen ini membuat video YouTube Shorts sendiri, dari cari topik sampai diunggah:
 - Suara latar sesuai kejadian (angin, gesekan ban, benturan, deru mesin, air) ditambah musik latar buatan sendiri (misterius, semangat, atau tenang). Musik bisa dimatikan dengan `BGM=off`. Mau pakai musikmu sendiri? Taruh `bgm.mp3` di `video_engine/public`.
 - Thumbnail dibuat otomatis berukuran tegak 9:16 (`video_engine/out/thumbnail.jpg`) dan dipasang saat unggah. Kalau gagal dipasang, biasanya karena channel belum diverifikasi nomor teleponnya di YouTube, dan videonya tetap terunggah.
 
+## Tahap 7: video ~1 menit yang lebih natural
+
+- Narator tunggal (default). Dialog Shela dan Flay tidak lagi dipakai supaya hook tidak terbuang untuk basa-basi. Mau dialog lagi? Tulis `DIALOG=on` di `.env`.
+- Suara natural lewat Gemini TTS (key Gemini yang sama, satu permintaan untuk seluruh naskah supaya intonasinya mengalir). Pilihan suara: `GEMINI_VOICE` (bawaan Puck), model: `GEMINI_TTS_MODEL`. Kalau gagal atau kuota habis, otomatis pindah ke Edge-TTS. Paksa Edge-TTS dengan `TTS=edge`. Butuh paket `numpy` (`pip install -r requirements.txt`).
+- Animasi simulasi cara kerja (adegan `mechanism`): lift (kabin, tali baja, katrol, pemberat), roda gigi, piston dan poros engkol, tuas, aliran pipa menyempit, pemanas dan konveksi, rangkaian listrik, serta tekanan gas. Bagian benda diberi label yang muncul berurutan dengan bunyi kecil. Footage hanya dipakai di adegan `footage`.
+- Naskah ~60 detik, padat, dibuka dengan visual konkret dan premis yang bikin penasaran, ditutup dengan kalimat yang menyambung ke kalimat pembuka supaya video terasa berulang mulus.
+- Judul tidak lagi memakai `#Shorts`.
+
 ## Naskah yang lebih menarik dan tahan gangguan
 
 - Alur cerita dirancang supaya orang menonton sampai habis: hook menghentak, taruhan, penjelasan dengan analogi, titik balik di tengah, angka gila yang mudah dibayangkan, jawaban yang memuaskan, lalu penutup yang menyambung ke awal.

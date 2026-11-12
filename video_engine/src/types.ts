@@ -17,7 +17,18 @@ export type SceneType =
   | "footage"
   | "cutaway" // potongan melintang / tembus pandang
   | "microscale" // zoom dari benda utuh ke tingkat mikro
-  | "story"; // ilustrasi buku cerita dengan karakter berekspresi
+  | "story" // ilustrasi buku cerita dengan karakter berekspresi
+  | "mechanism"; // animasi cara kerja benda (lift, roda gigi, piston, ...)
+
+export type MechanismName =
+  | "katrol_lift"
+  | "roda_gigi"
+  | "piston"
+  | "tuas"
+  | "aliran"
+  | "panas"
+  | "rangkaian"
+  | "tekanan";
 
 export type ClipData = {
   file: string; // nama file video di folder public
@@ -49,6 +60,7 @@ export type SceneData = {
   videoSeconds?: number; // panjang klip video latar (detik)
   clips?: ClipData[]; // beberapa klip bergantian dalam satu adegan (satu per kalimat)
   variant?: "device" | "ground"; // untuk cutaway
+  mechanism?: MechanismName | ""; // untuk mechanism
   mood?: "senang" | "takut" | "kaget" | "sedih" | "tegang" | "bangga"; // untuk story
   weather?: "cerah" | "hujan" | "salju" | "badai" | "malam" | "kabut"; // untuk story
   sound?: AmbienceName;
