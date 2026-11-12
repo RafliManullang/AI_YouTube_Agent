@@ -180,7 +180,7 @@ def extract_json(text):
     text = re.sub(r"```$", "", text).strip()
     start, end = text.find("{"), text.rfind("}")
     if start == -1 or end == -1:
-        raise ValueError("Jawaban Gemini tidak berisi JSON.")
+        raise ValueError("Jawaban penulis naskah tidak berisi JSON.")
     return json.loads(text[start:end + 1])
 
 
@@ -196,6 +196,12 @@ def build_prompt(forced_topic, done_titles):
             "dinding batu bata, kenapa gergaji medis tidak melukai kulit).\n"
             "    3. Cerita sejarah dan kisah nyata yang unik (contoh: kisah bertahan hidup, budaya unik)."
         )
+    topic_rule += (
+        "\nSUDUT PANDANG TOPIK (penting): jangan topik dasar yang semua orang sudah tahu. Pilih sudut yang bikin "
+        "penonton bilang \"wah, baru tahu!\": sesuatu yang sering dilihat tapi jarang dipahami, kebalikan dari "
+        "dugaan umum, atau punya angka ekstrem yang bisa dibayangkan. Hanya pakai fakta yang kamu yakin benar. "
+        "Kalau tidak yakin dengan sebuah angka, pakai kata \"sekitar\" atau pilih topik lain."
+    )
     avoid = ""
     if done_titles:
         avoid = "Jangan ulangi topik yang sudah pernah dibuat: " + "; ".join(done_titles[-30:]) + "."
@@ -227,6 +233,14 @@ fakta mengejutkan, peringatan, atau pertanyaan yang memancing penasaran (contoh:
 rumah untuk mobil, ini akibatnya!"). DILARANG membuka dengan sapaan (halo, hai, selamat datang), basa-basi,
 "kali ini kita bahas", atau percakapan santai bernada datar. Visual adegan pertama harus langsung
 memperlihatkan inti masalahnya, bukan pemandangan umum.
+ALUR CERITA (supaya orang menonton sampai habis): (1) HOOK menghentak; (2) TARUHAN: kenapa ini penting
+atau bahaya apa yang mengintai; (3) PENJELASAN bertahap dengan analogi benda sehari-hari yang mudah dibayangkan;
+(4) TITIK BALIK tepat di tengah video: kalimat seperti "Tapi tunggu, ada yang lebih gila..." disusul fakta
+yang berlawanan dengan dugaan; (5) ANGKA GILA yang dibandingkan dengan benda yang akrab (contoh: "setara
+berat 6 ekor gajah", "sepanjang lapangan bola"), minimal 2 perbandingan seperti ini di seluruh video;
+(6) JAWABAN yang memuaskan rasa penasaran. Jangan membocorkan jawaban inti di awal: simpan sampai bagian
+(6). Penutup menyambung kembali ke hook atau melempar pertanyaan ke penonton supaya mereka berkomentar
+atau menonton ulang.
 TEMPO PADAT: kalimat pendek, tanpa pengantar bertele-tele, tanpa pengulangan. Setiap kalimat membawa
 informasi baru. Adegan terakhir penutup singkat yang bikin orang ingin menonton ulang. Ucapan hanya berisi
 kalimat yang diucapkan: tanpa instruksi panggung, tanpa emoji, tanpa tanda bintang, tanpa hashtag.
@@ -318,40 +332,159 @@ Keluarkan HANYA JSON murni dengan format persis ini:
 """
 
 
+GROQ_KEY = os.getenv("GROQ_API_KEY") or ""
+CEREBRAS_KEY = os.getenv("CEREBRAS_API_KEY") or ""
+# Penyedia cadangan (gratis) yang memakai format OpenAI: (nama, alamat, key, daftar model)
+BACKUP_PROVIDERS = [
+    ("Groq", "https://api.groq.com/openai/v1/chat/completions", GROQ_KEY,
+     [m for m in [os.getenv("GROQ_MODEL"), "llama-3.3-70b-versatile", "openai/gpt-oss-120b"] if m]),
+    ("Cerebras", "https://api.cerebras.ai/v1/chat/completions", CEREBRAS_KEY,
+     [m for m in [os.getenv("CEREBRAS_MODEL"), "gpt-oss-120b", "llama-3.3-70b"] if m]),
+]
+
+
+def call_openai_style(url, key, model, prompt):
+    """Panggil penyedia berformat OpenAI (Groq, Cerebras) dan kembalikan teks jawabannya."""
+    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+    body = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": "Kamu menjawab HANYA dengan satu objek JSON yang valid, tanpa teks lain."},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.9,
+        "max_tokens": 4096,
+        "response_format": {"type": "json_object"},
+    }
+    res = requests.post(url, headers=headers, json=body, timeout=90)
+    if res.status_code == 400 and "response_format" in res.text:
+        body.pop("response_format")  # model ini tidak mendukung mode JSON
+        res = requests.post(url, headers=headers, json=body, timeout=90)
+    if res.status_code != 200:
+        raise RuntimeError(f"{res.status_code} {res.text[:200]}")
+    return res.json()["choices"][0]["message"]["content"]
+
+
+def build_text_sources(prompt):
+    """Daftar sumber penulis naskah berurutan: Gemini dulu, lalu cadangan gratis.
+    Tiap item: (nama, fungsi yang mengembalikan teks JSON)."""
+    sources = []
+    if GEMINI_KEY and GEMINI_KEY != "ISI_KEY_DI_SINI":
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=GEMINI_KEY)
+        config = types.GenerateContentConfig(response_mime_type="application/json", temperature=1.0)
+        for model_name in GEMINI_MODELS:
+            sources.append((
+                f"Gemini {model_name}",
+                lambda mn=model_name: client.models.generate_content(model=mn, contents=prompt, config=config).text,
+            ))
+    for name, url, key, models in BACKUP_PROVIDERS:
+        if not key:
+            continue
+        for model_name in models:
+            sources.append((
+                f"{name} {model_name}",
+                lambda u=url, k=key, mn=model_name: call_openai_style(u, k, mn, prompt),
+            ))
+    return sources
+
+
+GREETINGS = ("halo", "hai", "hay", "selamat datang", "kali ini", "hari ini kita", "apa kabar", "teman-teman")
+DRAFT_SCENE_KEYS = ("lines", "title", "type", "tone", "points", "items", "number", "unit", "footage_query",
+                    "keywords", "variant", "mood", "weather", "sound")
+
+
+def polish_script(data, base_prompt):
+    """Putaran editor: naskah pertama ditulis ulang oleh editor supaya hook lebih kuat, ada titik balik,
+    angka yang mudah dibayangkan, dan faktanya dicek. Kalau gagal, naskah pertama dipakai apa adanya."""
+    if os.getenv("EDITOR", "on").strip().lower() == "off":
+        return data
+    info("  -> Editor sedang menyempurnakan naskah (hook, titik balik, angka, cek fakta)...")
+    draft = {k: data[k] for k in ("title", "description", "tags", "category", "thumbnail_text", "music") if k in data}
+    draft["scenes"] = [{k: sc[k] for k in DRAFT_SCENE_KEYS if k in sc} for sc in data["scenes"]]
+    editor_prompt = (
+        base_prompt
+        + "\n\n===== TUGAS KAMU SEKARANG: EDITOR =====\n"
+        "Di bawah ini ada DRAF naskah untuk topik di atas. Kamu editor video viral yang sangat kritis. Tulis ulang "
+        "draf itu menjadi versi yang jauh lebih menarik, dengan TOPIK YANG SAMA dan FORMAT JSON YANG SAMA PERSIS "
+        "seperti aturan di atas (jumlah adegan 6 sampai 7).\n"
+        "Periksa dan perbaiki satu per satu:\n"
+        "1. Hook: apakah 3 detik pertama membuat orang berhenti scroll? Kalau datar, ganti dengan fakta "
+        "mengejutkan atau peringatan yang lebih tajam. Tanpa sapaan.\n"
+        "2. Rasa penasaran: apakah ada pertanyaan yang baru terjawab di akhir? Pastikan jawaban tidak bocor di awal.\n"
+        "3. Titik balik di tengah video yang berlawanan dengan dugaan penonton.\n"
+        "4. Minimal 2 angka atau perbandingan yang mudah dibayangkan dengan benda akrab.\n"
+        "5. Hapus kalimat pengisi; setiap kalimat harus membawa informasi baru. Total ucapan 90 sampai 110 kata.\n"
+        "6. CEK FAKTA: perbaiki atau hapus klaim yang tidak pasti benar. Jangan mengarang angka; kalau ragu "
+        "pakai \"sekitar\" atau buang klaimnya.\n"
+        "7. Obrolan Shela dan Flay terdengar natural dan lucu-ringan, bukan membaca teks.\n"
+        "8. Penutup menyambung ke hook atau mengajak penonton berkomentar.\n"
+        "9. Pilih tipe adegan, footage_query, dan keywords yang paling pas untuk tiap kalimat.\n"
+        "Jawab HANYA dengan JSON hasil perbaikan.\n\nDRAF:\n"
+        + json.dumps(draft, ensure_ascii=False)
+    )
+    dead = set()
+    for name, call in build_text_sources(editor_prompt):
+        if name in dead:
+            continue
+        try:
+            better = extract_json(call())
+            validate_content(better)
+            words = sum(len(sc["narration"].split()) for sc in better["scenes"])
+            first = better["scenes"][0]["narration"].lower()
+            if not (4 <= len(better["scenes"]) <= 8 and 55 <= words <= 150):
+                raise ValueError(f"hasil editor tidak wajar ({len(better['scenes'])} adegan, {words} kata)")
+            if any(first.startswith(g) for g in GREETINGS):
+                raise ValueError("hasil editor masih dibuka dengan sapaan")
+            info(f"  -> Naskah disempurnakan oleh editor ({name})")
+            return better
+        except Exception as e:
+            message = str(e)
+            if any(x in message for x in ("404", "NOT_FOUND", "401", "403", "invalid_api_key", "model_not_found")):
+                dead.add(name)
+            info(f"  -> Editor ({name}) dilewati: {message[:100]}")
+    info("  -> Tahap editor tidak berhasil, memakai naskah pertama.")
+    return data
+
+
 def research_and_write(forced_topic=None):
     info("\n[1/5] Agen AI sedang meriset topik dan menulis naskah...")
-    if not GEMINI_KEY or GEMINI_KEY == "ISI_KEY_DI_SINI":
+    prompt = build_prompt(forced_topic, load_history())
+    sources = build_text_sources(prompt)
+    if not sources:
         raise RuntimeError(
-            "API key Gemini belum diisi. Buat file .env di folder proyek, lalu isi baris:\n"
-            "GEMINI_API_KEY=kunci_anda   (lihat file .env.example)"
+            "Belum ada API key penulis naskah. Buat file .env di folder proyek, lalu isi baris:\n"
+            "GEMINI_API_KEY=kunci_anda   (lihat file .env.example). Cadangan gratis: GROQ_API_KEY atau CEREBRAS_API_KEY."
         )
 
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(api_key=GEMINI_KEY)
-    config = types.GenerateContentConfig(response_mime_type="application/json", temperature=1.0)
-    prompt = build_prompt(forced_topic, load_history())
-
     last_error = None
-    for model_name in GEMINI_MODELS:
-        for attempt in range(1, 4):
-            try:
-                response = client.models.generate_content(model=model_name, contents=prompt, config=config)
-                data = extract_json(response.text)
-                validate_content(data)
-                info(f"  -> Naskah dibuat dengan model {model_name}")
-                return data
-            except Exception as e:
-                last_error = e
-                message = str(e)
-                # model tidak ditemukan -> langsung coba model lain
-                if "404" in message or "NOT_FOUND" in message:
-                    info(f"  -> Model {model_name} tidak tersedia, mencoba model lain...")
-                    break
-                info(f"  -> Percobaan {attempt}/3 dengan {model_name} gagal: {message[:150]}")
-                time.sleep(5 * attempt)
-    raise RuntimeError(f"Gemini gagal membuat naskah: {last_error}")
+    dead = set()  # sumber yang tidak tersedia (model tidak ada atau key salah) dilewati pada putaran berikutnya
+    for round_no in (1, 2):
+        for name, call in sources:
+            if name in dead:
+                continue
+            # model yang sedang sibuk dicoba 2 kali saja, lalu pindah ke sumber berikutnya
+            for attempt in (1, 2):
+                try:
+                    data = extract_json(call())
+                    validate_content(data)
+                    info(f"  -> Naskah dibuat dengan {name}")
+                    return polish_script(data, prompt)
+                except Exception as e:
+                    last_error = e
+                    message = str(e)
+                    if any(x in message for x in ("404", "NOT_FOUND", "401", "403", "invalid_api_key", "model_not_found")):
+                        info(f"  -> {name} tidak bisa dipakai ({message[:90]}), mencoba sumber lain...")
+                        dead.add(name)
+                        break
+                    info(f"  -> Percobaan {attempt}/2 dengan {name} gagal: {message[:130]}")
+                    time.sleep(3 * attempt)
+        if round_no == 1 and len(dead) < len(sources):
+            info("  -> Semua sumber sedang sibuk. Menunggu 40 detik lalu mengulang dari awal...")
+            time.sleep(40)
+    raise RuntimeError(f"Semua penulis naskah gagal. Kesalahan terakhir: {last_error}")
 
 
 def clean_text(value, limit):

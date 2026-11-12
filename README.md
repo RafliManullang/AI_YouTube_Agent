@@ -26,6 +26,12 @@ Agen ini membuat video YouTube Shorts sendiri, dari cari topik sampai diunggah:
 - Suara latar sesuai kejadian (angin, gesekan ban, benturan, deru mesin, air) ditambah musik latar buatan sendiri (misterius, semangat, atau tenang). Musik bisa dimatikan dengan `BGM=off`. Mau pakai musikmu sendiri? Taruh `bgm.mp3` di `video_engine/public`.
 - Thumbnail dibuat otomatis berukuran tegak 9:16 (`video_engine/out/thumbnail.jpg`) dan dipasang saat unggah. Kalau gagal dipasang, biasanya karena channel belum diverifikasi nomor teleponnya di YouTube, dan videonya tetap terunggah.
 
+## Naskah yang lebih menarik dan tahan gangguan
+
+- Alur cerita dirancang supaya orang menonton sampai habis: hook menghentak, taruhan, penjelasan dengan analogi, titik balik di tengah, angka gila yang mudah dibayangkan, jawaban yang memuaskan, lalu penutup yang menyambung ke awal.
+- Setelah naskah pertama jadi, ada tahap editor: naskah ditulis ulang untuk memperkuat hook, titik balik, dan angka, sekaligus mengecek fakta. Kalau tahap ini gagal, naskah pertama tetap dipakai. Matikan dengan `EDITOR=off` di `.env`.
+- Kalau Gemini sedang sibuk (error 503), agen otomatis pindah ke penulis cadangan gratis: Groq lalu Cerebras. Isi `GROQ_API_KEY` dan/atau `CEREBRAS_API_KEY` di `.env`. Gemini tetap dipakai lebih dulu.
+
 ## Persiapan sekali saja
 
 1. Pasang Python dan Node.js.
