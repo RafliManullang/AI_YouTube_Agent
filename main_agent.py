@@ -66,10 +66,22 @@ GEMINI_MODELS = [
 
 VOICE = os.getenv("VOICE", "id-ID-ArdiNeural")  # suara cowok; cewek: id-ID-GadisNeural
 VOICE_RATE = os.getenv("VOICE_RATE", "+15%")
+# Suara narator: "auto" memakai Gemini TTS (lebih natural) kalau ada key Gemini, dan Edge-TTS kalau gagal.
+# TTS=edge memaksa Edge-TTS saja. GEMINI_VOICE: Puck (ceria), Charon (informatif), Kore (tegas), Fenrir, Orus, dll.
+TTS_MODE = os.getenv("TTS", "auto").strip().lower()
+GEMINI_VOICE = os.getenv("GEMINI_VOICE", "Puck")
+GEMINI_TTS_MODELS = [m for m in [os.getenv("GEMINI_TTS_MODEL"), "gemini-3.1-flash-tts-preview",
+                                 "gemini-2.5-flash-preview-tts"] if m]
+TTS_STYLE = (
+    "Bacakan teks berikut dalam Bahasa Indonesia seperti kreator konten yang sedang bercerita ke teman dengan "
+    "penuh semangat: intonasi hidup dan ekspresif, tekankan kata-kata penting, tempo cepat dan padat, penasaran "
+    "di bagian pertanyaan, dan tegas di kalimat penutup. Harus terdengar seperti manusia sungguhan, bukan robot"
+)
 PRIVACY = os.getenv("YOUTUBE_PRIVACY", "private")  # private / unlisted / public
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 SCENE_TYPES = ("flow", "mindmap", "counter", "timeline", "barchart", "compare", "gauge", "footage",
-               "cutaway", "microscale", "story")
+               "cutaway", "microscale", "story", "mechanism")
+MECHANISMS = ("katrol_lift", "roda_gigi", "piston", "tuas", "aliran", "panas", "rangkaian", "tekanan")
 MOODS = ("senang", "takut", "kaget", "sedih", "tegang", "bangga")
 WEATHERS = ("cerah", "hujan", "salju", "badai", "malam", "kabut")
 AMBIENCES = ("angin", "gesekan", "benturan", "mesin", "air", "hening")
@@ -79,7 +91,7 @@ SPEAKERS = {
     "shela": (os.getenv("VOICE_SHELA", "id-ID-GadisNeural"), 0),
     "flay": (os.getenv("VOICE_FLAY", os.getenv("VOICE", "id-ID-ArdiNeural")), 0),
 }
-DIALOG = os.getenv("DIALOG", "on").strip().lower() != "off"  # DIALOG=off: satu narator saja
+DIALOG = os.getenv("DIALOG", "off").strip().lower() == "on"  # bawaan: satu narator. DIALOG=on: obrolan Shela dan Flay
 # Urutan harus sama dengan THEMES di video_engine/src/types.ts
 THEME_NAMES = ("pelangi", "neon", "senja", "hutan", "samudra", "emas", "kosmik", "sepia")
 # Tema dipilih agen sendiri sesuai kategori, dan tidak mengulang tema 3 video terakhir
@@ -125,7 +137,7 @@ def load_video_notes():
     history = load_history()
     return {
         "title": history[-1] if history else "Fakta Sains Menarik",
-        "description": "Fakta sains dan cara kerja benda sehari-hari. #Shorts #Sains #Teknologi",
+        "description": "Fakta sains dan cara kerja benda sehari-hari. #Sains #Teknologi",
         "tags": ["sains", "teknologi", "carakerja", "shorts", "edukasi"],
     }
 
@@ -217,20 +229,25 @@ def build_prompt(forced_topic, done_titles):
         )
     else:
         style_rule = (
-            "FORMAT NARASI: satu narator (speaker selalu \"flay\"), tiap adegan punya \"lines\" berisi "
-            "1 giliran bicara 10 sampai 25 kata. Gaya seru, cepat, santai ala kreator konten modern."
+            "FORMAT NARASI: SATU narator manusia yang bercerita langsung ke penonton (speaker selalu \"flay\"), "
+            "tiap adegan punya \"lines\" berisi 1 sampai 2 kalimat (10 sampai 25 kata). Gaya bertutur seperti "
+            "kreator yang sedang bercerita ke teman: ekspresif, ada penekanan, boleh bertanya ke penonton, tanpa "
+            "basa-basi dan tanpa tanya-jawab dengan orang lain."
         )
     return f"""
 Kamu adalah scriptwriter YouTube Shorts edukasi berbahasa Indonesia, gaya Kok Bisa / Veritasium.
 {topic_rule}
 {avoid}
 
-Pecah video menjadi 6 sampai 7 ADEGAN berurutan. Setiap adegan punya percakapan yang diucapkan dan
-visual beranimasi. Total seluruh ucapan sekitar 90-110 kata (durasi 38-45 detik).
+Pecah video menjadi 8 sampai 10 ADEGAN berurutan. Setiap adegan punya ucapan dan visual beranimasi.
+Total seluruh ucapan sekitar 150-175 kata (durasi sekitar 60 detik), padat, langsung ke inti, dan alurnya
+runtut dari awal sampai akhir.
 {style_rule}
 HOOK 3 DETIK PERTAMA (paling penting): kalimat pertama WAJIB langsung menghentak, maksimal 12 kata, berupa
-fakta mengejutkan, peringatan, atau pertanyaan yang memancing penasaran (contoh: "Jangan pernah pakai kaca
-rumah untuk mobil, ini akibatnya!"). DILARANG membuka dengan sapaan (halo, hai, selamat datang), basa-basi,
+fakta mengejutkan, peringatan, atau premis yang memancing penasaran dan menyebut benda konkretnya (contoh:
+"Di balik dinding lift ini ada balok besi seberat mobil. Kamu naik, dia turun. Buat apa?" atau "Jangan pernah
+pakai kaca rumah untuk mobil, ini akibatnya!"). Visual adegan pertama sudah memperlihatkan benda itu di detik
+ke-0 (pakai tipe "mechanism" atau "cutaway" kalau topiknya cara kerja benda). DILARANG membuka dengan sapaan (halo, hai, selamat datang), basa-basi,
 "kali ini kita bahas", atau percakapan santai bernada datar. Visual adegan pertama harus langsung
 memperlihatkan inti masalahnya, bukan pemandangan umum.
 ALUR CERITA (supaya orang menonton sampai habis): (1) HOOK menghentak; (2) TARUHAN: kenapa ini penting
@@ -239,8 +256,11 @@ atau bahaya apa yang mengintai; (3) PENJELASAN bertahap dengan analogi benda seh
 yang berlawanan dengan dugaan; (5) ANGKA GILA yang dibandingkan dengan benda yang akrab (contoh: "setara
 berat 6 ekor gajah", "sepanjang lapangan bola"), minimal 2 perbandingan seperti ini di seluruh video;
 (6) JAWABAN yang memuaskan rasa penasaran. Jangan membocorkan jawaban inti di awal: simpan sampai bagian
-(6). Penutup menyambung kembali ke hook atau melempar pertanyaan ke penonton supaya mereka berkomentar
-atau menonton ulang.
+(6). PENUTUP MELINGKAR (seamless loop): kalimat terakhir harus tersambung secara tata bahasa dengan kalimat
+pertama, sehingga saat video berulang otomatis, kedua kalimat terdengar seperti satu kalimat yang berputar.
+Contoh: kalimat pertama "Di balik dinding lift ini ada balok besi seberat mobil." dan kalimat terakhir
+"Jadi, itulah rahasia kenapa lift tidak jatuh, dan itu semua karena di balik dinding lift ini". Kalimat
+terakhir boleh menggantung seperti itu.
 TEMPO PADAT: kalimat pendek, tanpa pengantar bertele-tele, tanpa pengulangan. Setiap kalimat membawa
 informasi baru. Adegan terakhir penutup singkat yang bikin orang ingin menonton ulang. Ucapan hanya berisi
 kalimat yang diucapkan: tanpa instruksi panggung, tanpa emoji, tanpa tanda bintang, tanpa hashtag.
@@ -274,13 +294,29 @@ Aturan visual tiap adegan (field "type"):
                kisah nyata. Isi "mood" (salah satu: "senang", "takut", "kaget", "sedih", "tegang", "bangga"),
                "weather" (salah satu: "cerah", "hujan", "salju", "badai", "malam", "kabut"), dan "points"
                berisi 1 sampai 3 keterangan pendek (maksimal 5 kata).
+- "mechanism": animasi yang MEMPERLIHATKAN cara kerja suatu benda sehingga penonton paham tanpa membaca.
+               PRIORITAS UTAMA untuk topik cara kerja benda dan banyak topik sains. Isi "mechanism" dengan
+               salah satu di bawah ini, dan isi "items" berisi 3 sampai 4 nama bagian BERURUTAN sesuai
+               daftar bagian-nya (ganti dengan nama bagian benda yang sebenarnya, maksimal 2 kata per label,
+               "value" boleh kosong):
+                 "katrol_lift" (lift, derek, katrol): bagian 1 kabin, 2 tali baja, 3 pemberat, 4 katrol
+                 "roda_gigi" (jam, mesin, sepeda): 1 gigi penggerak, 2 gigi perantara, 3 gigi keluaran
+                 "piston" (mesin, pompa, rem hidrolik): 1 piston, 2 silinder, 3 poros engkol
+                 "tuas" (gunting, jungkat-jungkit, pembuka botol): 1 titik tumpu, 2 beban, 3 gaya tekan
+                 "aliran" (pipa, semprotan, sayap pesawat): 1 pipa lebar, 2 penyempitan, 3 aliran cepat
+                 "panas" (rice cooker, kompor, oven): 1 sumber panas, 2 isi yang dipanaskan, 3 sensor suhu, 4 uap
+                 "rangkaian" (lampu, charger, saklar): 1 baterai, 2 saklar, 3 lampu, 4 aliran listrik
+                 "tekanan" (ban, kompresor, suntikan, balon): 1 tutup atau piston, 2 partikel gas, 3 pengukur tekanan
 - "compare"  : sebelum dan sesudah, atau dua hal yang dibandingkan. Isi "items" dengan TEPAT 2 item
                berbentuk {{"label": "judul sisi maksimal 2 kata, misalnya Sebelum / Sesudah / Dulu / Kini",
                "value": "penjelasan maksimal 8 kata"}}.
 Pakai "counter" dan "barchart" HANYA kalau angkanya benar-benar faktual, jangan mengarang angka.
-Pakai "timeline" hanya kalau memang ada urutan waktu. Pakai campuran minimal 4 tipe yang berbeda. Hindari tampilan abstrak: sebisa mungkin sebut benda nyatanya.
+Pakai "timeline" hanya kalau memang ada urutan waktu. Hindari kartu teks dan diagram kotak-kotak ("flow", "mindmap") kecuali terpaksa: penonton cepat bosan melihat
+teks muncul bergantian. Utamakan visual yang bergerak dan konkret ("mechanism", "cutaway", "microscale",
+"story", "gauge"), dan pakai "footage" paling banyak 2 adegan (adegan pembuka dan satu lagi).
+Pakai campuran minimal 4 tipe yang berbeda.
 PILIH GAYA ANIMASI SESUAI KATEGORI: kategori "CARA KERJA" utamakan "cutaway" (minimal 2 adegan) ditambah
-"flow"; kategori "FAKTA SAINS" utamakan "microscale" (minimal 1 adegan) ditambah "gauge", "barchart" atau
+"mechanism"; kategori "FAKTA SAINS" utamakan "microscale" (minimal 1 adegan) ditambah "gauge", "barchart" atau
 "compare"; kategori "KISAH NYATA" utamakan "story" (minimal 2 adegan) ditambah "timeline" atau "footage".
 "title" maksimal 4 kata. Setiap isi "points" maksimal 4 kata, tanpa emoji dan tanpa tanda baca.
 VISUAL SESUAI ISI KALIMAT: setiap giliran bicara di "lines" boleh punya "footage_query" sendiri, yaitu 2 sampai
@@ -305,7 +341,7 @@ boleh diakhiri tanda tanya, tanpa emoji.
 Keluarkan HANYA JSON murni dengan format persis ini:
 {{
   "title": "Judul menarik maksimal 60 karakter",
-  "description": "Deskripsi singkat 2-3 kalimat. #Shorts #Sains #Teknologi",
+  "description": "Deskripsi singkat 2-3 kalimat. Lalu 2 sampai 3 hashtag topik (contoh #Sains #CaraKerja). JANGAN pakai #Shorts.",
   "tags": ["sains", "teknologi", "carakerja", "shorts", "edukasi"],
   "category": "CARA KERJA",
   "thumbnail_text": "KOK BISA JATUH?",
@@ -409,19 +445,21 @@ def polish_script(data, base_prompt):
         + "\n\n===== TUGAS KAMU SEKARANG: EDITOR =====\n"
         "Di bawah ini ada DRAF naskah untuk topik di atas. Kamu editor video viral yang sangat kritis. Tulis ulang "
         "draf itu menjadi versi yang jauh lebih menarik, dengan TOPIK YANG SAMA dan FORMAT JSON YANG SAMA PERSIS "
-        "seperti aturan di atas (jumlah adegan 6 sampai 7).\n"
+        "seperti aturan di atas (jumlah adegan 8 sampai 10, total ucapan 150 sampai 175 kata).\n"
         "Periksa dan perbaiki satu per satu:\n"
         "1. Hook: apakah 3 detik pertama membuat orang berhenti scroll? Kalau datar, ganti dengan fakta "
         "mengejutkan atau peringatan yang lebih tajam. Tanpa sapaan.\n"
         "2. Rasa penasaran: apakah ada pertanyaan yang baru terjawab di akhir? Pastikan jawaban tidak bocor di awal.\n"
         "3. Titik balik di tengah video yang berlawanan dengan dugaan penonton.\n"
         "4. Minimal 2 angka atau perbandingan yang mudah dibayangkan dengan benda akrab.\n"
-        "5. Hapus kalimat pengisi; setiap kalimat harus membawa informasi baru. Total ucapan 90 sampai 110 kata.\n"
+        "5. Hapus kalimat pengisi; setiap kalimat harus membawa informasi baru. Total ucapan 150 sampai 175 kata, tanpa dialog dua orang.\n"
         "6. CEK FAKTA: perbaiki atau hapus klaim yang tidak pasti benar. Jangan mengarang angka; kalau ragu "
         "pakai \"sekitar\" atau buang klaimnya.\n"
         "7. Obrolan Shela dan Flay terdengar natural dan lucu-ringan, bukan membaca teks.\n"
         "8. Penutup menyambung ke hook atau mengajak penonton berkomentar.\n"
-        "9. Pilih tipe adegan, footage_query, dan keywords yang paling pas untuk tiap kalimat.\n"
+        "9. Pilih tipe adegan, footage_query, dan keywords yang paling pas untuk tiap kalimat. Ganti kartu teks "
+        "(\"flow\", \"mindmap\") dengan animasi konkret (\"mechanism\", \"cutaway\", \"microscale\", \"story\") bila bisa.\n"
+        "10. Pastikan kalimat terakhir tersambung secara tata bahasa dengan kalimat pertama (seamless loop).\n"
         "Jawab HANYA dengan JSON hasil perbaikan.\n\nDRAF:\n"
         + json.dumps(draft, ensure_ascii=False)
     )
@@ -434,7 +472,7 @@ def polish_script(data, base_prompt):
             validate_content(better)
             words = sum(len(sc["narration"].split()) for sc in better["scenes"])
             first = better["scenes"][0]["narration"].lower()
-            if not (4 <= len(better["scenes"]) <= 8 and 55 <= words <= 150):
+            if not (6 <= len(better["scenes"]) <= 10 and 110 <= words <= 215):
                 raise ValueError(f"hasil editor tidak wajar ({len(better['scenes'])} adegan, {words} kata)")
             if any(first.startswith(g) for g in GREETINGS):
                 raise ValueError("hasil editor masih dibuka dengan sapaan")
@@ -551,7 +589,7 @@ def validate_content(data):
         data["tags"] = [str(data["tags"])]
 
     scenes = []
-    for raw in data["scenes"][:8]:
+    for raw in data["scenes"][:10]:
         lines = clean_lines(raw)
         narration = " ".join(l["text"] for l in lines)
         if len(narration.split()) < 4:
@@ -579,6 +617,15 @@ def validate_content(data):
         elif scene_type == "compare":
             items = clean_items(raw.get("items"), False)[:2]
             if len(items) < 2:
+                scene_type, items = "flow", []
+        elif scene_type == "mechanism":
+            items = [
+                {"label": clean_text(it.get("label"), 24), "value": clean_text(it.get("value"), 40)}
+                for it in (raw.get("items") or [])
+                if isinstance(it, dict) and clean_text(it.get("label"), 24)
+            ][:4]
+            mech = str(raw.get("mechanism") or "").strip().lower()
+            if len(items) < 2 or mech not in MECHANISMS:
                 scene_type, items = "flow", []
         elif scene_type == "cutaway":
             items = clean_items(raw.get("items"), False)[:4]
@@ -608,17 +655,19 @@ def validate_content(data):
         tone = raw.get("tone") if raw.get("tone") in TONES else None
         sound = str(raw.get("sound") or "").strip().lower()
         variant = str(raw.get("variant") or "").strip().lower()
+        mechanism = str(raw.get("mechanism") or "").strip().lower()
         mood = str(raw.get("mood") or "").strip().lower()
         weather = str(raw.get("weather") or "").strip().lower()
         keywords = [clean_text(k, 30) for k in (raw.get("keywords") or []) if str(k).strip()][:3]
         scenes.append({
             "variant": variant if variant in ("device", "ground") else "device",
+            "mechanism": mechanism if mechanism in MECHANISMS else "",
             "mood": mood if mood in MOODS else "tegang",
             "weather": weather if weather in WEATHERS else "cerah",
             "keywords": keywords,
             "narration": narration,
             "lines": lines,
-            "sound": sound if sound in AMBIENCES else "hening",
+            "sound": sound if sound in AMBIENCES else ("mesin" if mechanism in ("katrol_lift", "roda_gigi", "piston") else "air" if mechanism == "aliran" else "hening"),
             "title": clean_text(raw.get("title"), 40) or "Tahukah kamu",
             "type": scene_type,
             "tone": tone,
@@ -643,8 +692,6 @@ def validate_content(data):
                 scene["tone"] = "santai" if i % 2 else "semangat"
 
     # Adegan pembuka sebaiknya rekaman asli (hook). Kalau videonya tidak ada, nanti diturunkan otomatis.
-    if scenes[0]["type"] != "footage" and scenes[0].get("footage_query"):
-        scenes[0]["type"] = "footage"
     for scene in scenes:
         if scene["type"] == "footage" and not scene.get("footage_query"):
             scene["type"] = "mindmap" if len(scene["points"]) >= 2 else "flow"
@@ -838,7 +885,7 @@ async def generate_scene_voices(scenes, output_audio_path):
                 audio, words, seconds = trim_breaths(audio, words, seconds)
                 line["start"] = round(offset, 2)
                 line["end"] = round(offset + seconds, 2)
-                for w in align_words(words, line["text"], line["speaker"], scene.get("keywords") or ()):
+                for w in align_words(words, line["text"], line["speaker"] if DIALOG else "narator", scene.get("keywords") or ()):
                     w["start"] = round(w["start"] + offset, 2)
                     w["end"] = round(w["end"] + offset, 2)
                     all_words.append(w)
@@ -1004,6 +1051,8 @@ def fetch_stock_videos(scenes):
     for i, scene in enumerate(scenes):
         scene.pop("clips", None)
         clips = []
+        if scene["type"] != "footage":
+            continue  # hanya adegan footage yang memakai rekaman asli; adegan lain memakai animasi sendiri
         for j, (query, start, end) in enumerate(plan_clips(scene)):
             try:
                 if query in cache:
@@ -1054,7 +1103,63 @@ def run_command(cmd, cwd):
     subprocess.run(cmd, cwd=cwd, check=True)
 
 
-def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0):
+def generate_voice_gemini(scenes, wav_path):
+    """Seluruh naskah dibacakan sekali oleh Gemini TTS, lalu waktu tiap kata dicari dari jeda napasnya."""
+    import natural_voice as nv
+
+    info("[2/5] Membuat suara narator natural (Gemini TTS)...")
+    tokens, owners = [], []
+    for i, sc in enumerate(scenes):
+        for j, line in enumerate(sc["lines"]):
+            toks = line["text"].split()
+            tokens += toks
+            owners += [(i, j)] * len(toks)
+    script_text = " ".join(" ".join(l["text"] for l in sc["lines"]) for sc in scenes)
+
+    audio, pauses = nv.make_voice(GEMINI_KEY, GEMINI_TTS_MODELS, GEMINI_VOICE, script_text, TTS_STYLE, log=info)
+    audio_seconds = len(audio) / nv.SAMPLE_RATE
+    times = nv.align_words(tokens, audio_seconds, pauses)
+
+    words, pos = [], 0
+    for i, sc in enumerate(scenes):
+        for j, line in enumerate(sc["lines"]):
+            n = len(line["text"].split())
+            raw = [{"word": tokens[pos + k], "start": times[pos + k][0], "end": times[pos + k][1]} for k in range(n)]
+            line["start"] = round(max(0.0, raw[0]["start"] - 0.05), 2)
+            line["end"] = round(raw[-1]["end"] + 0.1, 2)
+            who = line["speaker"] if DIALOG else "narator"
+            words += align_words(raw, line["text"], who, sc.get("keywords") or ())
+            pos += n
+
+    duration = round(audio_seconds + 0.3, 2)  # akhir dibuat rapat supaya video berulang terasa menyambung
+    for i, sc in enumerate(scenes):
+        first = sc["lines"][0]["start"]
+        sc["start"] = 0.0 if i == 0 else round(max(scenes[i - 1]["lines"][-1]["end"], first - 0.08), 2)
+    for i, sc in enumerate(scenes):
+        sc["end"] = scenes[i + 1]["start"] if i + 1 < len(scenes) else duration
+    nv.write_wav(wav_path, audio)
+    return words, duration
+
+
+async def generate_voices(scenes):
+    """Pilih pembuat suara. Hasil: (kata-kata, durasi, nama file suara)."""
+    for name in ("voice.mp3", "voice.wav"):
+        path = os.path.join(PUBLIC_DIR, name)
+        if os.path.exists(path):
+            os.remove(path)
+    if TTS_MODE != "edge" and GEMINI_KEY and GEMINI_KEY != "ISI_KEY_DI_SINI":
+        try:
+            words, duration = generate_voice_gemini(scenes, os.path.join(PUBLIC_DIR, "voice.wav"))
+            info("  -> Suara: Gemini TTS")
+            return words, duration, "voice.wav"
+        except Exception as e:
+            info(f"  -> Suara Gemini tidak bisa dipakai ({str(e)[:160]}). Memakai Edge-TTS sebagai cadangan.")
+    words, duration = await generate_scene_voices(scenes, os.path.join(PUBLIC_DIR, "voice.mp3"))
+    info("  -> Suara: Edge-TTS")
+    return words, duration, "voice.mp3"
+
+
+def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3"):
     info("[4/5] Menjalankan Remotion (membuat video beranimasi)...")
     npm = shutil.which("npm")
     npx = shutil.which("npx")
@@ -1072,7 +1177,7 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
         os.remove(output_mp4)
 
     props = {
-        "audioUrl": "voice.mp3",
+        "audioUrl": audio_file,
         "scenes": [
             {
                 "type": s["type"],
@@ -1085,6 +1190,7 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
                 "end": s["end"],
                 "sound": s.get("sound", "hening"),
                 "variant": s.get("variant", "device"),
+                "mechanism": s.get("mechanism", ""),
                 "mood": s.get("mood", "tegang"),
                 "weather": s.get("weather", "cerah"),
                 **({"video": s["video"], "videoSeconds": s.get("video_seconds") or 0} if s.get("video") else {}),
@@ -1202,12 +1308,9 @@ def upload_video(video_path, content_data, privacy, publish_at=None):
     info(f"[5/5] Mengunggah Shorts ke YouTube (status: {privacy})...")
     youtube = get_yt_service()
 
-    title = content_data["title"]
-    if "#shorts" not in title.lower():
-        title = f"{title} #Shorts"
-    description = content_data["description"]
-    if "#shorts" not in description.lower():
-        description += "\n\n#Shorts"
+    # #Shorts tidak diperlukan YouTube (video tegak pendek otomatis jadi Shorts) dan membuat judul terlihat seperti spam
+    title = re.sub(r"\s*#shorts\b", "", content_data["title"], flags=re.I).strip()
+    description = re.sub(r"\s*#shorts\b", "", content_data["description"], flags=re.I).strip()
 
     body = {
         "snippet": {
@@ -1290,15 +1393,14 @@ def main():
         info(f"  -> Tema warna: {THEME_NAMES[data['theme_index']]}")
 
         os.makedirs(PUBLIC_DIR, exist_ok=True)
-        audio_dest = os.path.join(PUBLIC_DIR, "voice.mp3")
-        words, duration = asyncio.run(generate_scene_voices(data["scenes"], audio_dest))
+        words, duration, audio_file = asyncio.run(generate_voices(data["scenes"]))
         info(f"  -> Durasi video: {duration} detik, {len(words)} kata")
 
         credits = fetch_stock_videos(data["scenes"])
         if credits:
             data["description"] += "\n\nVideo latar: " + ", ".join(sorted(credits))
         final_video = render_remotion_video(
-            words, data["scenes"], duration, data["theme_index"], data.get("music"), data.get("bg_seed", 0)
+            words, data["scenes"], duration, data["theme_index"], data.get("music"), data.get("bg_seed", 0), audio_file
         )
         info(f"  -> Video selesai: {final_video}")
         render_thumbnail(data, data["scenes"])
