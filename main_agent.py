@@ -60,7 +60,8 @@ GEMINI_MODELS = [
     m for m in [
         os.getenv("GEMINI_MODEL", "gemini-3.8-flash"),
         "gemini-3.6-flash",
-        "gemini-flash-latest",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
     ] if m
 ]
 
@@ -395,9 +396,10 @@ CEREBRAS_KEY = os.getenv("CEREBRAS_API_KEY") or ""
 # Penyedia cadangan (gratis) yang memakai format OpenAI: (nama, alamat, key, daftar model)
 BACKUP_PROVIDERS = [
     ("Groq", "https://api.groq.com/openai/v1/chat/completions", GROQ_KEY,
-     [m for m in [os.getenv("GROQ_MODEL"), "llama-3.3-70b-versatile", "openai/gpt-oss-120b"] if m]),
+     [m for m in [os.getenv("GROQ_MODEL"), "openai/gpt-oss-120b", "llama-3.3-70b-versatile",
+                  "meta-llama/llama-4-scout-17b-16e-instruct", "qwen/qwen3-32b", "openai/gpt-oss-20b"] if m]),
     ("Cerebras", "https://api.cerebras.ai/v1/chat/completions", CEREBRAS_KEY,
-     [m for m in [os.getenv("CEREBRAS_MODEL"), "gpt-oss-120b", "llama-3.3-70b"] if m]),
+     [m for m in [os.getenv("CEREBRAS_MODEL"), "gpt-oss-120b", "llama-3.3-70b", "qwen-3-32b", "llama3.1-8b"] if m]),
 ]
 
 
@@ -411,16 +413,33 @@ def call_openai_style(url, key, model, prompt):
             {"role": "user", "content": prompt},
         ],
         "temperature": 0.9,
-        "max_tokens": 4096,
+        "max_tokens": 8192,
         "response_format": {"type": "json_object"},
     }
+    if "gpt-oss" in model:
+        body["reasoning_effort"] = "low"  # model penalaran jangan menghabiskan jatah token untuk berpikir
     res = requests.post(url, headers=headers, json=body, timeout=90)
     if res.status_code == 400 and "response_format" in res.text:
         body.pop("response_format")  # model ini tidak mendukung mode JSON
         res = requests.post(url, headers=headers, json=body, timeout=90)
+    if res.status_code == 400 and "reasoning_effort" in res.text:
+        body.pop("reasoning_effort")
+        res = requests.post(url, headers=headers, json=body, timeout=90)
     if res.status_code != 200:
         raise RuntimeError(f"{res.status_code} {res.text[:200]}")
     return res.json()["choices"][0]["message"]["content"]
+
+
+def available_models(url, key):
+    """Daftar model yang benar-benar bisa dipakai key ini (kosong kalau gagal ditanyakan)."""
+    try:
+        res = requests.get(url.rsplit("/chat/completions", 1)[0] + "/models",
+                           headers={"Authorization": f"Bearer {key}"}, timeout=10)
+        if res.status_code == 200:
+            return {x.get("id") for x in res.json().get("data", []) if x.get("id")}
+    except Exception:
+        pass
+    return set()
 
 
 def build_text_sources(prompt):
@@ -432,7 +451,8 @@ def build_text_sources(prompt):
         from google.genai import types
 
         client = genai.Client(api_key=GEMINI_KEY)
-        config = types.GenerateContentConfig(response_mime_type="application/json", temperature=1.0)
+        config = types.GenerateContentConfig(response_mime_type="application/json", temperature=1.0,
+                                             http_options=types.HttpOptions(timeout=75000))
         for model_name in GEMINI_MODELS:
             sources.append((
                 f"Gemini {model_name}",
@@ -441,6 +461,16 @@ def build_text_sources(prompt):
     for name, url, key, models in BACKUP_PROVIDERS:
         if not key:
             continue
+        have = available_models(url, key)
+        if have:
+            usable = [x for x in models if x in have]
+            if not usable:
+                usable = [x for x in sorted(have) if any(w in x for w in ("gpt-oss", "llama", "qwen"))
+                          and not any(w in x for w in ("guard", "whisper", "tts", "embed", "prompt"))][:3]
+            skipped = [x for x in models if x not in usable]
+            if skipped:
+                info(f"  -> {name}: model {', '.join(skipped)} tidak tersedia untuk key ini, dilewati.")
+            models = usable
         for model_name in models:
             sources.append((
                 f"{name} {model_name}",
@@ -521,7 +551,9 @@ def research_and_write(forced_topic=None):
 
     last_error = None
     dead = set()  # sumber yang tidak tersedia (model tidak ada atau key salah) dilewati pada putaran berikutnya
-    for round_no in (1, 2):
+    started = time.time()
+    waits = (25, 45, 70)  # jeda antar putaran (detik); total paling lama sekitar 8 menit
+    for round_no in range(1, len(waits) + 2):
         for name, call in sources:
             if name in dead:
                 continue
@@ -539,12 +571,22 @@ def research_and_write(forced_topic=None):
                         info(f"  -> {name} tidak bisa dipakai ({message[:90]}), mencoba sumber lain...")
                         dead.add(name)
                         break
+                    if "429" in message:
+                        info(f"  -> {name} kena batas pemakaian gratis, pindah ke sumber lain.")
+                        break
                     info(f"  -> Percobaan {attempt}/2 dengan {name} gagal: {message[:130]}")
                     time.sleep(3 * attempt)
-        if round_no == 1 and len(dead) < len(sources):
-            info("  -> Semua sumber sedang sibuk. Menunggu 40 detik lalu mengulang dari awal...")
-            time.sleep(40)
-    raise RuntimeError(f"Semua penulis naskah gagal. Kesalahan terakhir: {last_error}")
+        if len(dead) >= len(sources):
+            break
+        if round_no <= len(waits):
+            wait = waits[round_no - 1]
+            info(f"  -> Semua sumber sedang sibuk. Menunggu {wait} detik lalu mencoba lagi (putaran {round_no + 1}/{len(waits) + 1})...")
+            time.sleep(wait)
+    raise RuntimeError(
+        "Semua penulis naskah gagal setelah beberapa putaran (Gemini sibuk dan cadangan kena batas atau tidak tersedia). "
+        "Coba lagi 10 sampai 30 menit lagi, atau isi CEREBRAS_API_KEY di .env sebagai cadangan tambahan. "
+        f"Kesalahan terakhir: {last_error}"
+    )
 
 
 def clean_text(value, limit):
