@@ -158,6 +158,52 @@ def riser():
     return (tone * 0.6 + air * 0.8) * env
 
 
+def click():
+    # klik mekanis: dua ketukan logam sangat pendek
+    rng = np.random.default_rng(31)
+    t = t_axis(0.09)
+    a = np.sin(2 * np.pi * 3200 * t) * np.exp(-t * 130)
+    b = np.zeros(len(t))
+    k = int(0.028 * SR)
+    b[k:] = (np.sin(2 * np.pi * 1700 * t[: len(t) - k]) + smooth(rng.standard_normal(len(t) - k), 2)) * np.exp(-t[: len(t) - k] * 110)
+    return a + 0.8 * b
+
+
+def clank():
+    # denting logam: beberapa nada tak harmonis yang meredup
+    rng = np.random.default_rng(37)
+    t = t_axis(0.55)
+    env = np.exp(-t * 11)
+    tone = sum(np.sin(2 * np.pi * f * t) * w for f, w in ((410, 1.0), (687, 0.7), (1130, 0.5), (1873, 0.3)))
+    hit = smooth(rng.standard_normal(len(t)), 2) * np.exp(-t * 90)
+    return tone * env + hit * 1.2
+
+
+def hiss():
+    # desis tekanan udara: derau terang yang naik lalu turun cepat
+    rng = np.random.default_rng(41)
+    t = t_axis(0.7)
+    noise = rng.standard_normal(len(t)) - smooth(rng.standard_normal(len(t)), 8)
+    env = np.clip(t / 0.05, 0, 1) * np.exp(-t * 4.5)
+    return noise * env
+
+
+def tock():
+    # detak jam yang lebih rendah dari tick
+    t = t_axis(0.09)
+    return np.sin(2 * np.pi * 760 * t) * np.exp(-t * 55)
+
+
+def glitch():
+    # gangguan digital singkat: potongan derau dan nada lompat
+    rng = np.random.default_rng(43)
+    t = t_axis(0.3)
+    freq = np.where((t * 40).astype(int) % 2 == 0, 540, 1380) + (t * 40).astype(int) % 3 * 210
+    tone = np.sign(np.sin(2 * np.pi * np.cumsum(freq) / SR)) * 0.4
+    gate = ((t * 55).astype(int) % 3 != 0).astype(float)
+    return (tone + rng.standard_normal(len(t)) * 0.35) * gate * np.exp(-t * 6)
+
+
 if __name__ == "__main__":
     save("pop", pop())
     save("whoosh", whoosh(), peak=0.7)
@@ -170,4 +216,9 @@ if __name__ == "__main__":
     save("impact", impact(), peak=0.9)
     save("beep", beep(), peak=0.6)
     save("riser", riser(), peak=0.7)
+    save("click", click(), peak=0.8)
+    save("clank", clank(), peak=0.8)
+    save("hiss", hiss(), peak=0.6)
+    save("tock", tock(), peak=0.7)
+    save("glitch", glitch(), peak=0.6)
     print("Efek suara tersimpan di", os.path.abspath(OUT))

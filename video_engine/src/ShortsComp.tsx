@@ -14,7 +14,7 @@ import { BACKGROUND_VARIANTS, Background } from "./Background";
 import { Counter, FlowDiagram, MindMap } from "./Diagrams";
 import { FootageScene, Gauge } from "./ExtraScenes";
 import { Cutaway, MicroScale, Story } from "./TopicScenes";
-import { Mechanism } from "./Mechanisms";
+import { Mechanism, QuestionScene } from "./Mechanisms";
 import { BarChart, BeforeAfter, Timeline } from "./MoreDiagrams";
 import { Ambience, Sfx, SfxEnabled } from "./Sfx";
 import { Palette, SceneData, ShortsProps, WordItem, paletteFor } from "./types";
@@ -105,6 +105,13 @@ const SceneView: React.FC<SceneViewProps> = ({
 
   const diagramProps = { scene, palette, lengthFrames };
 
+  // Adegan cerita: transisi kilas balik (glitch), pinggiran gelap (vignette), dan detak jam
+  const isStory = scene.type === "story";
+  const glitchOn = isStory && !isFirst && frame < 9;
+  const glitchShift = glitchOn ? (frame % 2 ? 1 : -1) * (9 - frame) * 5 : 0;
+  if (glitchOn) transform = `translateX(${glitchShift}px) skewX(${glitchShift * 0.25}deg)`;
+  if (isStory) transform = `${transform === "none" ? "" : transform + " "}scale(${1 + 0.07 * Math.min(1, frame / Math.max(1, lengthFrames))})`;
+
   return (
     <AbsoluteFill style={{ opacity: fade }}>
       {!isFirst ? <Sfx name="whoosh" at={0} /> : null}
@@ -120,8 +127,14 @@ const SceneView: React.FC<SceneViewProps> = ({
         clips={scene.clips}
         variant={(bgSeed + index * 5) % BACKGROUND_VARIANTS}
         seed={bgSeed + index}
-        footageStrength={scene.type === "footage" ? 1 : scene.type === "mechanism" ? 0 : 0.62}
+        footageStrength={scene.type === "footage" ? 1 : scene.type === "mechanism" || scene.type === "question" ? 0 : 0.62}
       />
+      {isStory && !isFirst ? <Sfx name="glitch" at={0} volume={0.22} /> : null}
+      {isStory
+        ? [0, 1, 2, 3, 4, 5].map((i) => (
+            <Sfx key={`k${i}`} name="tock" at={Math.round(fps * (0.9 + i * 0.9))} volume={i % 2 ? 0.07 : 0.1} />
+          ))
+        : null}
       <AbsoluteFill style={{ transform }}>
         {scene.type === "mindmap" ? (
           <MindMap {...diagramProps} />
@@ -133,6 +146,8 @@ const SceneView: React.FC<SceneViewProps> = ({
           <BarChart {...diagramProps} />
         ) : scene.type === "compare" ? (
           <BeforeAfter {...diagramProps} />
+        ) : scene.type === "question" ? (
+          <QuestionScene {...diagramProps} />
         ) : scene.type === "mechanism" ? (
           <Mechanism {...diagramProps} />
         ) : scene.type === "cutaway" ? (
@@ -149,6 +164,22 @@ const SceneView: React.FC<SceneViewProps> = ({
           <FlowDiagram {...diagramProps} />
         )}
       </AbsoluteFill>
+      {isStory ? (
+        <AbsoluteFill
+          style={{
+            background: "radial-gradient(ellipse at 50% 42%, rgba(0,0,0,0) 46%, rgba(0,0,0,0.62) 100%)",
+          }}
+        />
+      ) : null}
+      {glitchOn ? (
+        <AbsoluteFill
+          style={{
+            background: `linear-gradient(0deg, rgba(255,0,80,0.18), rgba(0,230,255,0.18))`,
+            mixBlendMode: "screen",
+            transform: `translateX(${-glitchShift * 1.6}px)`,
+          }}
+        />
+      ) : null}
       {flash > 0 ? (
         <AbsoluteFill style={{ backgroundColor: palette.accent, opacity: flash }} />
       ) : null}

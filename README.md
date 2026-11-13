@@ -34,6 +34,15 @@ Agen ini membuat video YouTube Shorts sendiri, dari cari topik sampai diunggah:
 - Naskah ~60 detik, padat, dibuka dengan visual konkret dan premis yang bikin penasaran, ditutup dengan kalimat yang menyambung ke kalimat pembuka supaya video terasa berulang mulus.
 - Judul tidak lagi memakai `#Shorts`.
 
+## Tahap 8: storyboard dan efek sinematik
+
+- Kerangka adegan per kategori (hook, taruhan, bagian rahasia, proses, klimaks, fakta, penutup melingkar) sekarang ada di instruksi naskah.
+- Momen klimaks animasi cara kerja: gerakan melambat sebentar (slow motion), layar bergetar, kilat putih, dan bunyi denting atau desis. Kamera juga bergeser dan memperbesar perlahan.
+- Animasi baru: nozel bensin (lubang udara tertutup bensin lalu pengunci lepas) dan roda kereta kerucut (roda bergeser ke sisi besar saat belok). Aliran dibuat bercahaya.
+- Adegan baru `question`: tanda tanya merah besar yang berdenyut untuk hook yang melawan akal sehat.
+- Adegan cerita sejarah: pinggiran gelap (vignette), zoom pelan ala Ken Burns, transisi glitch kilas balik, dan detak jam halus.
+- Efek suara baru (dibuat sendiri): klik, denting logam, desis, detak jam, glitch (`python tools/buat_sfx.py`).
+
 ## Naskah yang lebih menarik dan tahan gangguan
 
 - Alur cerita dirancang supaya orang menonton sampai habis: hook menghentak, taruhan, penjelasan dengan analogi, titik balik di tengah, angka gila yang mudah dibayangkan, jawaban yang memuaskan, lalu penutup yang menyambung ke awal.

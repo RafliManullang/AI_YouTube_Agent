@@ -11,7 +11,12 @@ export type SfxName =
   | "screech"
   | "impact"
   | "beep"
-  | "riser";
+  | "riser"
+  | "click"
+  | "clank"
+  | "hiss"
+  | "tock"
+  | "glitch";
 
 export const SfxEnabled = createContext<boolean>(true);
 
@@ -24,6 +29,11 @@ const DEFAULT_VOLUME: Record<SfxName, number> = {
   impact: 0.5,
   beep: 0.22,
   riser: 0.3,
+  click: 0.3,
+  clank: 0.34,
+  hiss: 0.3,
+  tock: 0.22,
+  glitch: 0.3,
 };
 
 type Props = {

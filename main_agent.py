@@ -80,8 +80,9 @@ TTS_STYLE = (
 PRIVACY = os.getenv("YOUTUBE_PRIVACY", "private")  # private / unlisted / public
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 SCENE_TYPES = ("flow", "mindmap", "counter", "timeline", "barchart", "compare", "gauge", "footage",
-               "cutaway", "microscale", "story", "mechanism")
-MECHANISMS = ("katrol_lift", "roda_gigi", "piston", "tuas", "aliran", "panas", "rangkaian", "tekanan")
+               "cutaway", "microscale", "story", "mechanism", "question")
+MECHANISMS = ("katrol_lift", "roda_gigi", "piston", "tuas", "aliran", "panas", "rangkaian", "tekanan",
+              "nozel_bensin", "roda_kerucut")
 MOODS = ("senang", "takut", "kaget", "sedih", "tegang", "bangga")
 WEATHERS = ("cerah", "hujan", "salju", "badai", "malam", "kabut")
 AMBIENCES = ("angin", "gesekan", "benturan", "mesin", "air", "hening")
@@ -261,6 +262,22 @@ pertama, sehingga saat video berulang otomatis, kedua kalimat terdengar seperti 
 Contoh: kalimat pertama "Di balik dinding lift ini ada balok besi seberat mobil." dan kalimat terakhir
 "Jadi, itulah rahasia kenapa lift tidak jatuh, dan itu semua karena di balik dinding lift ini". Kalimat
 terakhir boleh menggantung seperti itu.
+STORYBOARD PER KATEGORI (urutan adegan, ikuti sebagai kerangka):
+- CARA KERJA: (1) hook: benda konkret + "question" atau "footage" (kenapa begini?); (2) taruhan: apa bahayanya kalau
+  tidak ada bagian rahasia ini; (3) "mechanism" atau "cutaway" yang menyorot bagian rahasia dengan label; (4) proses
+  alirannya (panah dan aliran bercahaya) dalam "mechanism"; (5) klimaks: momen bagian itu bekerja memutus atau
+  menahan, diucapkan dengan kalimat paling dramatis; (6) fakta mencengangkan berupa angka besar ("counter" atau
+  "gauge"), lalu kalimat penutup yang menyambung ke pembuka.
+- FAKTA SAINS: (1) hook "question" yang melawan akal sehat; (2) bongkar mitos ("compare"); (3) "microscale" atau
+  "mechanism" yang memperlihatkan rahasianya; (4) proses saat kejadian, diucapkan pelan dan jelas agar paham;
+  (5) kesimpulan jenius satu kalimat yang mudah diingat; (6) penutup melingkar.
+- KISAH NYATA: (1) hook titik balik dengan "story" atau "footage" yang diberi lingkaran sorot; (2) latar masalah
+  dengan taruhan bernada dramatis ("satu goresan kecil saja bisa membunuh setengah kota"); (3) momen "aha" saat
+  penemuan; (4) dampak besar ("barchart" atau "counter" yang faktual); (5) pelajaran penutup yang menyambung ke
+  kalimat pertama.
+Setiap momen klimaks atau kejutan diberi satu kalimat pendek yang menghentak (animasi otomatis memberi getaran
+dan kilat di momen itu).
+
 TEMPO PADAT: kalimat pendek, tanpa pengantar bertele-tele, tanpa pengulangan. Setiap kalimat membawa
 informasi baru. Adegan terakhir penutup singkat yang bikin orang ingin menonton ulang. Ucapan hanya berisi
 kalimat yang diucapkan: tanpa instruksi panggung, tanpa emoji, tanpa tanda bintang, tanpa hashtag.
@@ -307,6 +324,11 @@ Aturan visual tiap adegan (field "type"):
                  "panas" (rice cooker, kompor, oven): 1 sumber panas, 2 isi yang dipanaskan, 3 sensor suhu, 4 uap
                  "rangkaian" (lampu, charger, saklar): 1 baterai, 2 saklar, 3 lampu, 4 aliran listrik
                  "tekanan" (ban, kompresor, suntikan, balon): 1 tutup atau piston, 2 partikel gas, 3 pengukur tekanan
+                 "nozel_bensin" (nozel SPBU, pompa otomatis berhenti sendiri): 1 gagang, 2 lubang udara, 3 ruang hampa, 4 pengunci
+                 "roda_kerucut" (kereta api, rel, belok tanpa setir): 1 roda kerucut, 2 rel, 3 sisi besar
+- "question" : tanda tanya merah besar yang berdenyut, untuk adegan hook atau pembongkar mitos yang melawan akal
+               sehat (contoh: "REL KAKU, KOK NGGAK ANJLOK?"). "title" berisi kalimat tanya singkat dan "points"
+               berisi 1 teks pendek di bawah tanda tanya (maksimal 5 kata).
 - "compare"  : sebelum dan sesudah, atau dua hal yang dibandingkan. Isi "items" dengan TEPAT 2 item
                berbentuk {{"label": "judul sisi maksimal 2 kata, misalnya Sebelum / Sesudah / Dulu / Kini",
                "value": "penjelasan maksimal 8 kata"}}.
@@ -627,6 +649,8 @@ def validate_content(data):
             mech = str(raw.get("mechanism") or "").strip().lower()
             if len(items) < 2 or mech not in MECHANISMS:
                 scene_type, items = "flow", []
+        elif scene_type == "question" and not points:
+            scene_type = "flow"
         elif scene_type == "cutaway":
             items = clean_items(raw.get("items"), False)[:4]
             if len(items) < 2:
@@ -667,7 +691,7 @@ def validate_content(data):
             "keywords": keywords,
             "narration": narration,
             "lines": lines,
-            "sound": sound if sound in AMBIENCES else ("mesin" if mechanism in ("katrol_lift", "roda_gigi", "piston") else "air" if mechanism == "aliran" else "hening"),
+            "sound": sound if sound in AMBIENCES else ("mesin" if mechanism in ("katrol_lift", "roda_gigi", "piston", "roda_kerucut") else "air" if mechanism in ("aliran", "nozel_bensin") else "hening"),
             "title": clean_text(raw.get("title"), 40) or "Tahukah kamu",
             "type": scene_type,
             "tone": tone,
