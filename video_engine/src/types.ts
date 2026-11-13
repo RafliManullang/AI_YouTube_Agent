@@ -18,6 +18,7 @@ export type SceneType =
   | "cutaway" // potongan melintang / tembus pandang
   | "microscale" // zoom dari benda utuh ke tingkat mikro
   | "story" // ilustrasi buku cerita dengan karakter berekspresi
+  | "question" // tanda tanya besar berdenyut (hook yang melawan akal sehat)
   | "mechanism"; // animasi cara kerja benda (lift, roda gigi, piston, ...)
 
 export type MechanismName =
@@ -28,7 +29,9 @@ export type MechanismName =
   | "aliran"
   | "panas"
   | "rangkaian"
-  | "tekanan";
+  | "tekanan"
+  | "nozel_bensin"
+  | "roda_kerucut";
 
 export type ClipData = {
   file: string; // nama file video di folder public

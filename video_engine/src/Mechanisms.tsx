@@ -1,5 +1,5 @@
-import React from "react";
-import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import React, { useContext } from "react";
+import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { BODY_FONT, DiagramProps, SceneTitle, TITLE_FONT } from "./Diagrams";
 import { Sfx } from "./Sfx";
 import { Palette } from "./types";
@@ -60,7 +60,7 @@ const Callouts: React.FC<{
         const color = i % 2 ? palette.accent2 : palette.accent;
         return (
           <React.Fragment key={i}>
-            <Sfx name="pop" at={delay} volume={0.35} />
+            <Sfx name="click" at={delay} volume={0.3} />
             <div
               style={{
                 position: "absolute",
@@ -92,10 +92,14 @@ const Callouts: React.FC<{
   );
 };
 
+// Waktu animasi yang bisa melambat (slow motion) di detik klimaks, dan saat klimaks itu terjadi
+const MechClock = React.createContext<{ t: number; tc: number }>({ t: 0, tc: 99 });
+
 const useBasics = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  return { frame, fps, t: frame / fps };
+  const { t, tc } = useContext(MechClock);
+  return { frame, fps, t, tc };
 };
 
 const Frame: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -747,24 +751,295 @@ const Tekanan: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) => {
   );
 };
 
+// ============================================================
+// 9) NOZEL BENSIN: lubang udara tertutup bensin -> hampa -> pengunci lepas
+// ============================================================
+const NozelBensin: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) => {
+  const { t, tc } = useBasics();
+  const labels = (scene.items ?? []).map((i) => String(i.label));
+  const p = clamp01(t / Math.max(0.1, tc));
+  const k = smooth(tc, tc + 0.35, t); // 0 sebelum klimaks, 1 sesudahnya
+  const level = 1290 - 190 * p;
+  const flowing = t < tc + 0.05;
+  const fuelPath: [number, number][] = [[130, 582], [770, 582], [770, 1110]];
+  const airPath: [number, number][] = [[805, 1105], [805, 605], [600, 605]];
+  const along = (pts: [number, number][], u: number) => {
+    const lens = pts.slice(1).map((q, i) => Math.hypot(q[0] - pts[i][0], q[1] - pts[i][1]));
+    const total = lens.reduce((a, b) => a + b, 0);
+    let d = ((u % 1) + 1) % 1 * total;
+    for (let i = 0; i < lens.length; i++) {
+      if (d <= lens[i]) {
+        const f = d / lens[i];
+        return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * f, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * f];
+      }
+      d -= lens[i];
+    }
+    return pts[pts.length - 1];
+  };
+  const glow = "drop-shadow(0 0 10px #ffd23f)";
+  const airGlow = "drop-shadow(0 0 10px #7fd8ff)";
+  const diaphragmY = 588 - 42 * k;
+  const triggerAng = 24 * k;
+  return (
+    <>
+      <SceneTitle title={scene.title} palette={palette} />
+      <Frame>
+        {/* tangki */}
+        <rect x={620} y={900} width={390} height={420} rx={26} fill="rgba(255,255,255,0.05)" stroke={STEEL} strokeWidth={8} />
+        <rect x={700} y={860} width={150} height={50} fill="rgba(255,255,255,0.05)" stroke={STEEL} strokeWidth={8} />
+        <rect x={628} y={level} width={374} height={1312 - level} rx={18} fill="#e6a100" opacity={0.85} />
+        <path d={`M 628 ${level} q 50 ${-10 + 6 * Math.sin(t * 5)} 94 0 t 94 0 t 94 0 t 94 0`} fill="none" stroke="#ffe08a" strokeWidth={6} />
+        {/* badan nozel */}
+        <rect x={120} y={535} width={500} height={110} rx={50} fill="#2a3550" stroke={STEEL} strokeWidth={8} />
+        <rect x={560} y={548} width={230} height={84} fill="#2a3550" stroke="none" />
+        <path d="M 600 548 L 790 548 L 790 1130 L 740 1130 L 740 632 L 600 632" fill="#2a3550" stroke={STEEL} strokeWidth={8} strokeLinejoin="round" />
+        {/* ruang hampa dan membran */}
+        <rect x={480} y={535} width={120} height={110} rx={10} fill={`rgba(255,${80 - 40 * k},${70 - 30 * k},${0.1 + 0.55 * k})`} stroke={k > 0.5 ? "#ff5252" : STEEL_DARK} strokeWidth={6} />
+        <path d={`M 484 ${diaphragmY + 20} Q 540 ${diaphragmY - 22} 596 ${diaphragmY + 20}`} fill="none" stroke="#f4f4f4" strokeWidth={9} />
+        {/* pengunci dan pelatuk */}
+        <rect x={438 - 18 * k} y={612} width={16} height={32 + 0} rx={4} fill={palette.accent2} transform={`translate(0 ${-20 * k})`} />
+        <g transform={`rotate(${triggerAng} 330 650)`}>
+          <rect x={330} y={645} width={170} height={36} rx={14} fill={palette.accent} stroke="#0b1020" strokeWidth={5} />
+        </g>
+        {/* aliran bensin bercahaya */}
+        <g style={{ filter: glow }}>
+          {flowing
+            ? Array.from({ length: 26 }, (_, i) => {
+                const [x, y] = along(fuelPath, t * 0.7 + i / 26);
+                return <circle key={i} cx={x} cy={y} r={9} fill="#ffd23f" opacity={1 - k} />;
+              })
+            : null}
+        </g>
+        {/* udara tersedot lewat pipa kecil */}
+        <g style={{ filter: airGlow }}>
+          {t < tc + 0.05
+            ? Array.from({ length: 14 }, (_, i) => {
+                const [x, y] = along(airPath, t * 0.55 + i / 14);
+                return <circle key={i} cx={x} cy={y} r={6} fill="#bfeaff" opacity={p > 0.9 ? 1 : 0.75} />;
+              })
+            : null}
+        </g>
+        <circle cx={805} cy={1105} r={13} fill="none" stroke="#fff" strokeWidth={5} />
+        {/* ujung nozel yang menyentuh bensin */}
+        <rect x={738} y={1118} width={54} height={14} rx={5} fill={STEEL_DARK} />
+      </Frame>
+      <Sfx name="hiss" at={Math.round(30 * Math.max(0.5, tc * 0.55))} volume={0.2} />
+      <Callouts
+        palette={palette}
+        lengthFrames={lengthFrames}
+        labels={labels}
+        anchors={[
+          { x: 250, y: 590, side: "L", labelY: 440 },
+          { x: 805, y: 1105, side: "L", labelY: 1010 },
+          { x: 540, y: 590, side: "R", labelY: 430 },
+          { x: 440, y: 640, side: "L", labelY: 800 },
+        ]}
+      />
+    </>
+  );
+};
+
+// ============================================================
+// 10) RODA KERUCUT: roda bergeser ke sisi besar saat belok
+// ============================================================
+const RodaKerucut: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) => {
+  const { t, tc } = useBasics();
+  const labels = (scene.items ?? []).map((i) => String(i.label));
+  const shift = 70 * Math.sin(0.5 + t * 1.3) * (1 - 0.0 * tc);
+  const X = 540 + shift;
+  const r0 = 120;
+  const slope = 70;
+  const rl = r0 + (slope * (340 - (X - 390))) / 260;
+  const rr = r0 + slope - (slope * (740 - (X + 130))) / 260;
+  const yc = 860;
+  const railY = yc + (rl + rr) / 2;
+  const bigRight = rr > rl;
+  const wheelPts = (x0: number, x1: number, rAt: (x: number) => number) =>
+    `${x0},${yc - rAt(x0)} ${x1},${yc - rAt(x1)} ${x1},${yc + rAt(x1)} ${x0},${yc + rAt(x0)}`;
+  const rLeft = (x: number) => r0 + (slope * (x - (X - 390))) / 260;
+  const rRight = (x: number) => r0 + slope - (slope * (x - (X + 130))) / 260;
+  const barScale = 2.4;
+  const glow = "drop-shadow(0 0 10px #ffe14d)";
+  return (
+    <>
+      <SceneTitle title={scene.title} palette={palette} />
+      <Frame>
+        {/* rel */}
+        <rect x={290} y={railY} width={100} height={46} rx={10} fill={STEEL_DARK} stroke={STEEL} strokeWidth={5} />
+        <rect x={690} y={railY} width={100} height={46} rx={10} fill={STEEL_DARK} stroke={STEEL} strokeWidth={5} />
+        {/* gandar */}
+        <rect x={X - 130} y={yc - 16} width={260} height={32} fill={STEEL} stroke="#0b1020" strokeWidth={5} />
+        {/* roda kerucut */}
+        <polygon points={wheelPts(X - 390, X - 130, rLeft)} fill={palette.accent} stroke="#0b1020" strokeWidth={6} strokeLinejoin="round" opacity={0.95} />
+        <polygon points={wheelPts(X + 130, X + 390, rRight)} fill={palette.accent2} stroke="#0b1020" strokeWidth={6} strokeLinejoin="round" opacity={0.95} />
+        {/* flens (pinggiran) sisi dalam */}
+        <rect x={X - 150} y={yc - rLeft(X - 130) - 6} width={22} height={2 * rLeft(X - 130) + 40} rx={6} fill={STEEL} />
+        <rect x={X + 128} y={yc - rRight(X + 130) - 6} width={22} height={2 * rRight(X + 130) + 40} rx={6} fill={STEEL} />
+        {/* penanda diameter di titik sentuh */}
+        <g style={{ filter: glow }}>
+          <line x1={340} y1={yc} x2={340} y2={yc + rl} stroke="#ffe14d" strokeWidth={9} strokeLinecap="round" />
+          <line x1={740} y1={yc} x2={740} y2={yc + rr} stroke="#ffe14d" strokeWidth={9} strokeLinecap="round" />
+        </g>
+        <circle cx={X} cy={yc} r={20} fill="#0b1020" />
+        {/* jarak tempuh: sisi besar menempuh lebih jauh */}
+        <text x={540} y={1170} textAnchor="middle" fontFamily={TITLE_FONT} fontSize={44} fill="#fff" opacity={0.9}>
+          JARAK SATU PUTARAN
+        </text>
+        <g style={{ filter: glow }}>
+          <rect x={130} y={1195} width={rl * barScale} height={34} rx={17} fill={palette.accent} />
+          <rect x={130} y={1245} width={rr * barScale} height={34} rx={17} fill={palette.accent2} />
+        </g>
+        {/* arah belok */}
+        <polygon points={bigRight ? "930,480 1010,540 930,600" : "150,480 70,540 150,600"} fill="#ffe14d" opacity={0.85} />
+      </Frame>
+      <Callouts
+        palette={palette}
+        lengthFrames={lengthFrames}
+        labels={labels}
+        anchors={[
+          { x: X - 260, y: yc - 90, side: "L", labelY: 520 },
+          { x: 340, y: railY + 20, side: "L", labelY: 1330 },
+          { x: bigRight ? X + 330 : X - 330, y: yc + 20, side: "R", labelY: 600 },
+        ]}
+      />
+    </>
+  );
+};
+
+// ============================================================
+// Tanda tanya besar yang berdenyut (hook yang melawan akal sehat)
+// ============================================================
+export const QuestionScene: React.FC<DiagramProps> = ({ scene, palette }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const t = frame / fps;
+  const pop = spring({ frame, fps, config: { damping: 9, stiffness: 140, mass: 0.7 } });
+  const beat = 1 + 0.07 * Math.sin(t * 7);
+  const text = scene.points?.[0] ?? "";
+  return (
+    <>
+      <SceneTitle title={scene.title} palette={palette} />
+      <svg width={1080} height={1920} viewBox="0 0 1080 1920" style={{ position: "absolute", left: 0, top: 0 }}>
+        {[0, 1, 2].map((i) => {
+          const ph = (t * 0.8 + i / 3) % 1;
+          return <circle key={i} cx={540} cy={800} r={150 + ph * 330} fill="none" stroke="#ff4d4d" strokeWidth={10 * (1 - ph) + 2} opacity={(1 - ph) * 0.7} />;
+        })}
+      </svg>
+      <AbsoluteFill style={{ alignItems: "center", justifyContent: "flex-start", paddingTop: 480 }}>
+        <div
+          style={{
+            fontFamily: TITLE_FONT,
+            fontSize: 620,
+            lineHeight: 1,
+            color: "#ff4d4d",
+            transform: `scale(${pop * beat})`,
+            textShadow: "0 0 50px #ff4d4d, 0 12px 0 #000, 6px 6px 0 #000, -6px -6px 0 #000",
+          }}
+        >
+          ?
+        </div>
+        {text ? (
+          <div
+            style={{
+              marginTop: 10,
+              padding: "6px 30px",
+              borderRadius: 30,
+              backgroundColor: "rgba(8,12,28,0.9)",
+              border: `5px solid ${palette.accent}`,
+              color: "#fff",
+              fontFamily: TITLE_FONT,
+              fontSize: 58,
+              textTransform: "uppercase",
+              transform: `scale(${pop})`,
+              maxWidth: 940,
+              textAlign: "center",
+            }}
+          >
+            {text}
+          </div>
+        ) : null}
+      </AbsoluteFill>
+      <Sfx name="pop" at={0} volume={0.4} />
+    </>
+  );
+};
+
+// ------------------------------------------------------------
+// Pembungkus: slow motion di klimaks, kamera bergeser, getar, kilat putih
+// ------------------------------------------------------------
+const CLIMAX_FRACTION = 0.62;
+const speedAt = (f: number, c: number) => (f >= c - 10 && f <= c + 28 ? 0.35 : 1);
+
 export const Mechanism: React.FC<DiagramProps> = (props) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const len = Math.max(1, props.lengthFrames);
+  const c = Math.round(len * CLIMAX_FRACTION);
+  let t = 0;
+  let tc = 0;
+  for (let f = 0; f < Math.max(frame, c); f++) {
+    const dt = speedAt(f, c) / fps;
+    if (f < frame) t += dt;
+    if (f < c) tc += dt;
+  }
+  const since = frame - c;
+  const shakeAmp = since >= 0 && since < 12 ? (1 - since / 12) * 16 : 0;
+  const sx = shakeAmp * Math.sin(frame * 3.1);
+  const sy = shakeAmp * Math.cos(frame * 2.3);
+  const flash = since >= 0 && since < 8 ? 0.75 * (1 - since / 8) : 0;
+  const prog = clamp01(frame / len);
+  const zoom = 1 + 0.02 * prog + 0.03 * smooth(c - 12, c, frame) * (frame < c + 30 ? 1 : 0);
+  const panX = 0;
+  const panY = 10 * prog;
+
+  let body: React.ReactNode;
   switch (props.scene.mechanism) {
     case "roda_gigi":
-      return <RodaGigi {...props} />;
+      body = <RodaGigi {...props} />;
+      break;
     case "piston":
-      return <Piston {...props} />;
+      body = <Piston {...props} />;
+      break;
     case "tuas":
-      return <Tuas {...props} />;
+      body = <Tuas {...props} />;
+      break;
     case "aliran":
-      return <Aliran {...props} />;
+      body = <Aliran {...props} />;
+      break;
     case "panas":
-      return <Panas {...props} />;
+      body = <Panas {...props} />;
+      break;
     case "rangkaian":
-      return <Rangkaian {...props} />;
+      body = <Rangkaian {...props} />;
+      break;
     case "tekanan":
-      return <Tekanan {...props} />;
+      body = <Tekanan {...props} />;
+      break;
+    case "nozel_bensin":
+      body = <NozelBensin {...props} />;
+      break;
+    case "roda_kerucut":
+      body = <RodaKerucut {...props} />;
+      break;
     case "katrol_lift":
     default:
-      return <KatrolLift {...props} />;
+      body = <KatrolLift {...props} />;
   }
+  const hissy = ["aliran", "panas", "tekanan", "nozel_bensin"].includes(String(props.scene.mechanism));
+  return (
+    <MechClock.Provider value={{ t, tc }}>
+      <AbsoluteFill
+        style={{
+          transform: `translate(${panX + sx}px, ${panY + sy}px) scale(${zoom})`,
+          transformOrigin: "50% 38%",
+          filter: "drop-shadow(0 0 6px rgba(255,255,255,0.18))",
+        }}
+      >
+        {body}
+      </AbsoluteFill>
+      <Sfx name={hissy ? "hiss" : "clank"} at={c} volume={0.34} />
+      <Sfx name="impact" at={c} volume={0.22} />
+      {flash > 0 ? <AbsoluteFill style={{ backgroundColor: "#fff", opacity: flash }} /> : null}
+    </MechClock.Provider>
+  );
 };
