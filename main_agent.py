@@ -26,6 +26,9 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
+import ai_art
+import sim_presets
+
 try:
     from dotenv import load_dotenv
 except ImportError:  # python-dotenv bersifat opsional
@@ -103,6 +106,10 @@ CATEGORY_THEMES = {
     "KISAH NYATA": ("sepia", "emas", "senja", "hutan"),
 }
 THEME_HISTORY_PATH = os.path.join(BASE_DIR, "riwayat_tema.json")
+SFX_HISTORY_PATH = os.path.join(BASE_DIR, "riwayat_sfx.json")
+SFX_NAMES = ("whoosh", "impact", "clank", "hiss", "zap", "thud", "sizzle", "bubble", "ding", "bell", "glitch",
+             "riser", "beep", "screech")
+KEY_SOUNDS = ("clank", "hiss", "zap", "thud", "sizzle", "bubble", "ding", "impact", "glitch", "riser", "bell")
 CATEGORIES = ("CARA KERJA", "FAKTA SAINS", "KISAH NYATA")
 THUMB_PATH = os.path.join(OUT_DIR, "thumbnail.jpg")
 WIB = timezone(timedelta(hours=7))
@@ -178,6 +185,25 @@ def pick_theme(category):
     recent = load_theme_history()
     fresh = [t for t in pool if t not in recent[-3:]] or [t for t in pool if t not in recent[-1:]] or pool
     return random.choice(fresh)
+
+
+def pick_sfx_map():
+    """Pilih variasi bunyi (a sampai d) untuk tiap jenis efek, selalu berbeda dari video sebelumnya."""
+    try:
+        with open(SFX_HISTORY_PATH, "r", encoding="utf-8") as f:
+            old = json.load(f)
+    except Exception:
+        old = {}
+    new = {}
+    for name in SFX_NAMES:
+        choices = [i for i in range(4) if i != old.get(name)]
+        new[name] = random.choice(choices)
+    try:
+        with open(SFX_HISTORY_PATH, "w", encoding="utf-8") as f:
+            json.dump(new, f)
+    except OSError:
+        pass
+    return new
 
 
 def save_history(title):
@@ -276,6 +302,18 @@ STORYBOARD PER KATEGORI (urutan adegan, ikuti sebagai kerangka):
   dengan taruhan bernada dramatis ("satu goresan kecil saja bisa membunuh setengah kota"); (3) momen "aha" saat
   penemuan; (4) dampak besar ("barchart" atau "counter" yang faktual); (5) pelajaran penutup yang menyambung ke
   kalimat pertama.
+BUNYI MOMEN PUNCAK ("sfx"): efek suara TIDAK dipakai untuk tiap kata atau tiap label. Hanya satu bunyi di momen puncak
+adegan "mechanism" atau "cutaway", dan bunyinya HARUS cocok dengan kejadian yang tampil. Pilihan: "clank" (logam
+beradu, pengunci lepas), "hiss" (desis udara atau tekanan), "zap" (listrik), "thud" (hantaman atau dentum berat),
+"sizzle" (panas, api, menggoreng), "bubble" (cairan, gelembung, mendidih), "ding" (selesai atau berhasil), "bell"
+(momen sejarah), "impact" (kejutan umum). Kosongkan ("") kalau tidak ada kejadian yang pas. Jangan memakai bunyi yang
+sama di dua adegan berturutan.
+{SIM_GUIDE}
+ILUSTRASI AI ("art"): untuk SETIAP adegan bertipe "mechanism", "cutaway", "microscale", atau "story" tulis "art" berisi
+1 atau 2 deskripsi gambar dalam BAHASA INGGRIS (maksimal 40 kata masing-masing). Gambar pertama = keadaan awal,
+gambar kedua (opsional) = keadaan setelah klimaks (contoh: ruang hampa berubah merah, katup menutup). Deskripsikan
+benda konkret dan bagian-bagiannya secara spesifik (potongan melintang, bagian dalam benda yang jarang terlihat).
+Jangan minta teks, huruf, logo, atau wajah orang di gambar. Adegan tipe lain: "art": [].
 Setiap momen klimaks atau kejutan diberi satu kalimat pendek yang menghentak (animasi otomatis memberi getaran
 dan kilat di momen itu).
 
@@ -384,11 +422,32 @@ Keluarkan HANYA JSON murni dengan format persis ini:
       "variant": "device",
       "mood": "tegang",
       "weather": "cerah",
-      "sound": "mesin"
+      "sound": "mesin",
+      "sfx": "clank",
+      "art": ["cutaway cross-section of an elevator shaft showing steel ropes, pulley and heavy counterweight"]
     }}
   ]
 }}
 """
+
+SIM_GUIDE = """SIMULASI 3D ("sim"): untuk setiap adegan bertipe "mechanism" atau "cutaway" tulis "sim", yaitu adegan 3D sungguhan
+yang bergerak sesuai cara kerja benda. Satuan kira-kira meter, sumbu y ke atas, kamera melihat titik tengah dari
+depan. Seluruh benda harus muat dalam kotak sekitar 10 lebar x 10 tinggi. Isi "sim":
+- "objects": maksimal 14 benda: {"id","shape","pos":[x,y,z],"size","color":"#rrggbb","material","label"}.
+  shape: box (size lebar,tinggi,tebal), cylinder dan tube/pipa berongga (size radius,tinggi,0; sumbunya vertikal,
+  putar dengan "rot":[90,0,0] untuk mendatar), sphere (radius), cone, torus (radius besar,radius kecil), gear
+  (radius,tebal,jumlah gigi), plate, rope (tali: "link":["idA","idB"], "linkOff":[[x,y,z],[x,y,z]]).
+  material: metal, glass (tembus pandang, untuk dinding atau tabung), liquid, glow, rubber, plastic.
+  "label" (maksimal 3 kata) hanya untuk bagian penting, muncul berurutan.
+- "motions": {"target":id,"kind":"move","to":[x,y,z],"t0":0..1,"t1":0..1} (bergerak dari pos ke "to"),
+  {"kind":"spin","axis":"y","speed":putaran per detik}, {"kind":"pulse","speed":..},
+  {"kind":"color","color":"#rrggbb","t0","t1"} (berubah warna, contoh jadi merah saat klimaks pada t0 sekitar 0.62).
+- "flows": aliran partikel bercahaya sepanjang jalur: {"path":[[x,y,z],...],"color","count","size","speed","t0","t1"}
+  (cairan oranye, udara biru muda, listrik biru, panas oranye).
+- "cutaway": true untuk membelah benda supaya bagian dalam terlihat. "cam": {"dist":16-22,"height":2-3,"orbit":0.8-1.3}.
+Susun supaya sebab-akibat terlihat jelas dan klimaks terjadi di sekitar t=0.62 (benda bergerak, warna berubah, aliran
+berhenti). Contoh lift: shaft (box glass), pulley (cylinder rot [90,0,0], spin), cab dan cw (box) bergerak
+berlawanan lewat "move", dua rope dari pulley ke cab dan cw. Adegan lain: "sim": null."""
 
 
 GROQ_KEY = os.getenv("GROQ_API_KEY") or ""
@@ -481,7 +540,7 @@ def build_text_sources(prompt):
 
 GREETINGS = ("halo", "hai", "hay", "selamat datang", "kali ini", "hari ini kita", "apa kabar", "teman-teman")
 DRAFT_SCENE_KEYS = ("lines", "title", "type", "tone", "points", "items", "number", "unit", "footage_query",
-                    "keywords", "variant", "mood", "weather", "sound")
+                    "keywords", "variant", "mood", "weather", "sound", "mechanism", "sfx", "sim", "art")
 
 
 def polish_script(data, base_prompt):
@@ -725,7 +784,21 @@ def validate_content(data):
         mood = str(raw.get("mood") or "").strip().lower()
         weather = str(raw.get("weather") or "").strip().lower()
         keywords = [clean_text(k, 30) for k in (raw.get("keywords") or []) if str(k).strip()][:3]
+        art_raw = raw.get("art")
+        if isinstance(art_raw, str):
+            art_raw = [art_raw]
+        art = [clean_text(a, 320) for a in (art_raw or []) if isinstance(a, str) and len(str(a).strip()) > 12][:2]
+        sfx_raw = str(raw.get("sfx") or "").strip().lower()
+        sim = None
+        if scene_type in ("mechanism", "cutaway"):
+            sim = sim_presets.clean_sim(raw.get("sim"))
+            if sim is None and mechanism in MECHANISMS:
+                sim = sim_presets.clean_sim(sim_presets.preset_sim(
+                    mechanism, [str(i.get("label") or "") for i in (items or []) if isinstance(i, dict)]))
         scenes.append({
+            "sim": sim,
+            "sfx": sfx_raw if sfx_raw in KEY_SOUNDS else "",
+            "art": art,
             "variant": variant if variant in ("device", "ground") else "device",
             "mechanism": mechanism if mechanism in MECHANISMS else "",
             "mood": mood if mood in MOODS else "tegang",
@@ -1151,6 +1224,39 @@ def fetch_stock_videos(scenes):
     return credits
 
 
+ART_TYPES = ("mechanism", "cutaway", "microscale", "story")
+
+
+def fetch_art_images(scenes):
+    """Buat ilustrasi AI untuk adegan animasi (maksimal 2 gambar per adegan). Yang gagal tetap memakai
+    animasi gambar-kode bawaan. Matikan dengan ART=off di .env."""
+    if os.getenv("ART", "on").strip().lower() == "off":
+        return
+    todo = [(i, sc) for i, sc in enumerate(scenes) if sc.get("art") and sc["type"] in ART_TYPES]
+    for name in os.listdir(PUBLIC_DIR):
+        if re.fullmatch(r"art_\d+_\d+\.(png|jpg)", name):
+            os.remove(os.path.join(PUBLIC_DIR, name))
+    if not todo:
+        return
+    info("  -> Membuat ilustrasi animasi dengan AI (bisa beberapa menit)...")
+    key = GEMINI_KEY if GEMINI_KEY and GEMINI_KEY != "ISI_KEY_DI_SINI" else ""
+    ok, failed = 0, 0
+    for i, sc in todo:
+        urls = []
+        for j, prompt in enumerate(sc["art"][:2]):
+            path = os.path.join(PUBLIC_DIR, f"art_{i}_{j}.jpg")
+            if ai_art.make_image(prompt, path, key, info):
+                urls.append(f"art_{i}_{j}.jpg")
+                ok += 1
+            else:
+                failed += 1
+                break  # gambar kedua tanpa yang pertama tidak berguna
+        if urls:
+            sc["art_urls"] = urls
+        time.sleep(2)
+    info(f"  -> Ilustrasi AI: {ok} gambar berhasil" + (f", {failed} gagal (diganti animasi bawaan)." if failed else "."))
+
+
 def downgrade_footage(scenes):
     """Adegan 'footage' tanpa video tidak bisa tampil, jadi diganti tampilan infografis."""
     for scene in scenes:
@@ -1233,7 +1339,7 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
         raise RuntimeError("Node.js belum terpasang. Unduh dari https://nodejs.org lalu jalankan ulang.")
 
     # Pasang paket Remotion otomatis kalau belum ada
-    if not os.path.isdir(os.path.join(REMOTION_DIR, "node_modules")):
+    if not os.path.isdir(os.path.join(REMOTION_DIR, "node_modules", "@remotion", "three")):
         info("  -> Pertama kali: memasang paket Remotion (butuh beberapa menit)...")
         run_command([npm, "install", "--no-audit", "--no-fund"], REMOTION_DIR)
 
@@ -1259,8 +1365,11 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
                 "mechanism": s.get("mechanism", ""),
                 "mood": s.get("mood", "tegang"),
                 "weather": s.get("weather", "cerah"),
+                **({"sfx": s["sfx"]} if s.get("sfx") else {}),
+                **({"sim": s["sim"]} if s.get("sim") else {}),
                 **({"video": s["video"], "videoSeconds": s.get("video_seconds") or 0} if s.get("video") else {}),
                 **({"clips": s["clips"]} if s.get("clips") else {}),
+                **({"artUrls": s["art_urls"]} if s.get("art_urls") else {}),
             }
             for s in scenes
         ],
@@ -1268,6 +1377,7 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
         "durationInSeconds": duration,
         "themeIndex": theme_index,
         "bgSeed": bg_seed,
+        "sfxMap": pick_sfx_map(),
         # Efek suara bisa dimatikan dengan menulis SFX=off di file .env
         "sfx": os.getenv("SFX", "on").strip().lower() != "off",
     }
@@ -1284,7 +1394,20 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
         json.dump(props, f, ensure_ascii=False)
 
     cmd = [npx, "remotion", "render", "src/index.ts", "ShortsComp", output_mp4, "--props=render_props.json"]
-    run_command(cmd, REMOTION_DIR)
+    has_sim = any(sc.get("sim") for sc in props["scenes"])
+    if has_sim:
+        cmd.append("--gl=" + (os.getenv("GL_MODE") or "angle"))  # animasi 3D butuh WebGL
+    try:
+        run_command(cmd, REMOTION_DIR)
+    except Exception as e:
+        if not has_sim:
+            raise
+        info(f"  -> Render dengan animasi 3D gagal ({str(e)[:100]}). Mengulang tanpa 3D (animasi 2D bawaan)...")
+        for sc in props["scenes"]:
+            sc.pop("sim", None)
+        with open(props_path, "w", encoding="utf-8") as f:
+            json.dump(props, f, ensure_ascii=False)
+        run_command([c for c in cmd if not c.startswith("--gl=")], REMOTION_DIR)
 
     if not os.path.exists(output_mp4) or os.path.getsize(output_mp4) < 10_000:
         raise RuntimeError("Video hasil render tidak ditemukan atau rusak.")
@@ -1463,6 +1586,7 @@ def main():
         info(f"  -> Durasi video: {duration} detik, {len(words)} kata")
 
         credits = fetch_stock_videos(data["scenes"])
+        fetch_art_images(data["scenes"])
         if credits:
             data["description"] += "\n\nVideo latar: " + ", ".join(sorted(credits))
         final_video = render_remotion_video(

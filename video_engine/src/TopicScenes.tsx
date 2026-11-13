@@ -144,7 +144,6 @@ const GroundCutaway: React.FC<DiagramProps> = ({ scene, palette, lengthFrames })
         const row = Math.floor(i / 2);
         return (
           <React.Fragment key={i}>
-            <Sfx name="pop" at={delay} />
             <div
               style={{
                 position: "absolute",
@@ -285,7 +284,6 @@ const DeviceCutaway: React.FC<DiagramProps> = ({ scene, palette, lengthFrames })
         const pulse = 1 + 0.03 * Math.sin(t * 5 + i);
         return (
           <React.Fragment key={i}>
-            <Sfx name="pop" at={delay} />
             <div
               style={{
                 position: "absolute",
@@ -809,7 +807,6 @@ export const Story: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
         }}
       />
       <SceneTitle title={scene.title} palette={palette} />
-      <Sfx name={weather === "hujan" || weather === "badai" ? "tick" : "pop"} at={6} volume={0.15} />
       <div style={{ position: "absolute", inset: 0, transform: `scale(${zoom})`, transformOrigin: "50% 62%" }}>
         {/* langit kertas */}
         <div
@@ -879,7 +876,6 @@ export const Story: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
         const p = spring({ frame: frame - delay, fps, config: { damping: 12, stiffness: 130, mass: 0.7 } });
         return (
           <React.Fragment key={i}>
-            <Sfx name="pop" at={delay} volume={0.2} />
             <div
               style={{
                 position: "absolute",

@@ -1,7 +1,7 @@
 import React, { useContext } from "react";
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { BODY_FONT, DiagramProps, SceneTitle, TITLE_FONT } from "./Diagrams";
-import { Sfx } from "./Sfx";
+import { Sfx, climaxSound } from "./Sfx";
 import { Palette } from "./types";
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -25,7 +25,7 @@ const WARM = "#ffb347";
 // ------------------------------------------------------------
 type Anchor = { x: number; y: number; side: "L" | "R"; labelY: number };
 
-const Callouts: React.FC<{
+export const Callouts: React.FC<{
   anchors: Anchor[];
   labels: string[];
   palette: Palette;
@@ -60,7 +60,6 @@ const Callouts: React.FC<{
         const color = i % 2 ? palette.accent2 : palette.accent;
         return (
           <React.Fragment key={i}>
-            <Sfx name="click" at={delay} volume={0.3} />
             <div
               style={{
                 position: "absolute",
@@ -662,7 +661,6 @@ const Rangkaian: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) => 
             })
           : null}
       </Frame>
-      <Sfx name="tick" at={Math.round(1.2 * 30)} volume={0.5} />
       <Callouts
         palette={palette}
         lengthFrames={lengthFrames}
@@ -959,7 +957,6 @@ export const QuestionScene: React.FC<DiagramProps> = ({ scene, palette }) => {
           </div>
         ) : null}
       </AbsoluteFill>
-      <Sfx name="pop" at={0} volume={0.4} />
     </>
   );
 };
@@ -1037,8 +1034,7 @@ export const Mechanism: React.FC<DiagramProps> = (props) => {
       >
         {body}
       </AbsoluteFill>
-      <Sfx name={hissy ? "hiss" : "clank"} at={c} volume={0.34} />
-      <Sfx name="impact" at={c} volume={0.22} />
+      <Sfx name={climaxSound(props.scene)} at={c} volume={0.36} />
       {flash > 0 ? <AbsoluteFill style={{ backgroundColor: "#fff", opacity: flash }} /> : null}
     </MechClock.Provider>
   );

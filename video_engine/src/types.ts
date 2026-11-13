@@ -50,7 +50,50 @@ export type SceneItem = {
   value: string | number;
 };
 
+export type Vec3 = [number, number, number];
+export type SimObject = {
+  id: string;
+  shape: "box" | "cylinder" | "sphere" | "cone" | "torus" | "tube" | "gear" | "plate" | "rope";
+  pos: Vec3;
+  size: Vec3; // box/plate: lebar,tinggi,tebal; cylinder/tube/cone: radius,tinggi,-; sphere: radius; torus: radius besar,radius kecil; gear: radius,tebal,jumlah gigi
+  rot?: Vec3; // derajat
+  color?: string;
+  material?: "metal" | "glass" | "liquid" | "rubber" | "glow" | "plastic";
+  opacity?: number;
+  label?: string;
+  link?: [string, string]; // rope: dihubungkan dari benda pertama ke benda kedua
+  linkOff?: [Vec3, Vec3]; // rope: pergeseran titik ujung terhadap pusat tiap benda
+};
+export type SimMotion = {
+  target: string;
+  kind: "move" | "spin" | "pulse" | "color";
+  to?: Vec3; // untuk move: posisi akhir
+  axis?: "x" | "y" | "z"; // untuk spin
+  speed?: number; // putaran per detik (spin) atau denyut per detik (pulse)
+  t0?: number; // mulai (0 sampai 1 dari panjang adegan)
+  t1?: number; // selesai
+  color?: string; // untuk color: warna akhir
+  loop?: boolean; // move bolak-balik
+};
+export type SimFlow = {
+  path: Vec3[];
+  color?: string;
+  count?: number;
+  size?: number;
+  speed?: number; // siklus per detik
+  t0?: number;
+  t1?: number;
+};
+export type SimSpec = {
+  objects: SimObject[];
+  motions?: SimMotion[];
+  flows?: SimFlow[];
+  cutaway?: boolean; // belah benda: sisi depan dibuang supaya bagian dalam terlihat
+  cam?: { dist?: number; height?: number; orbit?: number; target?: Vec3; fov?: number };
+};
+
 export type SceneData = {
+  sim?: SimSpec | null; // spesifikasi animasi 3D (opsional)
   type: SceneType;
   title: string;
   points: string[];
@@ -61,6 +104,8 @@ export type SceneData = {
   end: number; // detik
   video?: string; // nama file video latar di folder public (opsional)
   videoSeconds?: number; // panjang klip video latar (detik)
+  artUrls?: string[];
+  sfx?: string; // bunyi momen puncak (clank, hiss, zap, ...)
   clips?: ClipData[]; // beberapa klip bergantian dalam satu adegan (satu per kalimat)
   variant?: "device" | "ground"; // untuk cutaway
   mechanism?: MechanismName | ""; // untuk mechanism
@@ -78,6 +123,7 @@ export type ShortsProps = {
   themeIndex?: number; // pilihan tema warna (lihat THEMES)
   sfx?: boolean; // efek suara, bawaan menyala
   bgSeed?: number; // angka acak supaya gaya latar beda tiap video
+  sfxMap?: Record<string, number>; // pilihan variasi bunyi per jenis efek (beda dari video sebelumnya)
 };
 
 export type ThumbnailProps = {
