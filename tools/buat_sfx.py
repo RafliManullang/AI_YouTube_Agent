@@ -12,7 +12,10 @@ SR = 44100
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "video_engine", "public", "sfx")
 
 
-def save(name, signal, peak=0.9):
+AMBIENT = ("wind", "rumble", "water")  # suara latar berulang tidak diberi variasi
+
+
+def _write(name, signal, peak):
     signal = np.asarray(signal, dtype=np.float64)
     top = np.max(np.abs(signal)) or 1.0
     data = (signal / top * peak * 32767).astype(np.int16)
@@ -22,6 +25,26 @@ def save(name, signal, peak=0.9):
         f.setsampwidth(2)
         f.setframerate(SR)
         f.writeframes(data.tobytes())
+
+
+def _resample(signal, factor):
+    # factor > 1 = lebih tinggi dan lebih pendek, factor < 1 = lebih rendah dan lebih panjang
+    n = max(8, int(len(signal) / factor))
+    return np.interp(np.linspace(0, len(signal) - 1, n), np.arange(len(signal)), signal)
+
+
+def save(name, signal, peak=0.9):
+    """Simpan efek utama, lalu tiga variasi (b, c, d) dengan nada dan warna berbeda
+    supaya efek yang sama tidak terdengar persis sama terus."""
+    signal = np.asarray(signal, dtype=np.float64)
+    _write(name, signal, peak)
+    if name in AMBIENT:
+        return
+    _write(name + "_b", _resample(signal, 0.8), peak)
+    _write(name + "_c", _resample(signal, 1.28), peak * 0.95)
+    soft = _resample(signal, 1.08)
+    soft = np.convolve(soft, np.ones(5) / 5, mode="same")  # sedikit lebih lembut
+    _write(name + "_d", soft, peak)
 
 
 def t_axis(seconds):
@@ -204,6 +227,49 @@ def glitch():
     return (tone + rng.standard_normal(len(t)) * 0.35) * gate * np.exp(-t * 6)
 
 
+def zap():
+    # sengatan listrik: nada tinggi bergetar dengan derau pendek
+    rng = np.random.default_rng(53)
+    t = t_axis(0.35)
+    buzz = np.sign(np.sin(2 * np.pi * 120 * t)) * 0.5 + np.sin(2 * np.pi * (1800 + 900 * np.sin(2 * np.pi * 30 * t)) * t) * 0.5
+    crack = rng.standard_normal(len(t)) * np.exp(-t * 40)
+    return (buzz * np.exp(-t * 9) + crack) * np.clip(t / 0.004, 0, 1)
+
+
+def thud():
+    # hantaman berat: dentum rendah
+    t = t_axis(0.5)
+    f = 95 * np.exp(-t * 6) + 38
+    return np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t * 7)
+
+
+def sizzle():
+    # mendesis panas: derau tajam berkilau
+    rng = np.random.default_rng(59)
+    t = t_axis(0.9)
+    n = rng.standard_normal(len(t))
+    n = n - smooth(n, 4)
+    crackle = (rng.random(len(t)) > 0.997) * rng.standard_normal(len(t)) * 3
+    return (n * 0.6 + crackle) * np.exp(-t * 3) * np.clip(t / 0.03, 0, 1)
+
+
+def bubble():
+    # gelembung naik: nada menanjak pendek beberapa kali
+    t = t_axis(0.8)
+    out = np.zeros(len(t))
+    for start, base in ((0.0, 420), (0.18, 520), (0.33, 380), (0.5, 600)):
+        m = t >= start
+        u = t[m] - start
+        out[m] += np.sin(2 * np.pi * np.cumsum(base * (1 + 3.5 * u)) / SR) * np.exp(-u * 24)
+    return out
+
+
+def bell():
+    # lonceng kecil: nada bening yang panjang
+    t = t_axis(1.1)
+    return sum(np.sin(2 * np.pi * f * t) * w for f, w in ((880, 1.0), (1760, 0.45), (2637, 0.25))) * np.exp(-t * 4.2)
+
+
 if __name__ == "__main__":
     save("pop", pop())
     save("whoosh", whoosh(), peak=0.7)
@@ -221,4 +287,9 @@ if __name__ == "__main__":
     save("hiss", hiss(), peak=0.6)
     save("tock", tock(), peak=0.7)
     save("glitch", glitch(), peak=0.6)
+    save("zap", zap(), peak=0.7)
+    save("thud", thud(), peak=0.9)
+    save("sizzle", sizzle(), peak=0.6)
+    save("bubble", bubble(), peak=0.6)
+    save("bell", bell(), peak=0.6)
     print("Efek suara tersimpan di", os.path.abspath(OUT))

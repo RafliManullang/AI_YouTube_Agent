@@ -34,6 +34,15 @@ Agen ini membuat video YouTube Shorts sendiri, dari cari topik sampai diunggah:
 - Naskah ~60 detik, padat, dibuka dengan visual konkret dan premis yang bikin penasaran, ditutup dengan kalimat yang menyambung ke kalimat pembuka supaya video terasa berulang mulus.
 - Judul tidak lagi memakai `#Shorts`.
 
+## Tahap 9: animasi 3D dan efek suara yang rapi
+
+- **Animasi 3D sungguhan** (three.js di dalam Remotion): benda 3D berlogam dan kaca, tali, roda gigi, aliran partikel bercahaya, kamera yang mengitari benda dan mendekat di klimaks, serta label bagian yang menempel pada benda. Penulis naskah menyusun adegan 3D untuk TIAP topik (kolom `sim`), jadi animasinya khusus topik itu. Kalau susunannya tidak layak, dipakai animasi 3D bawaan (lift, roda gigi, piston, aliran pipa, rangkaian listrik, pemanas, nozel bensin), lalu animasi 2D.
+- Kalau render 3D gagal di komputermu, agen otomatis mengulang tanpa 3D. Mode WebGL bisa diganti lewat `GL_MODE` di `.env` (bawaan `angle`). Render 3D lebih lama dari 2D, terutama tanpa kartu grafis.
+- Ilustrasi AI (`ART`): adegan animasi bisa memakai gambar potongan benda buatan AI (Gemini gambar atau Pollinations). Matikan dengan `ART=off`.
+- **Efek suara**: bunyi per kata, per label, dan per frasa subtitle dihapus total. Efek suara hanya di dentuman hook, pergantian adegan, dan satu momen puncak tiap animasi. Jenis bunyinya dipilih sesuai kejadian lewat kolom `sfx` (clank, hiss, zap, thud, sizzle, bubble, ding, bell, impact).
+- Setiap bunyi punya 4 variasi, dan agen mencatat pilihannya di `riwayat_sfx.json` supaya video berikutnya memakai variasi yang berbeda. Bunyi baru: zap, thud, sizzle, bubble, bell (`python tools/buat_sfx.py`).
+- Pertama kali setelah pembaruan ini, agen memasang paket baru (`three`) otomatis, butuh beberapa menit.
+
 ## Tahap 8: storyboard dan efek sinematik
 
 - Kerangka adegan per kategori (hook, taruhan, bagian rahasia, proses, klimaks, fakta, penutup melingkar) sekarang ada di instruksi naskah.

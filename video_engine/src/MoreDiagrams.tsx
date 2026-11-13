@@ -92,7 +92,6 @@ export const Timeline: React.FC<DiagramProps> = ({
 
         return (
           <React.Fragment key={i}>
-            <Sfx name="pop" at={delays[i]} />
 
             {/* tahun / waktu di sebelah kiri garis */}
             <div
@@ -211,7 +210,6 @@ export const BarChart: React.FC<DiagramProps> = ({
 
         return (
           <React.Fragment key={i}>
-            <Sfx name="pop" at={delay} volume={0.2} />
             <div
               style={{
                 position: "absolute",
@@ -378,7 +376,6 @@ export const BeforeAfter: React.FC<DiagramProps> = ({
   return (
     <>
       <SceneTitle title={scene.title} palette={palette} />
-      <Sfx name="pop" at={delayA} />
       <Sfx name="whoosh" at={delayArrow - 4} volume={0.2} />
       <Sfx name="ding" at={delayB} />
 

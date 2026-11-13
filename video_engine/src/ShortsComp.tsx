@@ -15,8 +15,10 @@ import { Counter, FlowDiagram, MindMap } from "./Diagrams";
 import { FootageScene, Gauge } from "./ExtraScenes";
 import { Cutaway, MicroScale, Story } from "./TopicScenes";
 import { Mechanism, QuestionScene } from "./Mechanisms";
+import { ArtScene } from "./Art";
+import { Sim3D } from "./Sim3D";
 import { BarChart, BeforeAfter, Timeline } from "./MoreDiagrams";
-import { Ambience, Sfx, SfxEnabled } from "./Sfx";
+import { Ambience, Sfx, SfxEnabled, SfxMap, SfxSeed } from "./Sfx";
 import { Palette, SceneData, ShortsProps, WordItem, paletteFor } from "./types";
 
 export type { ShortsProps, WordItem } from "./types";
@@ -115,10 +117,6 @@ const SceneView: React.FC<SceneViewProps> = ({
   return (
     <AbsoluteFill style={{ opacity: fade }}>
       {!isFirst ? <Sfx name="whoosh" at={0} /> : null}
-      {/* tiap pergantian klip rekaman diberi desiran kecil */}
-      {(scene.clips ?? []).slice(1).map((c, i) => (
-        <Sfx key={i} name="whoosh" at={Math.round(c.start * fps)} volume={0.16} />
-      ))}
       <Ambience sound={scene.sound} lengthFrames={lengthFrames} fps={fps} />
       <Background
         palette={palette}
@@ -127,16 +125,15 @@ const SceneView: React.FC<SceneViewProps> = ({
         clips={scene.clips}
         variant={(bgSeed + index * 5) % BACKGROUND_VARIANTS}
         seed={bgSeed + index}
-        footageStrength={scene.type === "footage" ? 1 : scene.type === "mechanism" || scene.type === "question" ? 0 : 0.62}
+        footageStrength={scene.type === "footage" ? 1 : scene.type === "mechanism" || scene.type === "question" || !!scene.sim || (scene.artUrls && scene.artUrls.length > 0) ? 0 : 0.62}
       />
       {isStory && !isFirst ? <Sfx name="glitch" at={0} volume={0.22} /> : null}
-      {isStory
-        ? [0, 1, 2, 3, 4, 5].map((i) => (
-            <Sfx key={`k${i}`} name="tock" at={Math.round(fps * (0.9 + i * 0.9))} volume={i % 2 ? 0.07 : 0.1} />
-          ))
-        : null}
       <AbsoluteFill style={{ transform }}>
-        {scene.type === "mindmap" ? (
+        {scene.sim ? (
+          <Sim3D {...diagramProps} />
+        ) : scene.artUrls && scene.artUrls.length > 0 ? (
+          <ArtScene {...diagramProps} />
+        ) : scene.type === "mindmap" ? (
           <MindMap {...diagramProps} />
         ) : scene.type === "counter" ? (
           <Counter {...diagramProps} />
@@ -196,6 +193,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   themeIndex = 0,
   sfx = true,
   bgSeed = 0,
+  sfxMap = {},
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -231,6 +229,8 @@ export const ShortsComp: React.FC<ShortsProps> = ({
 
   return (
     <SfxEnabled.Provider value={sfx}>
+    <SfxSeed.Provider value={bgSeed}>
+    <SfxMap.Provider value={sfxMap}>
     <AbsoluteFill style={{ backgroundColor: "#0b0f19" }}>
       {safeScenes.length === 0 ? (
         <Background palette={paletteFor(0, themeIndex)} />
@@ -263,16 +263,8 @@ export const ShortsComp: React.FC<ShortsProps> = ({
         }}
       />
 
-      {/* Hook: dentuman di detik pertama, lalu bunyi kecil tiap frasa subtitle dan tiap kata kunci */}
+      {/* Efek suara hanya di momen besar: dentuman hook, pergantian adegan, dan puncak animasi. Tidak ada bunyi per kata. */}
       <Sfx name="impact" at={3} volume={0.4} />
-      {phrases.map((ph, i) => (
-        <Sfx key={`t${i}`} name="tick" at={Math.round((ph[0].start - SUBTITLE_LEAD) * fps)} volume={0.1} />
-      ))}
-      {safeWords
-        .filter((w) => w.emphasis)
-        .map((w, i) => (
-          <Sfx key={`e${i}`} name="pop" at={Math.round(w.start * fps)} volume={0.26} />
-        ))}
 
       {/* Suara narasi dan musik latar */}
       {audioUrl ? <Audio src={staticFile(audioUrl)} /> : null}
@@ -374,6 +366,8 @@ export const ShortsComp: React.FC<ShortsProps> = ({
         }}
       />
     </AbsoluteFill>
+    </SfxMap.Provider>
+    </SfxSeed.Provider>
     </SfxEnabled.Provider>
   );
 };

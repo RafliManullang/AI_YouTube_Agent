@@ -8,10 +8,14 @@
     "render": "remotion render src/index.ts ShortsComp out/shorts_final.mp4 --props=render_props.json"
   },
   "dependencies": {
+    "@react-three/fiber": "^8.15.19",
     "@remotion/cli": "4.0.541",
+    "@remotion/three": "^4.0.541",
+    "@types/three": "^0.160.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "remotion": "4.0.541"
+    "remotion": "4.0.541",
+    "three": "^0.160.1"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
