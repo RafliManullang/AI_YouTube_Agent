@@ -111,6 +111,7 @@ export type SceneData = {
   video?: string; // nama file video latar di folder public (opsional)
   videoSeconds?: number; // panjang klip video latar (detik)
   artUrls?: string[];
+  model?: string; // berkas model 3D (.glb) di folder public
   sfx?: string; // bunyi momen puncak (clank, hiss, zap, ...)
   clips?: ClipData[]; // beberapa klip bergantian dalam satu adegan (satu per kalimat)
   variant?: "device" | "ground"; // untuk cutaway

@@ -1,4 +1,4 @@
-"""Ilustrasi potongan benda (cutaway) buatan AI untuk adegan animasi.
+"""Gambar kartun 3D buatan AI untuk adegan animasi.
 
 Urutan sumber (semuanya gratis, yang pertama berhasil dipakai):
 1. Gemini gambar (pakai key Gemini yang sama), kalau jatah gratisnya ada.
@@ -14,10 +14,9 @@ import urllib.parse
 import requests
 
 STYLE = (
-    "Professional science explainer illustration, vertical 9:16 composition, dark navy blue background with "
-    "subtle grid, clean detailed 2D vector cutaway cross-section view, brushed metal textures with soft "
-    "highlights, glowing cyan arrows for air and glowing orange for liquid or heat, high contrast, "
-    "centered subject, NO text, NO letters, NO watermark. Subject: "
+    "Stylized 3D cartoon render in a modern animated-movie style, vertical 9:16 composition, soft studio lighting, "
+    "vivid colors, smooth rounded shapes, subject large and centered with clear readable action that shows exactly "
+    "the described scene, simple colorful gradient background, NO text, NO letters, NO watermark. Scene: "
 )
 GEMINI_IMAGE_MODELS = [
     m for m in [os.getenv("GEMINI_IMAGE_MODEL"), "gemini-2.5-flash-image", "gemini-2.0-flash-preview-image-generation"] if m

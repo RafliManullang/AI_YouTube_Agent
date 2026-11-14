@@ -115,3 +115,11 @@ Pilihan lain: `--topik "cara kerja lift gedung"` untuk menentukan topik sendiri,
 ## Tahap 12: perpustakaan animasi 3D siap pakai
 
 Sembilan animasi 3D bawaan ditambahkan di `sim_library.py`: eskalator (roda tangga dan roda pegangan beda kecepatan), kunci silinder (pin dan pegas), sprinkler (tabung kaca pecah di 68°C), efek venturi, rem magnet (arus pusar), roda kereta kerucut, jembatan gantung, airbag, dan mesin pembakaran (piston, klep, busi). Dipakai otomatis kalau naskah menyebut bendanya dan AI tidak membuat model 3D sendiri.
+
+## Tahap 13: visual yang sesuai isi kalimat
+
+Tiap adegan (selain angka) kini memperlihatkan persis apa yang diucapkan. AI menulis dua hal per adegan: `subject` (benda, hewan, atau orang utama, dalam bahasa Inggris) dan `art` (deskripsi adegan kartun 3D). Urutannya:
+1. Model 3D asli gratis dari Poly Pizza (`models3d.py`, perlu `POLYPIZZA_KEY` di `.env`). Model berputar, bergerak, dan memutar animasi bawaannya. Kredit pembuat otomatis masuk ke deskripsi video.
+2. Kalau tidak ada modelnya: gambar kartun 3D buatan AI (Gemini atau Pollinations) yang digerakkan.
+3. Kalau keduanya gagal: animasi 3D bawaan (`sim_*.py`).
+Adegan angka, grafik, dan garis waktu tetap berupa 3D data.
