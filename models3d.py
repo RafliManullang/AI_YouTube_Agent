@@ -41,6 +41,9 @@ def fetch_model(subject, public_dir, key, log=print):
         # hanya terima model yang judulnya memuat kata kunci (kalau tidak, hasilnya sering ngawur: pisau untuk "tinta")
         words = [w[:-1] if w.endswith("s") and len(w) > 3 else w for w in subject.lower().split() if len(w) >= 3]
         results = [r for r in results if any(w in str(r.get("Title", "")).lower() for w in words)]
+        # buang model yang jelas beda benda (pemanas ruangan untuk "iron", dsb.)
+        bad = ("heater", "radiator", "fireplace", "man", "golem", "ore", "ingot", "bar")
+        results = [r for r in results if not any(b in re.findall(r"[a-z]+", str(r.get("Title", "")).lower()) and b not in words for b in bad)]
         for r in results:
             url = r.get("Download")
             if not url:

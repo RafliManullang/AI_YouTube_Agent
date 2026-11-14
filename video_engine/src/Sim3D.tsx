@@ -54,9 +54,15 @@ const poseOf = (o: SimObject, motions: SimMotion[], u: number, t: number): Pose 
       pose.count = fmtNum((m.value ?? 0) * k) + (m.suffix ?? "");
     } else if (m.kind === "rotate") {
       const idx = m.axis === "x" ? 0 : m.axis === "y" ? 1 : 2;
-      pose.rot[idx] += (m.angle ?? 20) * smooth(clamp01((u - t0) / (t1 - t0)));
+      let k = smooth(clamp01((u - t0) / (t1 - t0)));
+      if (m.loop) k = 0.5 - 0.5 * Math.cos(((t * (m.speed ?? 0.5)) % 1) * Math.PI * 2);
+      pose.rot[idx] += (m.angle ?? 20) * k;
     } else if (m.kind === "pulse") {
       pose.scale *= 1 + 0.08 * Math.sin(t * (m.speed ?? 2) * Math.PI * 2);
+    } else if (m.kind === "color" && m.color && m.loop) {
+      const k = 0.5 - 0.5 * Math.cos(((t * (m.speed ?? 0.5)) % 1) * Math.PI * 2);
+      pose.color = "#" + new THREE.Color(o.color ?? "#9aa7b8").lerp(new THREE.Color(m.color), k).getHexString(); // gradasi suhu: dingin -> panas
+      pose.glow = k;
     } else if (m.kind === "color" && m.color && u >= t0) {
       pose.color = m.color;
       pose.glow = smooth(clamp01((u - t0) / (t1 - t0)));

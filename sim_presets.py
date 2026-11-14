@@ -34,7 +34,7 @@ def clean_sim(raw):
         return None
     objs = []
     ids = set()
-    for o in (raw.get("objects") or [])[:18]:
+    for o in (raw.get("objects") or [])[:60]:
         if not isinstance(o, dict):
             continue
         oid = re.sub(r"[^a-zA-Z0-9_]", "", str(o.get("id") or ""))[:20]
@@ -97,7 +97,7 @@ def clean_sim(raw):
         return None
 
     motions = []
-    for m in (raw.get("motions") or [])[:24]:
+    for m in (raw.get("motions") or [])[:140]:
         if not isinstance(m, dict) or m.get("target") not in ids or m.get("kind") not in KINDS:
             continue
         item = {"target": m["target"], "kind": m["kind"], "t0": round(_num(m.get("t0"), 0, 1, 0), 2),
@@ -115,6 +115,9 @@ def clean_sim(raw):
         elif m["kind"] == "rotate":
             item["axis"] = m.get("axis") if m.get("axis") in ("x", "y", "z") else "z"
             item["angle"] = round(_num(m.get("angle"), -360, 360, 20), 1)
+            if m.get("loop"):
+                item["loop"] = True
+                item["speed"] = round(_num(m.get("speed"), 0.05, 3, 0.5), 2)
         elif m["kind"] in ("spin", "pulse"):
             item["axis"] = m.get("axis") if m.get("axis") in ("x", "y", "z") else "y"
             item["speed"] = round(_num(m.get("speed"), -3, 3, 0.4), 2)
@@ -122,6 +125,9 @@ def clean_sim(raw):
             if not (isinstance(m.get("color"), str) and HEX.match(m["color"])):
                 continue
             item["color"] = m["color"]
+            if m.get("loop"):
+                item["loop"] = True
+                item["speed"] = round(_num(m.get("speed"), 0.05, 3, 0.5), 2)
         motions.append(item)
 
     flows = []

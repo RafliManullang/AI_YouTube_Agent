@@ -91,7 +91,7 @@ SCENE_TYPES = ("flow", "mindmap", "counter", "timeline", "barchart", "compare", 
 MECHANISMS = ("katrol_lift", "roda_gigi", "piston", "tuas", "aliran", "panas", "rangkaian", "tekanan",
               "nozel_bensin", "roda_kerucut", "eskalator", "kunci_silinder", "sprinkler", "venturi",
               "eddy_current", "jembatan", "airbag", "mesin_ice", "ball_socket", "capillary", "pressure_leak", "jangkar_rantai", "sosrobahu",
-              "mobil_dongkrak", "jembatan_geser", "loop_induksi")
+              "mobil_dongkrak", "jembatan_geser", "loop_induksi", "bimetal", "setrika")
 MOODS = ("senang", "takut", "kaget", "sedih", "tegang", "bangga")
 WEATHERS = ("cerah", "hujan", "salju", "badai", "malam", "kabut")
 AMBIENCES = ("angin", "gesekan", "benturan", "mesin", "air", "hening")
@@ -1001,6 +1001,7 @@ def validate_content(data):
         sfx_raw = str(raw.get("sfx") or "").strip().lower()
         sim = None
         sim_generic = False
+        sim_preset = False
         if scene_type in ("mechanism", "cutaway"):
             labels_for_sim = [str(i.get("label") or "") for i in (items or []) if isinstance(i, dict)]
             sim = sim_presets.clean_sim(raw.get("sim"))
@@ -1010,6 +1011,7 @@ def validate_content(data):
                     " ".join([str(raw.get("title") or "")] + [str(ln.get("text") or "") for ln in (raw.get("lines") or []) if isinstance(ln, dict)] + [str(raw.get("narration") or "")]))
                 spec = sim_presets.preset_sim(guess, labels_for_sim) if guess else None
                 sim = sim_presets.clean_sim(spec) if spec else None
+                sim_preset = sim is not None
                 if sim is None:
                     sim = sim_presets.clean_sim(sim_presets.generic_sim(labels_for_sim))
                     sim_generic = True
@@ -1021,6 +1023,7 @@ def validate_content(data):
         scenes.append({
             "sim": sim,
             "sim_generic": sim_generic,
+            "sim_preset": sim_preset,
             "sfx": sfx_raw if sfx_raw in KEY_SOUNDS else "",
             "art": art,
             "subject": subject,
@@ -1476,7 +1479,7 @@ def fetch_art_images(scenes):
                 if name:
                     sc["art_urls"] = [name]
                     PHOTO_CREDITS.append("Foto: " + credit)
-    todo = [(i, sc) for i, sc in enumerate(scenes) if (sc["type"] != "footage" or not sc.get("video")) and not sc.get("art_urls")]
+    todo = [(i, sc) for i, sc in enumerate(scenes) if (sc["type"] != "footage" or not sc.get("video")) and not sc.get("art_urls") and not sc.get("sim_preset")]
     data_types = ("counter", "barchart", "timeline", "compare", "gauge")  # angka tetap tampil sebagai 3D data
     todo = [(i, sc) for i, sc in todo if (sc.get("subject") or sc.get("art")) and sc["type"] not in data_types]
     if not todo:
