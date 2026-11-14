@@ -6,9 +6,9 @@ Satuan kira-kira meter, sumbu y ke atas, kamera menghadap titik tengah (0, 0, 0)
 import math
 import re
 
-SHAPES = ("box", "cylinder", "sphere", "cone", "torus", "tube", "gear", "plate", "rope")
+SHAPES = ("box", "cylinder", "sphere", "cone", "torus", "tube", "gear", "plate", "rope", "text")
 MATERIALS = ("metal", "glass", "liquid", "rubber", "glow", "plastic")
-KINDS = ("move", "spin", "pulse", "color")
+KINDS = ("move", "spin", "pulse", "color", "rotate", "grow", "appear", "count")
 HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
@@ -52,6 +52,18 @@ def clean_sim(raw):
                 item["linkOff"] = [_vec(off[0]), _vec(off[1])]
             item["pos"] = [0, 0, 0]
             item["size"] = [_num((o.get("size") or [0.05])[0], 0.015, 0.2, 0.05), 0, 0]
+        elif shape == "text":
+            pos = _vec(o.get("pos"))
+            txt = re.sub(r"[^\w\s.,!?%:+\-/'\u2019]", "", str(o.get("text") or ""), flags=re.U).strip().upper()[:28]
+            if pos is None or not txt:
+                continue
+            sz = o.get("size") if isinstance(o.get("size"), (list, tuple)) and o.get("size") else [0.6]
+            item["pos"] = pos
+            item["text"] = txt
+            item["size"] = [round(_num(sz[0], 0.15, 4.0, 0.6), 3), round(_num(sz[1] if len(sz) > 1 else 0, 0, 1.5, 0), 3), 0]
+            rot = _vec(o.get("rot"), -360, 360)
+            if rot:
+                item["rot"] = rot
         else:
             pos = _vec(o.get("pos"))
             size = o.get("size")
@@ -70,6 +82,9 @@ def clean_sim(raw):
         item["material"] = o.get("material") if o.get("material") in MATERIALS else "metal"
         if o.get("opacity") is not None:
             item["opacity"] = round(_num(o.get("opacity"), 0.05, 1.0, 1.0), 2)
+        pv = _vec(o.get("pivot"))
+        if pv:
+            item["pivot"] = pv
         label = re.sub(r"[*#_`]", "", str(o.get("label") or "")).strip()[:24]
         if label:
             item["label"] = label
@@ -94,6 +109,12 @@ def clean_sim(raw):
             item["to"] = to
             item["loop"] = bool(m.get("loop"))
             item["speed"] = round(_num(m.get("speed"), 0.05, 3, 0.5), 2)
+        elif m["kind"] == "count":
+            item["value"] = round(_num(m.get("value"), -1e9, 1e9, 0), 2)
+            item["suffix"] = re.sub(r"[^\w\s%/.\-\u00b0]", "", str(m.get("suffix") or ""), flags=re.U)[:10]
+        elif m["kind"] == "rotate":
+            item["axis"] = m.get("axis") if m.get("axis") in ("x", "y", "z") else "z"
+            item["angle"] = round(_num(m.get("angle"), -360, 360, 20), 1)
         elif m["kind"] in ("spin", "pulse"):
             item["axis"] = m.get("axis") if m.get("axis") in ("x", "y", "z") else "y"
             item["speed"] = round(_num(m.get("speed"), -3, 3, 0.4), 2)
@@ -130,7 +151,10 @@ def clean_sim(raw):
         "orbit": round(_num(cam_raw.get("orbit"), 0, 2, 1.0), 2),
         "target": _vec(cam_raw.get("target")) or [0, 0, 0],
     }
-    return {"objects": objs, "motions": motions, "flows": flows, "cutaway": bool(raw.get("cutaway")), "cam": cam}
+    out = {"objects": objs, "motions": motions, "flows": flows, "cutaway": bool(raw.get("cutaway")), "cam": cam}
+    if raw.get("floor") is not None:
+        out["floor"] = round(_num(raw.get("floor"), -10, 10, -4), 2)
+    return out
 
 
 def _o(id, shape, pos, size, color="#9aa7b8", material="metal", **kw):
@@ -257,6 +281,26 @@ def preset_sim(mechanism, labels):
                 {"path": [[-1.4, -2.0, 0], [-1.6, 0, 0], [0, 1.4, 0], [1.6, 0, 0], [1.4, -2.0, 0], [0, -2.1, 0], [-1.4, -2.0, 0]], "color": "#ff9a5a", "count": 24, "size": 0.12, "speed": 0.25, "t0": 0.1},
             ],
         }
+    if mechanism == "retractor":
+        return {
+            "cam": {"dist": 24, "height": 3, "orbit": 1.0, "target": [0.6, 0, 0]},
+            "objects": [
+                _o("housing", "tube", [-2.0, 0.6, 0], [3.0, 1.6, 0], "#9fb4cc", "glass", opacity=0.3, rot=[90, 0, 0]),
+                _o("reel", "gear", [-2.0, 0.6, 0], [2.0, 0.6, 14], "#4fc3f7", label=lab(0, "Roda bergerigi")),
+                _o("belt", "box", [-2.0, -2.6, 0.0], [0.3, 2.6, 1.3], "#f1f1f1", "rubber"),
+                _o("ramp", "box", [3.2, -1.6, 0], [4.2, 0.3, 1.6], "#7c8db3", "metal", rot=[0, 0, 16], label=lab(2, "Landasan miring")),
+                _o("ball", "sphere", [1.7, -0.75, 0], [0.5, 0, 0], "#e0e6f0", "metal", label=lab(1, "Bola besi")),
+                _o("pawl", "box", [0.0, 2.6, 0], [2.4, 0.25, 0.7], "#ff9f43", "plastic", label=lab(3, "Pengunci")),
+            ],
+            "motions": [
+                {"target": "reel", "kind": "spin", "axis": "z", "speed": -0.35, "t0": 0.0, "t1": 0.6},
+                {"target": "belt", "kind": "move", "to": [-2.0, -3.4, 0.0], "t0": 0.0, "t1": 0.6},
+                {"target": "ball", "kind": "move", "to": [4.6, 0.0, 0], "t0": 0.56, "t1": 0.68},
+                {"target": "pawl", "kind": "rotate", "axis": "z", "angle": 24, "t0": 0.62, "t1": 0.72},
+                {"target": "pawl", "kind": "color", "color": "#ff3b3b", "t0": 0.62, "t1": 0.72},
+            ],
+            "flows": [],
+        }
     if mechanism == "nozel_bensin":
         return {
             "cutaway": True, "cam": {"dist": 27, "height": 3, "orbit": 1.0, "target": [0.8, -0.6, 0]},
@@ -280,3 +324,49 @@ def preset_sim(mechanism, labels):
             ],
         }
     return None
+
+
+def guess_preset(text):
+    """Tebak animasi bawaan dari kata-kata di judul dan naskah adegan. Hasil: nama preset atau ''."""
+    t = (text or "").lower()
+    table = (
+        ("retractor", ("sabuk pengaman", "seat belt", "seatbelt", "gulungan sabuk", "retractor")),
+        ("nozel_bensin", ("nozel", "spbu", "pompa bensin")),
+        ("katrol_lift", ("lift", "elevator", "katrol", "derek")),
+        ("roda_gigi", ("roda gigi", "gir ", "gear")),
+        ("piston", ("piston", "mesin mobil", "silinder")),
+        ("rangkaian", ("rangkaian", "listrik", "baterai", "saklar")),
+        ("panas", ("rice cooker", "penanak", "pemanas", "termostat")),
+        ("aliran", ("venturi", "semprot", "bernoulli", "pipa")),
+    )
+    for name, words in table:
+        if any(w in t for w in words):
+            return name
+    return ""
+
+
+def generic_sim(labels):
+    """Cadangan terakhir untuk benda apa pun: bagian-bagian bernama tersusun berurutan, tiap bagian menyala
+    bergantian, dan aliran bercahaya melewati semuanya. Selalu valid, jadi adegan tidak jatuh ke diagram datar."""
+    labels = [x for x in labels if x][:4] or ["Bagian 1", "Bagian 2", "Bagian 3"]
+    n = len(labels)
+    xs = [(-4.2 + 8.4 * i / max(1, n - 1)) if n > 1 else 0 for i in range(n)]
+    shapes = ("cylinder", "box", "sphere", "gear")
+    colors = ("#4fc3f7", "#ff9f43", "#ba68c8", "#81c784")
+    objs, motions = [], []
+    for i, (x, lab) in enumerate(zip(xs, labels)):
+        shape = shapes[i % 4]
+        size = {"cylinder": [1.1, 1.8, 0], "box": [1.8, 1.8, 1.4], "sphere": [1.1, 0, 0], "gear": [1.3, 0.6, 12]}[shape]
+        objs.append(_o(f"part{i}", shape, [x, 0.0, 0], size, colors[i % 4], "metal", label=lab,
+                       **({"rot": [90, 0, 0]} if shape == "cylinder" else {})))
+        t0 = round(0.12 + 0.16 * i, 2)
+        motions.append({"target": f"part{i}", "kind": "color", "color": "#ffd23f", "t0": t0, "t1": round(t0 + 0.1, 2)})
+        motions.append({"target": f"part{i}", "kind": "pulse", "speed": 1.2})
+        if shape == "gear":
+            motions.append({"target": f"part{i}", "kind": "spin", "axis": "z", "speed": 0.2})
+    motions.append({"target": "part0", "kind": "move", "to": [xs[0], 0.5, 0], "loop": True, "speed": 0.4})
+    objs.append(_o("base", "plate", [0, -1.8, 0], [10.5, 0.2, 2.6], "#2a3550", "metal"))
+    path = [[xs[0] - 1.2, -0.9, 0]] + [[x, -0.9, 0] for x in xs] + [[xs[-1] + 1.2, -0.9, 0]]
+    flows = [{"path": path, "color": "#7fd8ff", "count": 22, "size": 0.12, "speed": 0.3}]
+    return {"cam": {"dist": 24, "height": 3, "orbit": 0.9, "target": [0, 0, 0]}, "objects": objs,
+            "motions": motions, "flows": flows, "cutaway": False}

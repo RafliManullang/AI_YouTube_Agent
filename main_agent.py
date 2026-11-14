@@ -28,6 +28,7 @@ import requests
 
 import ai_art
 import sim_presets
+import sim_scenes
 
 try:
     from dotenv import load_dotenv
@@ -206,6 +207,55 @@ def pick_sfx_map():
     return new
 
 
+THUMB_HISTORY_PATH = os.path.join(BASE_DIR, "riwayat_thumb.json")
+THUMB_LAYOUTS = 5
+
+
+def pick_thumb_layout():
+    """Pilih tata letak thumbnail yang tidak sama dengan dua video terakhir."""
+    try:
+        with open(THUMB_HISTORY_PATH, "r", encoding="utf-8") as f:
+            old = [int(x) for x in json.load(f)]
+    except Exception:
+        old = []
+    fresh = [i for i in range(THUMB_LAYOUTS) if i not in old[-2:]] or list(range(THUMB_LAYOUTS))
+    pick = random.choice(fresh)
+    try:
+        with open(THUMB_HISTORY_PATH, "w", encoding="utf-8") as f:
+            json.dump((old + [pick])[-4:], f)
+    except OSError:
+        pass
+    return pick
+
+
+def render_thumb_background(scenes):
+    """Ambil satu gambar bersih (tanpa teks/subtitle) dari adegan terbaik sebagai latar thumbnail."""
+    props_path = os.path.join(REMOTION_DIR, "render_props.json")
+    out = os.path.join(PUBLIC_DIR, "thumb_bg.jpg")
+    if os.path.exists(out):
+        os.remove(out)
+    try:
+        with open(props_path, "r", encoding="utf-8") as f:
+            props = json.load(f)
+        cands = [s for s in props["scenes"] if s.get("sim")] or [s for s in props["scenes"] if s.get("artUrls") or s.get("art")]
+        if not cands:
+            return None
+        sc = cands[min(1, len(cands) - 1)] if len(cands) > 1 else cands[0]
+        frame = int((sc["start"] + (sc["end"] - sc["start"]) * 0.66) * 30)
+        props["clean"] = True
+        with open(os.path.join(REMOTION_DIR, "thumb_bg_props.json"), "w", encoding="utf-8") as f:
+            json.dump(props, f, ensure_ascii=False)
+        cmd = [shutil.which("npx"), "remotion", "still", "src/index.ts", "ShortsComp", out,
+               "--props=thumb_bg_props.json", f"--frame={frame}", "--image-format=jpeg", "--jpeg-quality=88"]
+        if sc.get("sim"):
+            cmd.append("--gl=" + (os.getenv("GL_MODE") or "angle"))
+        run_command(cmd, REMOTION_DIR)
+        return "thumb_bg.jpg" if os.path.exists(out) else None
+    except Exception as e:
+        info(f"  -> Latar thumbnail dari animasi gagal ({str(e)[:80]}), pakai latar biasa.")
+        return None
+
+
 def save_history(title):
     history = load_history()
     history.append(title)
@@ -317,6 +367,10 @@ Jangan minta teks, huruf, logo, atau wajah orang di gambar. Adegan tipe lain: "a
 Setiap momen klimaks atau kejutan diberi satu kalimat pendek yang menghentak (animasi otomatis memberi getaran
 dan kilat di momen itu).
 
+SEMUA VISUAL BERUPA ANIMASI 3D: setiap adegan selain "footage" otomatis ditampilkan sebagai animasi 3D. Pakai tipe
+"footage" paling banyak SATU adegan (misalnya hook berupa rekaman nyata), sisanya pilih tipe animasi supaya seluruh
+video berupa simulasi 3D.
+
 TEMPO PADAT: kalimat pendek, tanpa pengantar bertele-tele, tanpa pengulangan. Setiap kalimat membawa
 informasi baru. Adegan terakhir penutup singkat yang bikin orang ingin menonton ulang. Ucapan hanya berisi
 kalimat yang diucapkan: tanpa instruksi panggung, tanpa emoji, tanpa tanda bintang, tanpa hashtag.
@@ -354,7 +408,9 @@ Aturan visual tiap adegan (field "type"):
                PRIORITAS UTAMA untuk topik cara kerja benda dan banyak topik sains. Isi "mechanism" dengan
                salah satu di bawah ini, dan isi "items" berisi 3 sampai 4 nama bagian BERURUTAN sesuai
                daftar bagian-nya (ganti dengan nama bagian benda yang sebenarnya, maksimal 2 kata per label,
-               "value" boleh kosong):
+               "value" boleh kosong). Kalau bendanya TIDAK ada di daftar berikut (contoh: sabuk pengaman, kunci pintu,
+               kamera), isi "mechanism": "" dan WAJIB menulis "sim" 3D yang lengkap untuk benda itu; jangan ganti ke
+               tipe lain:
                  "katrol_lift" (lift, derek, katrol): bagian 1 kabin, 2 tali baja, 3 pemberat, 4 katrol
                  "roda_gigi" (jam, mesin, sepeda): 1 gigi penggerak, 2 gigi perantara, 3 gigi keluaran
                  "piston" (mesin, pompa, rem hidrolik): 1 piston, 2 silinder, 3 poros engkol
@@ -598,6 +654,41 @@ def polish_script(data, base_prompt):
     return data
 
 
+def upgrade_sims(data, base_prompt):
+    """Adegan yang masih memakai animasi 3D cadangan umum diminta dibuatkan animasi 3D khusus bendanya."""
+    todo = [sc for sc in data["scenes"] if sc.get("sim_generic")][:3]
+    if not todo:
+        return data
+    info(f"  -> Membuat animasi 3D khusus untuk {len(todo)} adegan...")
+    for sc in todo:
+        labels = [str(i.get("label") or "") for i in (sc.get("items") or []) if isinstance(i, dict)]
+        ask = (
+            "Kamu perancang animasi 3D sains. Topik video: " + str(data.get("title")) + ". Adegan: " + str(sc.get("title"))
+            + ". Narasi adegan: " + str(sc.get("narration")) + ". Bagian yang diberi label: " + ", ".join(labels) + ".\n\n"
+            + SIM_GUIDE + "\n\nTulis HANYA JSON {\"sim\": {...}} untuk adegan ini: bentuk benda aslinya dari beberapa benda 3D "
+            "sederhana, dan gerak yang memperlihatkan SEBAB-AKIBAT cara kerjanya (klimaks sekitar t=0.62). Pakai label "
+            "bagian yang diberikan."
+        )
+        dead = set()
+        for name, call in build_text_sources(ask):
+            if name in dead:
+                continue
+            try:
+                got = extract_json(call())
+                sim = sim_presets.clean_sim(got.get("sim") if "sim" in got else got)
+                if sim is None:
+                    raise ValueError("spesifikasi 3D tidak layak")
+                sc["sim"], sc["sim_generic"] = sim, False
+                info(f"     adegan \"{sc.get('title')}\": animasi 3D khusus dibuat ({name})")
+                break
+            except Exception as e:
+                msg = str(e)
+                if any(x in msg for x in ("404", "NOT_FOUND", "401", "403")):
+                    dead.add(name)
+                info(f"     {name} dilewati: {msg[:80]}")
+    return data
+
+
 def research_and_write(forced_topic=None):
     info("\n[1/5] Agen AI sedang meriset topik dan menulis naskah...")
     prompt = build_prompt(forced_topic, load_history())
@@ -622,7 +713,7 @@ def research_and_write(forced_topic=None):
                     data = extract_json(call())
                     validate_content(data)
                     info(f"  -> Naskah dibuat dengan {name}")
-                    return polish_script(data, prompt)
+                    return upgrade_sims(polish_script(data, prompt), prompt)
                 except Exception as e:
                     last_error = e
                     message = str(e)
@@ -747,8 +838,7 @@ def validate_content(data):
                 for it in (raw.get("items") or [])
                 if isinstance(it, dict) and clean_text(it.get("label"), 24)
             ][:4]
-            mech = str(raw.get("mechanism") or "").strip().lower()
-            if len(items) < 2 or mech not in MECHANISMS:
+            if len(items) < 2:
                 scene_type, items = "flow", []
         elif scene_type == "question" and not points:
             scene_type = "flow"
@@ -790,13 +880,27 @@ def validate_content(data):
         art = [clean_text(a, 320) for a in (art_raw or []) if isinstance(a, str) and len(str(a).strip()) > 12][:2]
         sfx_raw = str(raw.get("sfx") or "").strip().lower()
         sim = None
+        sim_generic = False
         if scene_type in ("mechanism", "cutaway"):
+            labels_for_sim = [str(i.get("label") or "") for i in (items or []) if isinstance(i, dict)]
             sim = sim_presets.clean_sim(raw.get("sim"))
-            if sim is None and mechanism in MECHANISMS:
-                sim = sim_presets.clean_sim(sim_presets.preset_sim(
-                    mechanism, [str(i.get("label") or "") for i in (items or []) if isinstance(i, dict)]))
+            if sim is None:
+                guess = mechanism if mechanism in MECHANISMS else ""
+                guess = guess or sim_presets.guess_preset(
+                    " ".join([str(raw.get("title") or "")] + [str(ln.get("text") or "") for ln in (raw.get("lines") or []) if isinstance(ln, dict)] + [str(raw.get("narration") or "")]))
+                spec = sim_presets.preset_sim(guess, labels_for_sim) if guess else None
+                sim = sim_presets.clean_sim(spec) if spec else None
+                if sim is None:
+                    sim = sim_presets.clean_sim(sim_presets.generic_sim(labels_for_sim))
+                    sim_generic = True
+        if sim is None and scene_type != "footage":
+            sim = sim_scenes.scene_sim({
+                "type": scene_type, "title": clean_text(raw.get("title"), 40), "points": points, "items": items,
+                "number": number, "unit": clean_text(raw.get("unit"), 40) or "", "weather": weather,
+            })
         scenes.append({
             "sim": sim,
+            "sim_generic": sim_generic,
             "sfx": sfx_raw if sfx_raw in KEY_SOUNDS else "",
             "art": art,
             "variant": variant if variant in ("device", "ground") else "device",
@@ -1405,6 +1509,9 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
         info(f"  -> Render dengan animasi 3D gagal ({str(e)[:100]}). Mengulang tanpa 3D (animasi 2D bawaan)...")
         for sc in props["scenes"]:
             sc.pop("sim", None)
+            if sc.get("type") == "mechanism" and not sc.get("mechanism"):
+                sc["type"] = "flow"
+                sc["points"] = [str(i.get("label") or "") for i in (sc.get("items") or [])][:4] or sc.get("points") or ["Cara kerja"]
         with open(props_path, "w", encoding="utf-8") as f:
             json.dump(props, f, ensure_ascii=False)
         run_command([c for c in cmd if not c.startswith("--gl=")], REMOTION_DIR)
@@ -1425,9 +1532,14 @@ def render_thumbnail(data, scenes):
             "category": data["category"],
             "themeIndex": data["theme_index"],
         }
-        first_video = next((s["video"] for s in scenes if s.get("video")), None)
-        if first_video:
-            props["video"] = first_video
+        props["layout"] = pick_thumb_layout()
+        bg = render_thumb_background(scenes)
+        if bg:
+            props["bg"] = bg
+        else:
+            first_video = next((s["video"] for s in scenes if s.get("video")), None)
+            if first_video:
+                props["video"] = first_video
         with open(os.path.join(REMOTION_DIR, "thumbnail_props.json"), "w", encoding="utf-8") as f:
             json.dump(props, f, ensure_ascii=False)
         cmd = [

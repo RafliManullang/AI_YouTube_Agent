@@ -53,7 +53,9 @@ export type SceneItem = {
 export type Vec3 = [number, number, number];
 export type SimObject = {
   id: string;
-  shape: "box" | "cylinder" | "sphere" | "cone" | "torus" | "tube" | "gear" | "plate" | "rope";
+  shape: "box" | "cylinder" | "sphere" | "cone" | "torus" | "tube" | "gear" | "plate" | "rope" | "text";
+  text?: string; // shape text: tulisan 3D (size: tinggi huruf, ketebalan)
+  pivot?: Vec3; // titik putar terhadap pusat benda (untuk rotate)
   pos: Vec3;
   size: Vec3; // box/plate: lebar,tinggi,tebal; cylinder/tube/cone: radius,tinggi,-; sphere: radius; torus: radius besar,radius kecil; gear: radius,tebal,jumlah gigi
   rot?: Vec3; // derajat
@@ -66,12 +68,15 @@ export type SimObject = {
 };
 export type SimMotion = {
   target: string;
-  kind: "move" | "spin" | "pulse" | "color";
+  kind: "move" | "spin" | "pulse" | "color" | "rotate" | "grow" | "appear" | "count";
   to?: Vec3; // untuk move: posisi akhir
   axis?: "x" | "y" | "z"; // untuk spin
   speed?: number; // putaran per detik (spin) atau denyut per detik (pulse)
   t0?: number; // mulai (0 sampai 1 dari panjang adegan)
   t1?: number; // selesai
+  value?: number; // untuk count: angka akhir yang dihitung naik
+  suffix?: string; // untuk count: satuan di belakang angka
+  angle?: number; // untuk rotate: sudut akhir (derajat) pada sumbu axis
   color?: string; // untuk color: warna akhir
   loop?: boolean; // move bolak-balik
 };
@@ -88,6 +93,7 @@ export type SimSpec = {
   objects: SimObject[];
   motions?: SimMotion[];
   flows?: SimFlow[];
+  floor?: number; // tinggi lantai (y) bila ingin ada alas bergaris
   cutaway?: boolean; // belah benda: sisi depan dibuang supaya bagian dalam terlihat
   cam?: { dist?: number; height?: number; orbit?: number; target?: Vec3; fov?: number };
 };
@@ -115,6 +121,8 @@ export type SceneData = {
 };
 
 export type ShortsProps = {
+  clean?: boolean; // tanpa judul, label, dan subtitle (untuk latar thumbnail)
+  thumbBg?: string;
   audioUrl: string;
   bgmUrl?: string;
   scenes: SceneData[];
@@ -131,6 +139,8 @@ export type ThumbnailProps = {
   category: string;
   themeIndex?: number;
   video?: string;
+  bg?: string; // gambar latar dari videonya sendiri (di folder public)
+  layout?: number; // 0 sampai 4: tata letak berbeda tiap video
 };
 
 export type Palette = {

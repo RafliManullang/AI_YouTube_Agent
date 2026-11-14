@@ -98,3 +98,10 @@ Pilihan lain: `--topik "cara kerja lift gedung"` untuk menentukan topik sendiri,
 - Video hasil ada di `video_engine/out/shorts_final.mp4`.
 - Status bawaan video adalah `private` supaya hasil pertama bisa dicek dulu. Untuk langsung publik, isi `YOUTUBE_PRIVACY=public` di file `.env`, atau jalankan dengan `--privasi public`.
 - Jangan pernah mengunggah `.env`, `client_secret.json`, atau `token.json` ke GitHub.
+
+## Tahap 10: semua adegan 3D + thumbnail beragam
+
+- Semua jenis adegan (angka, grafik batang, garis waktu, ukuran, aliran, peta ide, perbandingan, kisah, skala kecil, pertanyaan) kini digambar sebagai animasi 3D asli, lengkap dengan tulisan 3D. Rekaman stok maksimal 1 adegan per video.
+- Benda yang belum dikenal (misalnya sabuk pengaman) dibuatkan model 3D oleh AI. Kalau gagal, dipakai model bawaan berdasarkan kata kunci.
+- Thumbnail: ada 5 tata letak yang bergantian (tidak sama dengan dua video terakhir, riwayat di `riwayat_thumb.json`). Latarnya diambil dari gambar 3D bersih video itu sendiri.
+- Render 3D lebih lambat. Kalau bermasalah, atur `GL_MODE` di `.env` (mis. `egl` atau `swiftshader`).
