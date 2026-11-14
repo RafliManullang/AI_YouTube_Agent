@@ -233,7 +233,17 @@ export const ShortsComp: React.FC<ShortsProps> = ({
     <SfxSeed.Provider value={bgSeed}>
     <SfxMap.Provider value={sfxMap}>
     <HideChrome.Provider value={clean}>
-    <AbsoluteFill style={{ backgroundColor: "#0b0f19" }}>
+    <AbsoluteFill
+      style={{
+        backgroundColor: "#0b0f19",
+        // hook: tiga detik pertama langsung "menampar" dengan zoom-in cepat dan getaran
+        transform: clean
+          ? undefined
+          : `scale(${1 + 0.32 * Math.pow(Math.max(0, 1 - frame / 14), 2)}) translate(${
+              frame < 12 ? Math.sin(frame * 3.1) * (12 - frame) * 1.2 : 0
+            }px, ${frame < 12 ? Math.cos(frame * 2.7) * (12 - frame) : 0}px)`,
+      }}
+    >
       {safeScenes.length === 0 ? (
         <Background palette={paletteFor(0, themeIndex)} />
       ) : null}
@@ -266,7 +276,16 @@ export const ShortsComp: React.FC<ShortsProps> = ({
       />
 
       {/* Efek suara hanya di momen besar: dentuman hook, pergantian adegan, dan puncak animasi. Tidak ada bunyi per kata. */}
-      <Sfx name="impact" at={3} volume={0.4} />
+      <Sfx name="whoosh" at={0} volume={0.34} />
+      <Sfx name="impact" at={10} volume={0.5} />
+      {!clean ? (
+        <AbsoluteFill
+          style={{
+            backgroundColor: "#ffffff",
+            opacity: interpolate(frame, [8, 12, 22], [0, 0.55, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+          }}
+        />
+      ) : null}
 
       {/* Suara narasi dan musik latar */}
       {audioUrl ? <Audio src={staticFile(audioUrl)} /> : null}

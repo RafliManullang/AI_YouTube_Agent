@@ -332,10 +332,15 @@ ALUR CERITA (supaya orang menonton sampai habis): (1) HOOK menghentak; (2) TARUH
 atau bahaya apa yang mengintai; (3) PENJELASAN bertahap dengan analogi benda sehari-hari yang mudah dibayangkan;
 (4) TITIK BALIK tepat di tengah video: kalimat seperti "Tapi tunggu, ada yang lebih gila..." disusul fakta
 yang berlawanan dengan dugaan; (5) ANGKA GILA yang dibandingkan dengan benda yang akrab (contoh: "setara
-berat 6 ekor gajah", "sepanjang lapangan bola"), minimal 2 perbandingan seperti ini di seluruh video;
+berat 6 ekor gajah", "sepanjang lapangan bola"), minimal 1 dan paling banyak 2 perbandingan seperti ini;
+BATAS ANGKA (supaya otak penonton tidak lelah): di SELURUH ucapan hanya boleh ada 3 angka penting, paling banyak
+satu angka per kalimat, dan jangan ada dua angka di kalimat berdekatan. Pilih angka yang paling mengejutkan, buang
+sisanya, lalu ganti dengan perbandingan kata-kata ("sedikit lebih cepat", "seberat mobil"). Tiap angka yang
+disebut harus punya adegan sendiri yang memperlihatkannya (counter, barchart, gauge, atau animasi 3D);
 (6) JAWABAN yang memuaskan rasa penasaran. Jangan membocorkan jawaban inti di awal: simpan sampai bagian
 (6). PENUTUP MELINGKAR (seamless loop): kalimat terakhir harus tersambung secara tata bahasa dengan kalimat
-pertama, sehingga saat video berulang otomatis, kedua kalimat terdengar seperti satu kalimat yang berputar.
+pertama, sehingga saat video berulang otomatis, kedua kalimat terdengar seperti satu kalimat yang berputar. WAJIB: kalimat terakhir diakhiri dengan
+mengulang 4 sampai 6 kata pertama dari kalimat pembuka secara persis, tanpa tanda titik di ujungnya.
 Contoh: kalimat pertama "Di balik dinding lift ini ada balok besi seberat mobil." dan kalimat terakhir
 "Jadi, itulah rahasia kenapa lift tidak jatuh, dan itu semua karena di balik dinding lift ini". Kalimat
 terakhir boleh menggantung seperti itu.
@@ -618,7 +623,7 @@ def polish_script(data, base_prompt):
         "mengejutkan atau peringatan yang lebih tajam. Tanpa sapaan.\n"
         "2. Rasa penasaran: apakah ada pertanyaan yang baru terjawab di akhir? Pastikan jawaban tidak bocor di awal.\n"
         "3. Titik balik di tengah video yang berlawanan dengan dugaan penonton.\n"
-        "4. Minimal 2 angka atau perbandingan yang mudah dibayangkan dengan benda akrab.\n"
+        "4. Paling banyak 3 angka di seluruh ucapan (satu angka per kalimat, tidak berdekatan). Kalau lebih, buang yang kurang penting dan ganti dengan perbandingan benda akrab. Jangan menumpuk istilah teknik.\n"
         "5. Hapus kalimat pengisi; setiap kalimat harus membawa informasi baru. Total ucapan 150 sampai 175 kata, tanpa dialog dua orang.\n"
         "6. CEK FAKTA: perbaiki atau hapus klaim yang tidak pasti benar. Jangan mengarang angka; kalau ragu "
         "pakai \"sekitar\" atau buang klaimnya.\n"
@@ -793,6 +798,24 @@ def clean_items(raw_items, numeric):
     return items
 
 
+def enforce_loop(scenes):
+    """Pastikan kalimat terakhir berakhir dengan kata-kata pembuka supaya video berulang terasa menyambung."""
+    try:
+        first = scenes[0]["lines"][0]["text"].split()[:4]
+        last_line = scenes[-1]["lines"][-1]
+        norm = lambda ws: [w.strip(".,!?;:\"'").lower() for w in ws]
+        tail = norm(last_line["text"].split()[-8:])
+        key = norm(first)
+        if len(key) < 3 or any(key[i:i + len(key)] == tail[j:j + len(key)] and j + len(key) <= len(tail)
+                               for i in (0,) for j in range(len(tail))):
+            return
+        base = last_line["text"].rstrip(" .!?")
+        last_line["text"] = base + ", " + " ".join(first[:1]).lower() + " " + " ".join(first[1:])
+        scenes[-1]["narration"] = " ".join(l["text"] for l in scenes[-1]["lines"])
+    except Exception:
+        pass
+
+
 def validate_content(data):
     for key in ("title", "description", "tags", "scenes"):
         if key not in data:
@@ -943,6 +966,7 @@ def validate_content(data):
         if not scene.get("footage_query"):
             scene["footage_query"] = next((l["footage_query"] for l in scene["lines"] if l.get("footage_query")), "")
 
+    enforce_loop(scenes)
     data["scenes"] = scenes
     data["full_script"] = " ".join(s["narration"] for s in scenes)
     if len(data["full_script"].split()) < 20:

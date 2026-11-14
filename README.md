@@ -105,3 +105,9 @@ Pilihan lain: `--topik "cara kerja lift gedung"` untuk menentukan topik sendiri,
 - Benda yang belum dikenal (misalnya sabuk pengaman) dibuatkan model 3D oleh AI. Kalau gagal, dipakai model bawaan berdasarkan kata kunci.
 - Thumbnail: ada 5 tata letak yang bergantian (tidak sama dengan dua video terakhir, riwayat di `riwayat_thumb.json`). Latarnya diambil dari gambar 3D bersih video itu sendiri.
 - Render 3D lebih lambat. Kalau bermasalah, atur `GL_MODE` di `.env` (mis. `egl` atau `swiftshader`).
+
+## Tahap 11: pembuka lebih menghentak, angka lebih sedikit, penutup menyambung
+
+- 3 detik pertama: zoom-in cepat, getaran, kilatan putih, bunyi desing lalu dentuman.
+- Angka dibatasi maksimal 3 di seluruh ucapan, satu per kalimat, supaya penonton tidak kewalahan.
+- Kalimat terakhir otomatis diakhiri dengan kata-kata pembuka (video berulang terasa satu kalimat yang berputar).
