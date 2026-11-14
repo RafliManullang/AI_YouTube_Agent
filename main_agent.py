@@ -28,6 +28,7 @@ import requests
 
 import ai_art
 import models3d
+import wikiphoto
 import sim_presets
 import sim_scenes
 
@@ -90,7 +91,7 @@ SCENE_TYPES = ("flow", "mindmap", "counter", "timeline", "barchart", "compare", 
 MECHANISMS = ("katrol_lift", "roda_gigi", "piston", "tuas", "aliran", "panas", "rangkaian", "tekanan",
               "nozel_bensin", "roda_kerucut", "eskalator", "kunci_silinder", "sprinkler", "venturi",
               "eddy_current", "jembatan", "airbag", "mesin_ice", "ball_socket", "capillary", "pressure_leak", "jangkar_rantai", "sosrobahu",
-              "mobil_dongkrak", "jembatan_geser")
+              "mobil_dongkrak", "jembatan_geser", "loop_induksi")
 MOODS = ("senang", "takut", "kaget", "sedih", "tegang", "bangga")
 WEATHERS = ("cerah", "hujan", "salju", "badai", "malam", "kabut")
 AMBIENCES = ("angin", "gesekan", "benturan", "mesin", "air", "hening")
@@ -361,7 +362,8 @@ fakta mengejutkan, peringatan, atau premis yang memancing penasaran dan menyebut
 "Di balik dinding lift ini ada balok besi seberat mobil. Kamu naik, dia turun. Buat apa?" atau "Jangan pernah
 pakai kaca rumah untuk mobil, ini akibatnya!"). Visual adegan pertama sudah memperlihatkan benda itu di detik
 ke-0 (pakai tipe "mechanism" atau "cutaway" kalau topiknya cara kerja benda). DILARANG membuka dengan sapaan (halo, hai, selamat datang), basa-basi,
-"kali ini kita bahas", atau percakapan santai bernada datar. Visual adegan pertama harus langsung
+"kali ini kita bahas", atau percakapan santai bernada datar. Kalimat pertama DILARANG diawali kata sambung (karena, dan, tapi, jadi, lalu,
+makanya, soalnya, sebab): harus kalimat utuh yang bisa berdiri sendiri. Visual adegan pertama harus langsung
 memperlihatkan inti masalahnya, bukan pemandangan umum.
 ALUR CERITA (supaya orang menonton sampai habis; ini kotak peralatan, BUKAN urutan wajib, ikuti KERANGKA CERITA VIDEO INI di bawah): (1) HOOK menghentak; (2) TARUHAN: kenapa ini penting
 atau bahaya apa yang mengintai; (3) PENJELASAN bertahap dengan analogi benda sehari-hari yang mudah dibayangkan;
@@ -418,6 +420,9 @@ Untuk SETIAP adegan selain "footage" isi dua kolom:
 - "subject": 1 sampai 3 kata BAHASA INGGRIS untuk benda, hewan, orang, atau kendaraan utama yang disebut di
   kalimat itu (contoh: "escalator", "cat", "car", "key", "elephant", "doctor"). Kosongkan ("") kalau tidak ada
   satu benda utama (misalnya hanya angka atau gagasan).
+- "photo": HANYA untuk adegan "story" tentang peristiwa, tempat, bangunan, atau tokoh yang NYATA: 2 sampai 5 kata
+  BAHASA INGGRIS untuk mencari foto dokumentasi aslinya di Wikimedia Commons (contoh: "Sosrobahu Cawang flyover",
+  "Otis safety elevator demonstration"). Kosongkan ("") kalau bukan kisah nyata atau fotonya tidak mungkin ada.
 - "art": daftar berisi 1 deskripsi gambar BAHASA INGGRIS (maksimal 25 kata) tentang adegan kartun 3D yang
   memperlihatkan persis isi kalimat itu. Deskripsi tiap adegan HARUS berbeda dari adegan lain (sudut, benda, atau
   tindakan berbeda). Mulai dengan benda utamanya yang nyata dan dikenal (contoh: "An airplane
@@ -500,6 +505,7 @@ Aturan visual tiap adegan (field "type"):
                  "jangkar_rantai" (jangkar kapal, rantai, gesekan dasar laut): 1 kapal, 2 rantai baja, 3 jangkar, 4 dasar lumpur
                  "sosrobahu" (balok beton diputar di atas tiang, teknologi konstruksi jalan layang): 1 tiang beton, 2 lapisan minyak, 3 dua piringan, 4 jalan raya, 5 balok 480 ton
                  "mobil_dongkrak" (mobil diangkat dongkrak di atas oli, kisah ide penemuan di garasi): 1 mobil, 2 dongkrak, 3 tumpahan oli
+                 "loop_induksi" (sensor lampu merah: kawat tembaga di bawah aspal, medan magnet, mobil, kotak pengendali, lampu): 1 aspal, 2 kawat, 3 mobil, 4 lampu
                  "jembatan_geser" (jembatan berjalan di atas perbaikan jalan, tanjakan 6% jadi 1%): 1 jalan, 2 alat berat, 3 jembatan, 4 tanjakan
 - "question" : tanda tanya merah besar yang berdenyut, untuk adegan hook atau pembongkar mitos yang melawan akal
                sehat (contoh: "REL KAKU, KOK NGGAK ANJLOK?"). "title" berisi kalimat tanya singkat dan "points"
@@ -677,7 +683,7 @@ def build_text_sources(prompt):
 
 GREETINGS = ("halo", "hai", "hay", "selamat datang", "kali ini", "hari ini kita", "apa kabar", "teman-teman")
 DRAFT_SCENE_KEYS = ("lines", "title", "type", "tone", "points", "items", "number", "unit", "footage_query",
-                    "keywords", "variant", "mood", "weather", "sound", "mechanism", "sfx", "sim", "art", "subject")
+                    "keywords", "variant", "mood", "weather", "sound", "mechanism", "sfx", "sim", "art", "subject", "photo")
 
 
 def polish_script(data, base_prompt):
@@ -874,6 +880,19 @@ def clean_items(raw_items, numeric):
     return items
 
 
+def fix_opener(scenes):
+    """Kalimat pertama tidak boleh diawali kata sambung (terdengar menggantung saat video dibuka)."""
+    try:
+        line = scenes[0]["lines"][0]
+        words = line["text"].split()
+        if len(words) > 3 and words[0].strip(",.").lower() in ("karena", "dan", "tapi", "jadi", "lalu", "makanya", "soalnya", "sebab"):
+            rest = " ".join(words[1:])
+            line["text"] = rest[0].upper() + rest[1:]
+            scenes[0]["narration"] = " ".join(l["text"] for l in scenes[0]["lines"])
+    except Exception:
+        pass
+
+
 def enforce_loop(scenes):
     """Penutup yang mengulang kata-kata pembuka terdengar gagap saat video berputar. Kata ulangan di ujung dibuang."""
     try:
@@ -1005,6 +1024,7 @@ def validate_content(data):
             "sfx": sfx_raw if sfx_raw in KEY_SOUNDS else "",
             "art": art,
             "subject": subject,
+            "photo": clean_text(str(raw.get("photo") or ""), 60) if scene_type == "story" else "",
             "variant": variant if variant in ("device", "ground") else "device",
             "mechanism": mechanism if mechanism in MECHANISMS else "",
             "mood": mood if mood in MOODS else "tegang",
@@ -1045,6 +1065,7 @@ def validate_content(data):
         if not scene.get("footage_query"):
             scene["footage_query"] = next((l["footage_query"] for l in scene["lines"] if l.get("footage_query")), "")
 
+    fix_opener(scenes)
     enforce_loop(scenes)
     data["scenes"] = scenes
     data["full_script"] = " ".join(s["narration"] for s in scenes)
@@ -1434,6 +1455,9 @@ def fetch_stock_videos(scenes):
 ART_TYPES = None  # semua jenis adegan selain footage boleh punya gambar AI
 
 
+PHOTO_CREDITS = []
+
+
 def fetch_art_images(scenes):
     """Beri tiap adegan visual yang sesuai isinya: model 3D gratis kalau ada (Poly Pizza), kalau tidak ada
     gambar kartun 3D buatan AI. Yang gagal tetap memakai animasi 3D bawaan. Mengembalikan daftar kredit model.
@@ -1442,9 +1466,17 @@ def fetch_art_images(scenes):
     art_on = os.getenv("ART", "on").strip().lower() != "off"
     model_key = os.getenv("POLYPIZZA_KEY", "").strip() if os.getenv("MODEL3D", "on").strip().lower() != "off" else ""
     for name in os.listdir(PUBLIC_DIR):
-        if re.fullmatch(r"art_\d+_\d+\.(png|jpg)", name):
+        if re.fullmatch(r"(art_\d+_\d+|photo_\d+)\.(png|jpg)", name):
             os.remove(os.path.join(PUBLIC_DIR, name))
-    todo = [(i, sc) for i, sc in enumerate(scenes) if sc["type"] != "footage" or not sc.get("video")]
+    # kisah nyata: coba foto dokumentasi asli dari Wikimedia Commons dulu (tampil di bingkai polaroid)
+    if os.getenv("PHOTO", "on").strip().lower() != "off":
+        for i, sc in enumerate(scenes):
+            if sc.get("type") == "story" and sc.get("photo"):
+                name, credit = wikiphoto.fetch_photo(sc["photo"], PUBLIC_DIR, i, info)
+                if name:
+                    sc["art_urls"] = [name]
+                    PHOTO_CREDITS.append("Foto: " + credit)
+    todo = [(i, sc) for i, sc in enumerate(scenes) if (sc["type"] != "footage" or not sc.get("video")) and not sc.get("art_urls")]
     data_types = ("counter", "barchart", "timeline", "compare", "gauge")  # angka tetap tampil sebagai 3D data
     todo = [(i, sc) for i, sc in todo if (sc.get("subject") or sc.get("art")) and sc["type"] not in data_types]
     if not todo:
@@ -1488,7 +1520,12 @@ def fetch_art_images(scenes):
         for i, sc in enumerate(scenes):
             if sc["type"] in data_types or sc.get("model") or sc.get("art_urls") or sc.get("video") or sc.get("sim"):
                 continue  # adegan yang sudah punya animasi 3D sendiri tidak meminjam (supaya tidak ada gambar kembar)
-            src = have[0] if i == len(scenes) - 1 else min(have, key=lambda h: abs(scenes.index(h) - i))
+            if i != len(scenes) - 1:
+                continue  # hanya adegan terakhir yang meminjam (untuk putaran mulus); adegan lain memakai animasi 3D bawaan
+            src = have[0]
+            prev = scenes[i - 1] if i > 0 else {}
+            if any(src.get(k) and src.get(k) == prev.get(k) for k in ("model", "art_urls")):
+                continue  # adegan sebelumnya sudah memakai visual yang sama: jangan diulang berturutan
             for k in ("model", "art_urls"):
                 if src.get(k):
                     sc[k] = src[k]
@@ -1675,7 +1712,30 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
 
     if not os.path.exists(output_mp4) or os.path.getsize(output_mp4) < 10_000:
         raise RuntimeError("Video hasil render tidak ditemukan atau rusak.")
+    normalize_loudness(output_mp4)
     return output_mp4
+
+
+def normalize_loudness(path):
+    """Samakan keras suara video ke standar YouTube (sekitar -14 LUFS) supaya tidak terdengar pelan.
+    Kalau gagal, video asli tetap dipakai. Matikan dengan LOUDNORM=off di .env."""
+    if os.getenv("LOUDNORM", "on").strip().lower() == "off":
+        return
+    tmp = path + ".norm.mp4"
+    prefix = ffmpeg_prefix()
+    if not prefix:
+        return
+    try:
+        cmd = prefix + ["-y", "-i", path, "-c:v", "copy", "-af", "loudnorm=I=-13:TP=-1.5:LRA=9",
+                                 "-c:a", "aac", "-b:a", "192k", "-ar", "44100", tmp]
+        subprocess.run(cmd, check=True, capture_output=True, cwd=REMOTION_DIR)
+        if os.path.exists(tmp) and os.path.getsize(tmp) > 10_000:
+            os.replace(tmp, path)
+            info("  -> Keras suara disamakan ke standar YouTube.")
+    except Exception as e:
+        info(f"  -> Penyamaan keras suara dilewati ({str(e)[:60]}).")
+        if os.path.exists(tmp):
+            os.remove(tmp)
 
 
 def render_thumbnail(data, scenes):
@@ -1860,6 +1920,8 @@ def main():
             data["description"] += "\n\nVideo latar: " + ", ".join(sorted(credits))
         if model_credits:
             data["description"] += "\n\nModel 3D: " + "; ".join(sorted(model_credits))
+        if PHOTO_CREDITS:
+            data["description"] += "\n\n" + "\n".join(PHOTO_CREDITS)
         final_video = render_remotion_video(
             words, data["scenes"], duration, data["theme_index"], data.get("music"), data.get("bg_seed", 0), audio_file
         )

@@ -49,14 +49,15 @@ const poseOf = (o: SimObject, motions: SimMotion[], u: number, t: number): Pose 
       const back = 1 + 2.2 * Math.pow(x - 1, 3) + 1.2 * Math.pow(x - 1, 2); // membal sedikit
       pose.scale *= x <= 0 ? 0.0001 : Math.max(0.0001, back);
     } else if (m.kind === "count") {
-      const k = smooth(clamp01((u - t0) / (t1 - t0)));
+      const lin = clamp01((u - t0) / (t1 - t0));
+      const k = m.ease === "spring" ? Math.min(1, springOut(lin)) : smooth(lin);
       pose.count = fmtNum((m.value ?? 0) * k) + (m.suffix ?? "");
     } else if (m.kind === "rotate") {
       const idx = m.axis === "x" ? 0 : m.axis === "y" ? 1 : 2;
       pose.rot[idx] += (m.angle ?? 20) * smooth(clamp01((u - t0) / (t1 - t0)));
     } else if (m.kind === "pulse") {
       pose.scale *= 1 + 0.08 * Math.sin(t * (m.speed ?? 2) * Math.PI * 2);
-    } else if (m.kind === "color" && m.color) {
+    } else if (m.kind === "color" && m.color && u >= t0) {
       pose.color = m.color;
       pose.glow = smooth(clamp01((u - t0) / (t1 - t0)));
     }
@@ -294,21 +295,51 @@ const alongPath = (path: Vec3[], k: number): Vec3 => {
   return path[path.length - 1];
 };
 
+// Jenis aliran dibaca dari warnanya: biru = air, cokelat = lumpur, jingga/kuning tua = oli, selain itu = titik cahaya
+const flowKind = (f: { kind?: string; color?: string }) => {
+  if (f.kind) return f.kind;
+  const c = new THREE.Color(f.color ?? "#ffd23f");
+  if (c.b > c.r + 0.1 && c.b >= c.g) return "water";
+  if (c.r > c.g && c.g > c.b && c.r < 0.6) return "mud";
+  if (c.r > 0.9 && c.g > 0.55 && c.g < 0.75 && c.b < 0.1) return "oil";
+  return "light";
+};
+
 const Flow: React.FC<{ f: SimSpec["flows"] extends (infer X)[] | undefined ? X : never; u: number; t: number }> = ({ f, u, t }) => {
   const t0 = f.t0 ?? 0;
   const t1 = f.t1 ?? 1;
   if (u < t0 || u > t1) return null;
-  const count = Math.min(60, f.count ?? 24);
+  const kind = flowKind(f);
+  const liquid = kind !== "light";
+  // cairan: butir lebih banyak, lebih rapat, bergoyang pelan dan berubah ukuran supaya tampak mengalir
+  const count = Math.min(liquid ? 120 : 60, Math.round((f.count ?? 24) * (liquid ? 3.2 : 1)));
   const color = f.color ?? "#ffd23f";
   const fade = clamp01((u - t0) / 0.04) * clamp01((t1 - u) / 0.04);
+  const wob = kind === "mud" ? 0.28 : kind === "oil" ? 0.1 : 0.16;
   return (
     <>
       {Array.from({ length: count }, (_, i) => {
-        const p = alongPath(f.path, t * (f.speed ?? 0.5) + i / count);
+        const base = alongPath(f.path, t * (f.speed ?? 0.5) + i / count);
+        const p: Vec3 = liquid
+          ? [
+              base[0] + Math.sin(t * 3.1 + i * 1.7) * wob,
+              base[1] + Math.cos(t * 2.3 + i * 2.9) * wob + (kind === "water" ? Math.sin(t * 6 + i) * 0.04 : 0),
+              base[2] + Math.sin(t * 2.7 + i * 0.9) * wob,
+            ]
+          : base;
+        const size = (f.size ?? 0.1) * (0.6 + 0.4 * fade) * (liquid ? 0.55 + 0.9 * (((i * 37) % 10) / 10) : 1);
         return (
-          <mesh key={i} position={p} scale={(f.size ?? 0.1) * (0.6 + 0.4 * fade)}>
+          <mesh key={i} position={p} scale={[size, size * (kind === "mud" ? 0.75 : 1), size]}>
             <sphereGeometry args={[1, 14, 10]} />
-            <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2.2} toneMapped={false} />
+            {kind === "water" ? (
+              <meshPhysicalMaterial color={color} transparent opacity={0.72} roughness={0.05} clearcoat={1} emissive={color} emissiveIntensity={0.45} />
+            ) : kind === "mud" ? (
+              <meshStandardMaterial color={color} roughness={1} metalness={0} />
+            ) : kind === "oil" ? (
+              <meshPhysicalMaterial color={color} roughness={0.12} clearcoat={1} emissive={color} emissiveIntensity={0.3} />
+            ) : (
+              <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2.2} toneMapped={false} />
+            )}
           </mesh>
         );
       })}

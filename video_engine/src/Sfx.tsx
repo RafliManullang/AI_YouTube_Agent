@@ -59,6 +59,7 @@ const BY_MECHANISM: Record<string, SfxName> = {
   pressure_leak: "swell",
   sosrobahu: "swell",
   jembatan_geser: "creak",
+  loop_induksi: "swell",
   mobil_dongkrak: "clank",
 };
 export const climaxSound = (scene: { sfx?: string; mechanism?: string; type?: string }): SfxName => {

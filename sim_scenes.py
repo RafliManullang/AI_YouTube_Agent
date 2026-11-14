@@ -32,7 +32,7 @@ def _wrap(text, n=13, max_lines=2):
 
 
 def _fit_h(text, max_w, max_h):
-    return min(max_h, max_w / (0.8 * max(1, len(text))))
+    return min(max_h, max_w / (1.05 * max(1, len(text))))
 
 
 def _appear(id, t0, span=0.12):
@@ -84,9 +84,10 @@ def bar_sim(sc):
     vals = [float(i.get("value") or 0) for i in items]
     mx = max(vals) or 1
     n = len(items)
+    gap = 3.7 if n <= 2 else (3.1 if n == 3 else 2.4)
     objs, mot = [], []
     for i, it in enumerate(items):
-        x = (i - (n - 1) / 2) * 2.3
+        x = (i - (n - 1) / 2) * gap
         hgt = max(0.5, vals[i] / mx * 4.4)
         top = vals[i] == mx
         objs.append({"id": f"b{i}", "shape": "box", "pos": [x, -2 + hgt / 2, 0], "size": [1.25, round(hgt, 2), 1.25],
@@ -94,10 +95,12 @@ def bar_sim(sc):
         t0 = 0.08 + 0.1 * i
         mot.append({"target": f"b{i}", "kind": "grow", "ease": "spring", "t0": round(t0, 2), "t1": round(t0 + 0.34, 2)})
         objs.append(_txt(f"v{i}", "0", [x, -2 + hgt + 0.75, 0], 0.62, "#ffffff", "glow"))
-        mot.append({"target": f"v{i}", "kind": "count", "value": vals[i], "suffix": "", "t0": round(t0, 2), "t1": round(t0 + 0.35, 2)})
-        lab = str(it.get("label") or "")[:10].upper()
-        objs.append(_txt(f"l{i}", lab, [x, -1.45, 1.6], _fit_h(lab, 2.1, 0.28), "#ffffff", "glow"))
-        mot.append(_appear(f"l{i}", t0))
+        mot.append({"target": f"v{i}", "kind": "count", "ease": "spring", "value": vals[i], "suffix": "", "t0": round(t0, 2), "t1": round(t0 + 0.34, 2)})
+        lines = _wrap(str(it.get("label") or "").upper(), 9 if n > 2 else 12, 2) or [""]
+        lh = min(_fit_h(max(lines, key=len), gap - 0.35, 0.36), 0.36)
+        for j, ln in enumerate(lines):
+            objs.append(_txt(f"l{i}_{j}", ln, [x, -1.45 - 0.5 * j, 1.6], lh, "#ffffff", "glow"))
+            mot.append(_appear(f"l{i}_{j}", t0))
     unit = str(sc.get("unit") or "").strip().upper()
     if unit:
         objs.append(_txt("unit", unit, [0, 5.4, 0], _fit_h(unit, 8, 0.7), "#ffffff"))

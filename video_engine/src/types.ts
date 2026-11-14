@@ -87,6 +87,7 @@ export type SimFlow = {
   count?: number;
   size?: number;
   speed?: number; // siklus per detik
+  kind?: "water" | "mud" | "oil" | "light"; // jenis aliran (kalau kosong dibaca dari warna)
   t0?: number;
   t1?: number;
 };
@@ -230,7 +231,9 @@ export const THEMES: Theme[] = [
 ];
 
 export const paletteFor = (index: number, themeIndex = 0): Palette => {
-  const safeTheme = THEMES[((themeIndex % THEMES.length) + THEMES.length) % THEMES.length];
+  // adegan bernomor ganjil memakai tema pendamping yang warnanya berbeda, supaya video tidak satu warna dari awal sampai akhir
+  const shift = index % 2 === 1 ? 3 : 0;
+  const safeTheme = THEMES[(((themeIndex + shift) % THEMES.length) + THEMES.length) % THEMES.length];
   const list = safeTheme.palettes;
   return list[((index % list.length) + list.length) % list.length];
 };
