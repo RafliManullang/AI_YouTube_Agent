@@ -1,4 +1,4 @@
-import React from "react";
+import React, { createContext, useContext } from "react";
 import {
   Easing,
   interpolate,
@@ -31,11 +31,16 @@ const useSpringAt = (delayFrames: number) => {
 // ------------------------------------------------------------
 // Judul adegan (muncul membal + garis bawah memanjang)
 // ------------------------------------------------------------
+// Saat true, judul, label, dan subtitle disembunyikan (untuk mengambil gambar latar thumbnail)
+export const HideChrome = createContext(false);
+
 export const SceneTitle: React.FC<{ title: string; palette: Palette }> = ({
   title,
   palette,
 }) => {
   const p = useSpringAt(4);
+  const hidden = useContext(HideChrome);
+  if (hidden) return null;
   return (
     <div
       style={{

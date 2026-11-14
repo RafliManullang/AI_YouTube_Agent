@@ -3,6 +3,9 @@ import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import { ThreeCanvas } from "@remotion/three";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
+import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
+import fontJson from "three/examples/fonts/helvetiker_bold.typeface.json";
 import { useThree } from "@react-three/fiber";
 import { DiagramProps, SceneTitle } from "./Diagrams";
 import { Callouts } from "./Mechanisms";
@@ -15,11 +18,13 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const smooth = (x: number) => x * x * (3 - 2 * x);
 const CLIMAX = 0.62;
 
-type Pose = { pos: Vec3; scale: number; color?: string; glow: number };
+type Pose = { pos: Vec3; scale: number; color?: string; glow: number; rot: Vec3; count?: string };
+const FONT = new FontLoader().parse(fontJson as never);
+const fmtNum = (n: number) => Math.round(n).toLocaleString("id-ID");
 
 // Posisi, ukuran, dan warna sebuah benda pada saat tertentu (u = 0..1 dari panjang adegan, t = detik)
 const poseOf = (o: SimObject, motions: SimMotion[], u: number, t: number): Pose => {
-  const pose: Pose = { pos: [...(o.pos ?? [0, 0, 0])] as Vec3, scale: 1, glow: 0 };
+  const pose: Pose = { pos: [...(o.pos ?? [0, 0, 0])] as Vec3, scale: 1, glow: 0, rot: [0, 0, 0] };
   for (const m of motions) {
     if (m.target !== o.id) continue;
     const t0 = m.t0 ?? 0;
@@ -28,6 +33,20 @@ const poseOf = (o: SimObject, motions: SimMotion[], u: number, t: number): Pose 
       let k = smooth(clamp01((u - t0) / (t1 - t0)));
       if (m.loop) k = 0.5 - 0.5 * Math.cos(((t * (m.speed ?? 0.5)) % 1) * Math.PI * 2);
       for (let i = 0; i < 3; i++) pose.pos[i] = o.pos[i] + (m.to[i] - o.pos[i]) * k;
+    } else if (m.kind === "grow") {
+      const k = Math.max(0.001, smooth(clamp01((u - t0) / (t1 - t0))));
+      pose.scale *= k;
+      pose.pos[1] = o.pos[1] - (o.size[1] / 2) * (1 - k) * (o.shape === "box" || o.shape === "cylinder" ? 1 : 0);
+    } else if (m.kind === "appear") {
+      const x = clamp01((u - t0) / Math.max(0.02, t1 - t0));
+      const back = 1 + 2.2 * Math.pow(x - 1, 3) + 1.2 * Math.pow(x - 1, 2); // membal sedikit
+      pose.scale *= x <= 0 ? 0.0001 : Math.max(0.0001, back);
+    } else if (m.kind === "count") {
+      const k = smooth(clamp01((u - t0) / (t1 - t0)));
+      pose.count = fmtNum((m.value ?? 0) * k) + (m.suffix ?? "");
+    } else if (m.kind === "rotate") {
+      const idx = m.axis === "x" ? 0 : m.axis === "y" ? 1 : 2;
+      pose.rot[idx] += (m.angle ?? 20) * smooth(clamp01((u - t0) / (t1 - t0)));
     } else if (m.kind === "pulse") {
       pose.scale *= 1 + 0.08 * Math.sin(t * (m.speed ?? 2) * Math.PI * 2);
     } else if (m.kind === "color" && m.color) {
@@ -80,6 +99,12 @@ const gearGeometry = (radius: number, thick: number, teeth: number) => {
   return g;
 };
 
+const textGeometry = (str: string, h: number, depth: number) => {
+  const g = new TextGeometry(str || " ", { font: FONT, size: h, height: depth, curveSegments: 4, bevelEnabled: true, bevelSize: h * 0.025, bevelThickness: h * 0.025, bevelSegments: 1 });
+  g.center();
+  return g;
+};
+
 const geometryOf = (o: SimObject) => {
   const [a, b, c] = o.size;
   switch (o.shape) {
@@ -95,6 +120,8 @@ const geometryOf = (o: SimObject) => {
       return new THREE.TorusGeometry(a, b, 20, 56);
     case "gear":
       return gearGeometry(a, b, c || 12);
+    case "text":
+      return textGeometry(o.text ?? "", a, b || a * 0.25);
     case "rope":
     case "plate":
     case "box":
@@ -177,7 +204,7 @@ const Rope: React.FC<{ o: SimObject; spec: SimSpec; u: number; t: number; clip: 
   });
   const a = ends[0];
   const b = ends[1];
-  const mat = useMemo(() => materialOf({ ...o, material: o.material ?? "metal", color: o.color ?? "#cfd6e2" }, { pos: [0, 0, 0], scale: 1, glow: 0 }, clip), [o, clip]);
+  const mat = useMemo(() => materialOf({ ...o, material: o.material ?? "metal", color: o.color ?? "#cfd6e2" }, { pos: [0, 0, 0], scale: 1, glow: 0, rot: [0, 0, 0] }, clip), [o, clip]);
   if (!a || !b) return null;
   const dir = b.clone().sub(a);
   const len = Math.max(0.001, dir.length());
@@ -196,13 +223,15 @@ const Mesh: React.FC<{ o: SimObject; spec: SimSpec; u: number; t: number; clip: 
   const motions = spec.motions ?? [];
   const pose = poseOf(o, motions, u, t);
   const spin = spinOf(o, motions, u, t);
-  const geo = useMemo(() => geometryOf(o), [o]);
+  const textKey = o.shape === "text" ? pose.count ?? o.text ?? "" : "";
+  const geo = useMemo(() => (o.shape === "text" ? textGeometry(textKey, o.size[0], o.size[1] || o.size[0] * 0.25) : geometryOf(o)), [o, textKey]);
   const mat = materialOf(o, pose, clip);
-  const rot = (o.rot ?? [0, 0, 0]).map((d) => (d * Math.PI) / 180) as Vec3;
+  const base = o.rot ?? [0, 0, 0];
+  const rot = [0, 1, 2].map((i) => ((base[i] + pose.rot[i]) * Math.PI) / 180) as Vec3;
   const spinRad = spin.map((d) => (d * Math.PI) / 180) as Vec3;
   return (
-    <group position={pose.pos} rotation={rot} scale={pose.scale}>
-      <mesh geometry={geo} material={mat} rotation={spinRad} />
+    <group position={[pose.pos[0] + (o.pivot?.[0] ?? 0), pose.pos[1] + (o.pivot?.[1] ?? 0), pose.pos[2] + (o.pivot?.[2] ?? 0)]} rotation={rot} scale={pose.scale}>
+      <mesh geometry={geo} material={mat} rotation={spinRad} position={[-(o.pivot?.[0] ?? 0), -(o.pivot?.[1] ?? 0), -(o.pivot?.[2] ?? 0)]} />
     </group>
   );
 };
@@ -311,6 +340,15 @@ export const Sim3D: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
           <directionalLight position={[5, 8, 6]} intensity={2.4} />
           <directionalLight position={[-6, 3, -4]} intensity={1.0} color={palette.accent2} />
           <pointLight position={[0, 4, 5]} intensity={18} color={palette.accent} distance={30} />
+          {spec.floor !== undefined ? (
+            <group position={[0, spec.floor, 0]}>
+              <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                <circleGeometry args={[16, 64]} />
+                <meshStandardMaterial color="#0b1224" metalness={0.6} roughness={0.35} transparent opacity={0.7} />
+              </mesh>
+              <gridHelper args={[30, 30, "#6fb6ff", "#35507a"]} position={[0, 0.01, 0]} />
+            </group>
+          ) : null}
           {spec.objects.map((o) => (
             <Mesh key={o.id} o={o} spec={spec} u={u} t={t} clip={clip} />
           ))}

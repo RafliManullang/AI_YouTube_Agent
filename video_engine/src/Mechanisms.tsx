@@ -1,6 +1,6 @@
 import React, { useContext } from "react";
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { BODY_FONT, DiagramProps, SceneTitle, TITLE_FONT } from "./Diagrams";
+import { BODY_FONT, DiagramProps, HideChrome, SceneTitle, TITLE_FONT } from "./Diagrams";
 import { Sfx, climaxSound } from "./Sfx";
 import { Palette } from "./types";
 
@@ -33,7 +33,8 @@ export const Callouts: React.FC<{
 }> = ({ anchors, labels, palette, lengthFrames }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const n = Math.min(anchors.length, labels.length);
+  const hidden = useContext(HideChrome);
+  const n = hidden ? 0 : Math.min(anchors.length, labels.length);
   const step = Math.max(0.55, (lengthFrames / fps) * 0.5 / Math.max(1, n));
   return (
     <>

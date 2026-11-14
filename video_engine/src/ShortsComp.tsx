@@ -11,7 +11,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import { BACKGROUND_VARIANTS, Background } from "./Background";
-import { Counter, FlowDiagram, MindMap } from "./Diagrams";
+import { Counter, FlowDiagram, HideChrome, MindMap } from "./Diagrams";
 import { FootageScene, Gauge } from "./ExtraScenes";
 import { Cutaway, MicroScale, Story } from "./TopicScenes";
 import { Mechanism, QuestionScene } from "./Mechanisms";
@@ -194,6 +194,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   sfx = true,
   bgSeed = 0,
   sfxMap = {},
+  clean = false,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -231,6 +232,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
     <SfxEnabled.Provider value={sfx}>
     <SfxSeed.Provider value={bgSeed}>
     <SfxMap.Provider value={sfxMap}>
+    <HideChrome.Provider value={clean}>
     <AbsoluteFill style={{ backgroundColor: "#0b0f19" }}>
       {safeScenes.length === 0 ? (
         <Background palette={paletteFor(0, themeIndex)} />
@@ -282,6 +284,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
       ) : null}
 
       {/* Teks kinetik: di atas area tombol Shorts */}
+      {clean ? null : (
       <AbsoluteFill
         style={{
           justifyContent: "flex-end",
@@ -353,9 +356,10 @@ export const ShortsComp: React.FC<ShortsProps> = ({
           })}
         </div>
       </AbsoluteFill>
+      )}
 
       {/* Garis kemajuan di bagian atas */}
-      <div
+      {clean ? null : <div
         style={{
           position: "absolute",
           top: 0,
@@ -364,8 +368,9 @@ export const ShortsComp: React.FC<ShortsProps> = ({
           width: `${Math.min(100, (time / total) * 100)}%`,
           background: `linear-gradient(90deg, ${activePalette.accent}, ${activePalette.accent2})`,
         }}
-      />
+      />}
     </AbsoluteFill>
+    </HideChrome.Provider>
     </SfxMap.Provider>
     </SfxSeed.Provider>
     </SfxEnabled.Provider>

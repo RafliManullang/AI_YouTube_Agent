@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useContext } from "react";
 import { AbsoluteFill, Img, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
-import { DiagramProps, SceneTitle, TITLE_FONT } from "./Diagrams";
+import { DiagramProps, HideChrome, SceneTitle, TITLE_FONT } from "./Diagrams";
 import { Sfx, climaxSound } from "./Sfx";
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -34,7 +34,8 @@ export const ArtScene: React.FC<DiagramProps> = ({ scene, palette, lengthFrames 
   // dua gambar: yang kedua muncul (silang pudar) setelah klimaks
   const fade = urls.length > 1 ? clamp01((frame - c) / Math.round(fps * 0.35)) : 0;
 
-  const labels = (scene.items?.length ? scene.items.map((i) => String(i.label)) : scene.points ?? []).slice(0, 4);
+  const hidden = useContext(HideChrome);
+  const labels = hidden ? [] : (scene.items?.length ? scene.items.map((i) => String(i.label)) : scene.points ?? []).slice(0, 4);
   const step = Math.max(0.55, ((len / fps) * 0.5) / Math.max(1, labels.length));
   void slow;
 
