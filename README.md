@@ -146,3 +146,7 @@ Adegan angka, grafik, dan garis waktu tetap berupa 3D data.
 - Transisi antar adegan dipersingkat (0,25 detik) supaya judul tidak bertumpuk.
 - Adegan yang sudah punya animasi 3D tidak lagi meminjam gambar adegan lain; deskripsi gambar yang kembar dilewati.
 - Adegan angka: cincin dan keterangan dirapikan agar tidak menimpa judul.
+
+## Tahap 17: ujung suara
+
+Hening panjang di ujung suara narator dibuang (sisakan 0,22 detik) dan 0,12 detik terakhir diberi fade halus, supaya penutup tidak terdengar terpotong dan video berulang menyambung rapat.

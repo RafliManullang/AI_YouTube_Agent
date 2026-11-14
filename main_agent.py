@@ -1493,6 +1493,25 @@ def run_command(cmd, cwd):
     subprocess.run(cmd, cwd=cwd, check=True)
 
 
+def trim_voice_tail(audio, rate, keep=0.22, fade=0.12):
+    """Buang hening panjang di ujung suara (supaya video berulang menyambung rapat) dan beri fade halus
+    di ujung terakhir supaya kata penutup tidak terdengar terpotong."""
+    try:
+        import numpy as np
+        a = np.asarray(audio)
+        floor = 0.02 * max(1e-9, float(np.max(np.abs(a))))
+        loud = np.nonzero(np.abs(a.astype("float32")) > floor)[0]
+        if len(loud) == 0:
+            return audio
+        end = min(len(a), int(loud[-1]) + int(keep * rate))
+        out = a[:end].astype("float32").copy()
+        n = min(len(out), int(fade * rate))
+        out[-n:] *= np.linspace(1.0, 0.0, n)
+        return out.astype(a.dtype)
+    except Exception:
+        return audio
+
+
 def generate_voice_gemini(scenes, wav_path):
     """Seluruh naskah dibacakan sekali oleh Gemini TTS, lalu waktu tiap kata dicari dari jeda napasnya."""
     import natural_voice as nv
@@ -1507,7 +1526,9 @@ def generate_voice_gemini(scenes, wav_path):
     script_text = " ".join(" ".join(l["text"] for l in sc["lines"]) for sc in scenes)
 
     audio, pauses = nv.make_voice(GEMINI_KEY, GEMINI_TTS_MODELS, GEMINI_VOICE, script_text, TTS_STYLE, log=info)
+    audio = trim_voice_tail(audio, nv.SAMPLE_RATE)
     audio_seconds = len(audio) / nv.SAMPLE_RATE
+    pauses = [p for p in pauses if (p[0] if isinstance(p, (tuple, list)) else p) < audio_seconds]
     times = nv.align_words(tokens, audio_seconds, pauses)
 
     words, pos = [], 0
