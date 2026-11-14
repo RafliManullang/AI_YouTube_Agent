@@ -17,6 +17,7 @@ import { Cutaway, MicroScale, Story } from "./TopicScenes";
 import { Mechanism, QuestionScene } from "./Mechanisms";
 import { ArtScene } from "./Art";
 import { Sim3D } from "./Sim3D";
+import { ModelScene } from "./ModelScene";
 import { BarChart, BeforeAfter, Timeline } from "./MoreDiagrams";
 import { Ambience, Sfx, SfxEnabled, SfxMap, SfxSeed } from "./Sfx";
 import { Palette, SceneData, ShortsProps, WordItem, paletteFor } from "./types";
@@ -125,11 +126,15 @@ const SceneView: React.FC<SceneViewProps> = ({
         clips={scene.clips}
         variant={(bgSeed + index * 5) % BACKGROUND_VARIANTS}
         seed={bgSeed + index}
-        footageStrength={scene.type === "footage" ? 1 : scene.type === "mechanism" || scene.type === "question" || !!scene.sim || (scene.artUrls && scene.artUrls.length > 0) ? 0 : 0.62}
+        footageStrength={scene.type === "footage" ? 1 : scene.type === "mechanism" || scene.type === "question" || !!scene.sim || !!scene.model || (scene.artUrls && scene.artUrls.length > 0) ? 0 : 0.62}
       />
       {isStory && !isFirst ? <Sfx name="glitch" at={0} volume={0.22} /> : null}
       <AbsoluteFill style={{ transform }}>
-        {scene.sim ? (
+        {scene.model ? (
+          <ModelScene {...diagramProps} />
+        ) : scene.artUrls && scene.artUrls.length > 0 && !["counter", "barchart", "timeline", "compare", "gauge"].includes(scene.type) ? (
+          <ArtScene {...diagramProps} />
+        ) : scene.sim ? (
           <Sim3D {...diagramProps} />
         ) : scene.artUrls && scene.artUrls.length > 0 ? (
           <ArtScene {...diagramProps} />

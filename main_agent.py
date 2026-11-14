@@ -27,6 +27,7 @@ from datetime import datetime, timedelta, timezone
 import requests
 
 import ai_art
+import models3d
 import sim_presets
 import sim_scenes
 
@@ -365,11 +366,14 @@ beradu, pengunci lepas), "hiss" (desis udara atau tekanan), "zap" (listrik), "th
 (momen sejarah), "impact" (kejutan umum). Kosongkan ("") kalau tidak ada kejadian yang pas. Jangan memakai bunyi yang
 sama di dua adegan berturutan.
 {SIM_GUIDE}
-ILUSTRASI AI ("art"): untuk SETIAP adegan bertipe "mechanism", "cutaway", "microscale", atau "story" tulis "art" berisi
-1 atau 2 deskripsi gambar dalam BAHASA INGGRIS (maksimal 40 kata masing-masing). Gambar pertama = keadaan awal,
-gambar kedua (opsional) = keadaan setelah klimaks (contoh: ruang hampa berubah merah, katup menutup). Deskripsikan
-benda konkret dan bagian-bagiannya secara spesifik (potongan melintang, bagian dalam benda yang jarang terlihat).
-Jangan minta teks, huruf, logo, atau wajah orang di gambar. Adegan tipe lain: "art": [].
+VISUAL NYATA (WAJIB, ini yang paling penting): penonton harus MELIHAT persis apa yang sedang diucapkan.
+Untuk SETIAP adegan selain "footage" isi dua kolom:
+- "subject": 1 sampai 3 kata BAHASA INGGRIS untuk benda, hewan, orang, atau kendaraan utama yang disebut di
+  kalimat itu (contoh: "escalator", "cat", "car", "key", "elephant", "doctor"). Kosongkan ("") kalau tidak ada
+  satu benda utama (misalnya hanya angka atau gagasan).
+- "art": daftar berisi 1 deskripsi gambar BAHASA INGGRIS (maksimal 40 kata) tentang adegan kartun 3D yang
+  memperlihatkan persis isi kalimat itu: siapa atau apa, sedang melakukan apa, di mana. Boleh ada tokoh kartun
+  atau orang. Untuk cara kerja benda, gambarkan potongan melintang bagian dalamnya. Jangan minta teks atau huruf.
 Setiap momen klimaks atau kejutan diberi satu kalimat pendek yang menghentak (animasi otomatis memberi getaran
 dan kilat di momen itu).
 
@@ -494,6 +498,7 @@ Keluarkan HANYA JSON murni dengan format persis ini:
       "weather": "cerah",
       "sound": "mesin",
       "sfx": "clank",
+      "subject": "elevator",
       "art": ["cutaway cross-section of an elevator shaft showing steel ropes, pulley and heavy counterweight"]
     }}
   ]
@@ -610,7 +615,7 @@ def build_text_sources(prompt):
 
 GREETINGS = ("halo", "hai", "hay", "selamat datang", "kali ini", "hari ini kita", "apa kabar", "teman-teman")
 DRAFT_SCENE_KEYS = ("lines", "title", "type", "tone", "points", "items", "number", "unit", "footage_query",
-                    "keywords", "variant", "mood", "weather", "sound", "mechanism", "sfx", "sim", "art")
+                    "keywords", "variant", "mood", "weather", "sound", "mechanism", "sfx", "sim", "art", "subject")
 
 
 def polish_script(data, base_prompt):
@@ -910,6 +915,7 @@ def validate_content(data):
         if isinstance(art_raw, str):
             art_raw = [art_raw]
         art = [clean_text(a, 320) for a in (art_raw or []) if isinstance(a, str) and len(str(a).strip()) > 12][:2]
+        subject = clean_text(str(raw.get("subject") or ""), 40).lower()
         sfx_raw = str(raw.get("sfx") or "").strip().lower()
         sim = None
         sim_generic = False
@@ -935,6 +941,7 @@ def validate_content(data):
             "sim_generic": sim_generic,
             "sfx": sfx_raw if sfx_raw in KEY_SOUNDS else "",
             "art": art,
+            "subject": subject,
             "variant": variant if variant in ("device", "ground") else "device",
             "mechanism": mechanism if mechanism in MECHANISMS else "",
             "mood": mood if mood in MOODS else "tegang",
@@ -1361,37 +1368,48 @@ def fetch_stock_videos(scenes):
     return credits
 
 
-ART_TYPES = ("mechanism", "cutaway", "microscale", "story")
+ART_TYPES = None  # semua jenis adegan selain footage boleh punya gambar AI
 
 
 def fetch_art_images(scenes):
-    """Buat ilustrasi AI untuk adegan animasi (maksimal 2 gambar per adegan). Yang gagal tetap memakai
-    animasi gambar-kode bawaan. Matikan dengan ART=off di .env."""
-    if os.getenv("ART", "on").strip().lower() == "off":
-        return
-    todo = [(i, sc) for i, sc in enumerate(scenes) if sc.get("art") and sc["type"] in ART_TYPES]
+    """Beri tiap adegan visual yang sesuai isinya: model 3D gratis kalau ada (Poly Pizza), kalau tidak ada
+    gambar kartun 3D buatan AI. Yang gagal tetap memakai animasi 3D bawaan. Mengembalikan daftar kredit model.
+    Matikan gambar AI dengan ART=off dan model 3D dengan MODEL3D=off di .env."""
+    credits = set()
+    art_on = os.getenv("ART", "on").strip().lower() != "off"
+    model_key = os.getenv("POLYPIZZA_KEY", "").strip() if os.getenv("MODEL3D", "on").strip().lower() != "off" else ""
     for name in os.listdir(PUBLIC_DIR):
         if re.fullmatch(r"art_\d+_\d+\.(png|jpg)", name):
             os.remove(os.path.join(PUBLIC_DIR, name))
+    todo = [(i, sc) for i, sc in enumerate(scenes) if sc["type"] != "footage" or not sc.get("video")]
+    data_types = ("counter", "barchart", "timeline", "compare", "gauge")  # angka tetap tampil sebagai 3D data
+    todo = [(i, sc) for i, sc in todo if (sc.get("subject") or sc.get("art")) and sc["type"] not in data_types]
     if not todo:
-        return
-    info("  -> Membuat ilustrasi animasi dengan AI (bisa beberapa menit)...")
+        return credits
     key = GEMINI_KEY if GEMINI_KEY and GEMINI_KEY != "ISI_KEY_DI_SINI" else ""
-    ok, failed = 0, 0
+    if not model_key:
+        info("  -> POLYPIZZA_KEY belum diisi di .env: model 3D dilewati, dipakai gambar kartun 3D AI.")
+    info("  -> Menyiapkan visual tiap adegan (model 3D / gambar kartun 3D), bisa beberapa menit...")
+    n_model, n_art, failed = 0, 0, 0
     for i, sc in todo:
-        urls = []
-        for j, prompt in enumerate(sc["art"][:2]):
-            path = os.path.join(PUBLIC_DIR, f"art_{i}_{j}.jpg")
-            if ai_art.make_image(prompt, path, key, info):
-                urls.append(f"art_{i}_{j}.jpg")
-                ok += 1
+        if model_key and sc.get("subject"):
+            path, credit = models3d.fetch_model(sc["subject"], PUBLIC_DIR, model_key, info)
+            if path:
+                sc["model"] = path
+                n_model += 1
+                if credit:
+                    credits.add(credit)
+                continue
+        if art_on and sc.get("art"):
+            path = os.path.join(PUBLIC_DIR, f"art_{i}_0.jpg")
+            if ai_art.make_image(sc["art"][0], path, key, info):
+                sc["art_urls"] = [f"art_{i}_0.jpg"]
+                n_art += 1
             else:
                 failed += 1
-                break  # gambar kedua tanpa yang pertama tidak berguna
-        if urls:
-            sc["art_urls"] = urls
-        time.sleep(2)
-    info(f"  -> Ilustrasi AI: {ok} gambar berhasil" + (f", {failed} gagal (diganti animasi bawaan)." if failed else "."))
+            time.sleep(2)
+    info(f"  -> Visual: {n_model} model 3D, {n_art} gambar kartun 3D" + (f", {failed} gagal (diganti animasi 3D bawaan)." if failed else "."))
+    return credits
 
 
 def downgrade_footage(scenes):
@@ -1507,6 +1525,7 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
                 **({"video": s["video"], "videoSeconds": s.get("video_seconds") or 0} if s.get("video") else {}),
                 **({"clips": s["clips"]} if s.get("clips") else {}),
                 **({"artUrls": s["art_urls"]} if s.get("art_urls") else {}),
+                **({"model": s["model"]} if s.get("model") else {}),
             }
             for s in scenes
         ],
@@ -1731,9 +1750,11 @@ def main():
         info(f"  -> Durasi video: {duration} detik, {len(words)} kata")
 
         credits = fetch_stock_videos(data["scenes"])
-        fetch_art_images(data["scenes"])
+        model_credits = fetch_art_images(data["scenes"])
         if credits:
             data["description"] += "\n\nVideo latar: " + ", ".join(sorted(credits))
+        if model_credits:
+            data["description"] += "\n\nModel 3D: " + "; ".join(sorted(model_credits))
         final_video = render_remotion_video(
             words, data["scenes"], duration, data["theme_index"], data.get("music"), data.get("bg_seed", 0), audio_file
         )
