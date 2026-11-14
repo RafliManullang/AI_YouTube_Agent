@@ -111,3 +111,7 @@ Pilihan lain: `--topik "cara kerja lift gedung"` untuk menentukan topik sendiri,
 - 3 detik pertama: zoom-in cepat, getaran, kilatan putih, bunyi desing lalu dentuman.
 - Angka dibatasi maksimal 3 di seluruh ucapan, satu per kalimat, supaya penonton tidak kewalahan.
 - Kalimat terakhir otomatis diakhiri dengan kata-kata pembuka (video berulang terasa satu kalimat yang berputar).
+
+## Tahap 12: perpustakaan animasi 3D siap pakai
+
+Sembilan animasi 3D bawaan ditambahkan di `sim_library.py`: eskalator (roda tangga dan roda pegangan beda kecepatan), kunci silinder (pin dan pegas), sprinkler (tabung kaca pecah di 68°C), efek venturi, rem magnet (arus pusar), roda kereta kerucut, jembatan gantung, airbag, dan mesin pembakaran (piston, klep, busi). Dipakai otomatis kalau naskah menyebut bendanya dan AI tidak membuat model 3D sendiri.

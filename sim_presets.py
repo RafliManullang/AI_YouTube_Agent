@@ -323,13 +323,15 @@ def preset_sim(mechanism, labels):
                 {"path": [[3.55, -3.3, 0], [3.55, 2.6, 0], [0.9, 2.6, 0]], "color": "#7fd8ff", "count": 12, "size": 0.08, "speed": 0.35, "t0": 0.0, "t1": 0.64},
             ],
         }
-    return None
+    import sim_library
+    return sim_library.library_sim(mechanism, labels)
 
 
 def guess_preset(text):
     """Tebak animasi bawaan dari kata-kata di judul dan naskah adegan. Hasil: nama preset atau ''."""
     t = (text or "").lower()
-    table = (
+    import sim_library
+    table = sim_library.KEYWORDS + (
         ("retractor", ("sabuk pengaman", "seat belt", "seatbelt", "gulungan sabuk", "retractor")),
         ("nozel_bensin", ("nozel", "spbu", "pompa bensin")),
         ("katrol_lift", ("lift", "elevator", "katrol", "derek")),

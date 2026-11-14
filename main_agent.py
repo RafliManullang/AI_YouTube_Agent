@@ -87,7 +87,8 @@ SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 SCENE_TYPES = ("flow", "mindmap", "counter", "timeline", "barchart", "compare", "gauge", "footage",
                "cutaway", "microscale", "story", "mechanism", "question")
 MECHANISMS = ("katrol_lift", "roda_gigi", "piston", "tuas", "aliran", "panas", "rangkaian", "tekanan",
-              "nozel_bensin", "roda_kerucut")
+              "nozel_bensin", "roda_kerucut", "eskalator", "kunci_silinder", "sprinkler", "venturi",
+              "eddy_current", "jembatan", "airbag", "mesin_ice")
 MOODS = ("senang", "takut", "kaget", "sedih", "tegang", "bangga")
 WEATHERS = ("cerah", "hujan", "salju", "badai", "malam", "kabut")
 AMBIENCES = ("angin", "gesekan", "benturan", "mesin", "air", "hening")
@@ -426,6 +427,14 @@ Aturan visual tiap adegan (field "type"):
                  "tekanan" (ban, kompresor, suntikan, balon): 1 tutup atau piston, 2 partikel gas, 3 pengukur tekanan
                  "nozel_bensin" (nozel SPBU, pompa otomatis berhenti sendiri): 1 gagang, 2 lubang udara, 3 ruang hampa, 4 pengunci
                  "roda_kerucut" (kereta api, rel, belok tanpa setir): 1 roda kerucut, 2 rel, 3 sisi besar
+                 "eskalator" (eskalator, travelator): 1 roda penggerak tangga, 2 roda pegangan, 3 anak tangga, 4 pegangan tangan
+                 "kunci_silinder" (kunci pintu, gembok): 1 pin atas, 2 pin bawah, 3 pegas, 4 anak kunci
+                 "sprinkler" (sprinkler gedung, alarm kebakaran): 1 kepala sprinkler, 2 sumbat katup, 3 tabung kaca
+                 "venturi" (karburator, semprotan, parfum, sayap): 1 celah sempit, 2 pipa hisap, 3 tekanan turun
+                 "eddy_current" (rem magnet, rem kereta cepat): 1 roda, 2 magnet, 3 arus pusar
+                 "jembatan" (jembatan gantung, kabel baja, bendungan): 1 jalan, 2 menara, 3 kabel baja
+                 "airbag" (airbag, sensor tabrakan): 1 sensor benturan, 2 pemicu, 3 kantong udara
+                 "mesin_ice" (mesin mobil, motor bensin): 1 piston, 2 poros engkol, 3 busi, 4 klep
 - "question" : tanda tanya merah besar yang berdenyut, untuk adegan hook atau pembongkar mitos yang melawan akal
                sehat (contoh: "REL KAKU, KOK NGGAK ANJLOK?"). "title" berisi kalimat tanya singkat dan "points"
                berisi 1 teks pendek di bawah tanda tanya (maksimal 5 kata).
