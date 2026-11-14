@@ -181,3 +181,10 @@ Hening panjang di ujung suara narator dibuang (sisakan 0,22 detik) dan 0,12 deti
 - Kalimat pertama tidak boleh diawali kata sambung (karena, dan, tapi, dst.), dijaga di aturan naskah dan dibersihkan otomatis.
 - Foto asli: adegan kisah nyata mencari foto dokumentasi berlisensi terbuka di Wikimedia Commons (tanpa kunci) dan menampilkannya di bingkai polaroid. Nama pembuat foto masuk ke deskripsi. Matikan dengan `PHOTO=off`. Kalau tidak ada yang cocok, dipakai gambar kartun atau animasi 3D.
 - Air, lumpur, dan oli: aliran berbutir banyak, bergoyang dan berbeda ukuran, dengan bahan mengilap (air), kusam (lumpur), kental (oli). Jenis dibaca dari warna aliran.
+
+## Tahap 21: setrika dan keping bimetal
+
+- Dua animasi 3D baru: `setrika` (bodi tembus pandang, tapak, elemen pemanas menyala merah, keping bimetal, kain) dan `bimetal` (dua lapis kuningan dan besi benar-benar melengkung saat panas lalu lurus lagi saat dingin, berubah warna dari abu-abu ke jingga merah, termometer naik, saklar terdorong, lampu pemanas mati).
+- Gerakan berputar dan perubahan warna kini bisa bolak-balik (`loop`), dan warna berubah bertahap seperti suhu. Batas bagian per animasi dinaikkan (60 benda, 140 gerakan).
+- Adegan yang sudah punya animasi bawaan tidak lagi diganti model 3D dari Poly Pizza (dulu muncul pemanas ruangan untuk "setrika"). Model yang judulnya pemanas, radiator, atau benda berbeda juga ditolak.
+- Subtitle dikecilkan, dibuat dalam bantalan gelap tipis, dan diturunkan agar tidak menutupi tengah layar.

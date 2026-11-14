@@ -315,7 +315,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
           alignItems: "center",
           paddingLeft: 60,
           paddingRight: 60,
-          paddingBottom: 420,
+          paddingBottom: 360,
         }}
       >
         {speaker ? (
@@ -340,8 +340,10 @@ export const ShortsComp: React.FC<ShortsProps> = ({
             display: "flex",
             flexWrap: "wrap",
             justifyContent: "center",
-            gap: "10px 30px",
+            gap: "6px 24px",
             minHeight: 96,
+            maxWidth: 940,
+            ...(activePhrase ? { backgroundColor: "rgba(5,10,25,0.42)", borderRadius: 40, padding: "12px 30px" } : {}),
           }}
         >
           {activePhrase?.map((item, index) => {
@@ -362,7 +364,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
                 key={`${item.start}-${index}`}
                 style={{
                   fontFamily: "Impact, 'Arial Black', sans-serif",
-                  fontSize: emph ? 104 : 84,
+                  fontSize: emph ? 90 : 72,
                   fontWeight: 900,
                   lineHeight: 1.1,
                   letterSpacing: 1,
