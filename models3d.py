@@ -37,7 +37,9 @@ def fetch_model(subject, public_dir, key, log=print):
             return None, None
         results = res.json().get("results") or []
         # utamakan model yang judulnya memuat kata kunci
-        results.sort(key=lambda r: 0 if subject.lower().split()[0] in str(r.get("Title", "")).lower() else 1)
+        # hanya terima model yang judulnya memuat kata kunci (kalau tidak, hasilnya sering ngawur: pisau untuk "tinta")
+        words = [w[:-1] if w.endswith("s") and len(w) > 3 else w for w in subject.lower().split() if len(w) >= 3]
+        results = [r for r in results if any(w in str(r.get("Title", "")).lower() for w in words)]
         for r in results:
             url = r.get("Download")
             if not url:

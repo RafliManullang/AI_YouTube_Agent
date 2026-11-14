@@ -89,7 +89,7 @@ SCENE_TYPES = ("flow", "mindmap", "counter", "timeline", "barchart", "compare", 
                "cutaway", "microscale", "story", "mechanism", "question")
 MECHANISMS = ("katrol_lift", "roda_gigi", "piston", "tuas", "aliran", "panas", "rangkaian", "tekanan",
               "nozel_bensin", "roda_kerucut", "eskalator", "kunci_silinder", "sprinkler", "venturi",
-              "eddy_current", "jembatan", "airbag", "mesin_ice")
+              "eddy_current", "jembatan", "airbag", "mesin_ice", "ball_socket", "capillary", "pressure_leak")
 MOODS = ("senang", "takut", "kaget", "sedih", "tegang", "bangga")
 WEATHERS = ("cerah", "hujan", "salju", "badai", "malam", "kabut")
 AMBIENCES = ("angin", "gesekan", "benturan", "mesin", "air", "hening")
@@ -377,6 +377,10 @@ yang dijawab langsung oleh kalimat pembuka saat video berulang. JANGAN mengulang
 kotak." dan penutup "Jadi, apa jadinya kalau jendela pesawat berbentuk kotak?". Contoh lain: pembuka "Karena
 di baliknya ada balok besi seberat mobil." dan penutup "Lalu kenapa lift tidak pernah jatuh?".
 {STRUCTURE_RULE}
+ATURAN PILIH JENIS ADEGAN: "gauge" dan "counter" hanya untuk besaran abstrak (suhu, persen, jumlah, harga), BUKAN
+untuk ukuran fisik kecil (mikron, milimeter) dan bukan untuk gerakan benda (putaran, kecepatan geser). Untuk ukuran
+fisik dan gerakan benda, pakai adegan "mechanism" dengan nama mekanisme yang cocok supaya penonton melihat
+bendanya bergerak, lalu tulis angkanya di narasi atau di "points".
 LARANGAN KLISE (supaya video tidak terasa seperti cetakan yang sama): jangan memakai "Tapi tunggu", "ternyata",
 "bayangkan kamu", "rahasianya adalah", "inilah rahasia", dan jangan memberi judul adegan "ANALOGI ...". Tidak semua
 video perlu analogi; pakai hanya kalau benar-benar membantu. Judul adegan harus spesifik pada isi (contoh:
@@ -482,6 +486,9 @@ Aturan visual tiap adegan (field "type"):
                  "jembatan" (jembatan gantung, kabel baja, bendungan): 1 jalan, 2 menara, 3 kabel baja
                  "airbag" (airbag, sensor tabrakan): 1 sensor benturan, 2 pemicu, 3 kantong udara
                  "mesin_ice" (mesin mobil, motor bensin): 1 piston, 2 poros engkol, 3 busi, 4 klep
+                 "ball_socket" (pulpen, roller, bola berputar di soket): 1 tabung tinta, 2 bola kecil, 3 soket, 4 kertas
+                 "capillary" (serat kertas, tisu, tanaman menyerap air): 1 serat, 2 cairan, 3 tetesan naik
+                 "pressure_leak" (tekanan cairan, bocor, katup penutup): 1 wadah, 2 tekanan, 3 bola penutup
 - "question" : tanda tanya merah besar yang berdenyut, untuk adegan hook atau pembongkar mitos yang melawan akal
                sehat (contoh: "REL KAKU, KOK NGGAK ANJLOK?"). "title" berisi kalimat tanya singkat dan "points"
                berisi 1 teks pendek di bawah tanda tanya (maksimal 5 kata).

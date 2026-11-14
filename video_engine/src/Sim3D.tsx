@@ -298,6 +298,8 @@ export const Sim3D: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
   const len = Math.max(1, lengthFrames);
   const u = clamp01(frame / len);
   const t = frame / fps;
+  // gaya lantai berbeda per adegan supaya latar tidak monoton (kisi, mengkilap, cincin, tanpa lantai)
+  const floorStyle = Array.from(String(scene.title ?? "x")).reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 997, 7) % 4;
   const c = Math.round(len * CLIMAX);
   const since = frame - c;
   const shakeAmp = since >= 0 && since < 12 ? (1 - since / 12) * 14 : 0;
@@ -340,13 +342,21 @@ export const Sim3D: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
           <directionalLight position={[5, 8, 6]} intensity={2.4} />
           <directionalLight position={[-6, 3, -4]} intensity={1.0} color={palette.accent2} />
           <pointLight position={[0, 4, 5]} intensity={18} color={palette.accent} distance={30} />
-          {spec.floor !== undefined ? (
+          {spec.floor !== undefined && floorStyle !== 3 ? (
             <group position={[0, spec.floor, 0]}>
               <mesh rotation={[-Math.PI / 2, 0, 0]}>
                 <circleGeometry args={[16, 64]} />
-                <meshStandardMaterial color="#0b1224" metalness={0.6} roughness={0.35} transparent opacity={0.7} />
+                <meshStandardMaterial color={floorStyle === 1 ? palette.bg2 : "#0b1224"} metalness={0.6} roughness={floorStyle === 1 ? 0.15 : 0.35} transparent opacity={floorStyle === 1 ? 0.55 : 0.7} />
               </mesh>
-              <gridHelper args={[30, 30, "#6fb6ff", "#35507a"]} position={[0, 0.01, 0]} />
+              {floorStyle === 0 ? <gridHelper args={[30, 30, "#6fb6ff", "#35507a"]} position={[0, 0.01, 0]} /> : null}
+              {floorStyle === 2
+                ? [3, 6, 9, 12].map((r) => (
+                    <mesh key={r} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+                      <ringGeometry args={[r, r + 0.07, 96]} />
+                      <meshBasicMaterial color={palette.accent} transparent opacity={0.45} />
+                    </mesh>
+                  ))
+                : null}
             </group>
           ) : null}
           {spec.objects.map((o) => (
