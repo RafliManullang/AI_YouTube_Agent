@@ -82,7 +82,7 @@ export const ModelScene: React.FC<DiagramProps> = ({ scene, palette, lengthFrame
   }
 
   const hidden = React.useContext(HideChrome);
-  const labels = hidden ? [] : (scene.points ?? []).slice(0, 3);
+  const labels = hidden ? [] : (scene.points ?? []).filter((p) => String(p).trim().toLowerCase() !== String(scene.title ?? "").trim().toLowerCase()).slice(0, 3);
 
   const s = loaded ? loaded.scale * (1.0 + 0.08 * u + punch) : 1;
   return (
@@ -94,10 +94,6 @@ export const ModelScene: React.FC<DiagramProps> = ({ scene, palette, lengthFrame
           <directionalLight position={[5, 9, 7]} intensity={1.5} />
           <directionalLight position={[-6, 3, -4]} intensity={1.1} color={palette.accent2} />
           <pointLight position={[0, 4, 6]} intensity={16} color={palette.accent} distance={30} />
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2.0, 0]}>
-            <ringGeometry args={[2.6, 2.75, 64]} />
-            <meshBasicMaterial color={palette.accent} transparent opacity={0.55} />
-          </mesh>
           {loaded ? (
             <group
               position={[0, 1.1 + Math.sin(t * 1.6) * 0.18, 0]}

@@ -131,3 +131,10 @@ Adegan angka, grafik, dan garis waktu tetap berupa 3D data.
 - Model 3D lebih besar dan naik ke tengah layar, label jadi tag tanpa garis, lantai oval diganti cincin tipis.
 - Adegan tanpa visual meminjam visual adegan lain; adegan terakhir memakai visual adegan pertama (video berputar mulus). Tidak ada lagi adegan yang hanya berisi judul.
 - Alat ukur 3D lebih besar.
+
+## Tahap 15: variasi dan perbaikan dari video kedua
+
+- Kerangka cerita bergiliran (6 macam: mitos lawan fakta, detektif, hitung mundur, andai tidak ada, bedah langkah demi langkah, orang di baliknya), tidak sama dengan dua video terakhir (`riwayat_alur.json`). Kata klise ("Tapi tunggu", "analogi", dll.) dilarang.
+- Penutup berputar kini berupa pertanyaan pancingan yang dijawab kalimat pembuka. Kata pembuka tidak lagi diulang di akhir (terdengar gagap).
+- `subject` model 3D harus benda di kalimat adegan itu sendiri; satu model tidak boleh dipakai berturutan atau lebih dari dua kali, sisanya memakai gambar kartun 3D.
+- Cincin kuning di belakang subtitle dihapus, tag yang sama dengan judul disembunyikan, teks perbandingan tidak berhimpit.

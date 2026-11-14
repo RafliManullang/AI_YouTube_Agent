@@ -219,10 +219,10 @@ def compare_sim(sc):
         mot.append({"target": f"p{k}", "kind": "grow", "t0": 0.08 + 0.12 * k, "t1": 0.45 + 0.12 * k})
         val = str(it.get("value") or "")
         for j, ln in enumerate(_wrap(val, 11, 2)):
-            objs.append(_txt(f"v{k}_{j}", ln.upper(), [x, -2 + hh + 0.8 + 0.6 * (len(_wrap(val, 11, 2)) - 1 - j), 0], _fit_h(ln, 3.8, 0.55), "#ffe14d" if k else "#ffffff", "glow"))
+            objs.append(_txt(f"v{k}_{j}", ln.upper(), [x, -2 + hh + 0.9 + 1.0 * (len(_wrap(val, 11, 2)) - 1 - j), 0], _fit_h(ln, 3.8, 0.55), "#ffe14d" if k else "#ffffff", "glow"))
             mot.append(_appear(f"v{k}_{j}", 0.4 + 0.12 * k))
         for j, ln in enumerate(_wrap(it.get("label"), 12, 2)):
-            objs.append(_txt(f"l{k}_{j}", ln.upper(), [x, -2.9 - 0.55 * j, 0.3], _fit_h(ln, 3.6, 0.5), PAL[k]))
+            objs.append(_txt(f"l{k}_{j}", ln.upper(), [x, -2.9 - 0.95 * j, 0.3], _fit_h(ln, 3.6, 0.5), PAL[k]))
             mot.append(_appear(f"l{k}_{j}", 0.1))
     objs.append(_txt("vs", "VS", [0, 1.4, 0], 1.0, "#ff5252", "glow"))
     mot.append(_appear("vs", 0.3))
