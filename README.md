@@ -169,3 +169,15 @@ Hening panjang di ujung suara narator dibuang (sisakan 0,22 detik) dan 0,12 deti
 - Adegan kisah nyata tampil seperti foto polaroid arsip miring dengan selotip dan keterangan.
 - Tiga efek bunyi baru yang cocok kejadiannya: `chain` (rantai), `swell` (berat air), `creak` (derit struktur). Dipakai otomatis oleh animasi yang sesuai.
 - Panduan penulis naskah: kerangka "kisah inovasi" (contoh Sosrobahu dan jembatan berjalan Swiss).
+
+## Tahap 20: perbaikan dari video sensor lampu merah
+
+- Animasi 3D baru `loop_induksi`: potongan jalan, kawat tembaga berlilit di bawah aspal, mobil melintas, medan magnet berubah warna, sinyal naik ke kotak pengendali, lampu merah menjadi hijau.
+- Grafik batang: tulisan di bawah batang dipecah dua baris dan jarak antar batang disesuaikan, angka naik bersamaan dengan tinggi batang.
+- Perbaikan bug: benda yang akan berganti warna kini mulai dari warna awalnya (dulu langsung memakai warna akhir).
+- Visual pinjaman: hanya adegan terakhir yang meminjam visual adegan pertama (untuk putaran mulus), dan tidak pernah berturutan dengan visual yang sama (dulu model kota yang sama tampil tiga adegan berurutan).
+- Keras suara video disamakan ke standar YouTube (sekitar -14 LUFS) setelah render. Matikan dengan `LOUDNORM=off`.
+- Warna latar: adegan bernomor ganjil memakai tema pendamping supaya video tidak satu warna.
+- Kalimat pertama tidak boleh diawali kata sambung (karena, dan, tapi, dst.), dijaga di aturan naskah dan dibersihkan otomatis.
+- Foto asli: adegan kisah nyata mencari foto dokumentasi berlisensi terbuka di Wikimedia Commons (tanpa kunci) dan menampilkannya di bingkai polaroid. Nama pembuat foto masuk ke deskripsi. Matikan dengan `PHOTO=off`. Kalau tidak ada yang cocok, dipakai gambar kartun atau animasi 3D.
+- Air, lumpur, dan oli: aliran berbutir banyak, bergoyang dan berbeda ukuran, dengan bahan mengilap (air), kusam (lumpur), kental (oli). Jenis dibaca dari warna aliran.

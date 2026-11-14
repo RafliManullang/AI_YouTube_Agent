@@ -1,6 +1,8 @@
 """Perpustakaan animasi 3D bawaan untuk topik populer (bedah mesin, infrastruktur, pengaman, fisika).
 Dipakai kalau naskah menyebut benda ini dan AI tidak menulis model 3D sendiri."""
 
+import math
+
 
 def _o(id, shape, pos, size, color="#9aa7b8", material="metal", **kw):
     d = {"id": id, "shape": shape, "pos": pos, "size": size, "color": color, "material": material}
@@ -314,10 +316,41 @@ def library_sim(name, labels):
                         {"target": "landai", "kind": "appear", "t0": 0.5, "t1": 0.6}, _col("persen", "#3ddc84", 0.5, 0.6),
                         _mv("dek", [1.8, -0.6, 0], 0.7, 0.98), _mv("alat", [0.6, -2.0, 0], 0.7, 0.98)],
             "flows": []}
+    if name == "loop_induksi":
+        objs = [
+            _o("tanah", "box", [0, -2.5, 0], [11, 2.0, 4.4], "#7a5230", "rubber", label=L(4, "Tanah")),
+            _o("aspal", "box", [0, -1.2, 0], [11, 0.4, 4.4], "#8c93a1", "glass", opacity=0.3, label=L(3, "Aspal")),
+            _o("garis", "box", [-1.2, -0.98, 1.0], [1.2, 0.03, 0.3], "#ffffff", "plastic"),
+            _o("loop0", "torus", [0, -1.2, 0], [1.95, 0.1, 0], "#e08a2e", "metal", rot=[90, 0, 0], label=L(0, "Kawat tembaga")),
+            _o("loop1", "torus", [0, -1.2, 0], [1.7, 0.1, 0], "#c96f1e", "metal", rot=[90, 0, 0]),
+            _o("loop2", "torus", [0, -1.2, 0], [1.45, 0.1, 0], "#e08a2e", "metal", rot=[90, 0, 0]),
+            _o("medan0", "torus", [0, -0.5, 0], [2.0, 0.05, 0], "#4fc3f7", "glow", rot=[90, 0, 0], label=L(1, "Medan magnet")),
+            _o("medan1", "torus", [0, 0.2, 0], [2.4, 0.05, 0], "#4fc3f7", "glow", rot=[90, 0, 0]),
+            _o("kotak", "box", [1.9, -0.3, -1.9], [1.3, 1.0, 0.9], "#4fc3f7", "plastic", label=L(2, "Kotak pengendali")),
+            _o("tiang", "cylinder", [3.1, 0.9, -1.9], [0.12, 4.4, 0], "#59606e"),
+            _o("kepala", "box", [3.1, 2.7, -1.9], [0.85, 2.0, 0.7], "#222833", "plastic"),
+            _o("merah", "sphere", [3.1, 3.3, -1.5], [0.27, 0, 0], "#ff3b3b", "glow"),
+            _o("hijau", "sphere", [3.1, 2.1, -1.5], [0.27, 0, 0], "#16301e", "plastic"),
+            _rope("kabel", "loop0", "kotak", [0, 0, 0], [0, 0, 0]),
+            _o("mbody", "box", [-5.0, -0.5, 0], [2.7, 0.65, 1.5], "#ff5252", "plastic", label="Mobil (besi)"),
+            _o("mcabin", "box", [-5.1, 0.15, 0], [1.5, 0.55, 1.3], "#ffb3b3", "glass", opacity=0.6),
+        ]
+        mot = [_mv("mbody", [0, -0.5, 0], 0.08, 0.5), _mv("mcabin", [-0.1, 0.15, 0], 0.08, 0.5),
+               {"target": "medan0", "kind": "pulse", "speed": 0.8}, {"target": "medan1", "kind": "pulse", "speed": 0.55},
+               _col("medan0", "#ffb020", 0.5, 0.6), _col("medan1", "#ffb020", 0.5, 0.6),
+               _col("kotak", "#ffd23f", 0.55, 0.65), _col("merah", "#2a1212", 0.78, 0.86), _col("hijau", "#3ddc84", 0.78, 0.86)]
+        for k, (dx, dz) in enumerate(((-0.95, 0.75), (-0.95, -0.75), (0.95, 0.75), (0.95, -0.75))):
+            objs.append(_o(f"rd{k}", "cylinder", [-5.0 + dx, -0.85, dz], [0.38, 0.3, 0], "#1b1b1b", "rubber", rot=[90, 0, 0]))
+            mot.append(_mv(f"rd{k}", [dx, -0.85, dz], 0.08, 0.5))
+        ring = [[1.95 * math.cos(2 * math.pi * i / 16), -1.2, 1.95 * math.sin(2 * math.pi * i / 16)] for i in range(17)]
+        flows = [_flow(ring, "#ffd23f", 16, 0.1, 0.35), _flow([[0, -1.2, 0], [1.9, -0.4, -1.9], [3.1, 2.1, -1.9]], "#7fffb0", 8, 0.12, 0.3, t0=0.55)]
+        return {"cam": {"dist": 25, "height": 3.0, "orbit": 0.3, "target": [0.6, 0.5, 0]}, "objects": objs, "motions": mot, "flows": flows}
+
     return None
 
 
 KEYWORDS = (
+    ("loop_induksi", ("loop induksi", "kawat induksi", "sensor lampu merah", "sensor jalan", "garis aspal", "lampu merah", "kawat tembaga di bawah")),
     ("eskalator", ("eskalator", "escalator", "handrail", "pegangan tangan")),
     ("kunci_silinder", ("anak kunci", "kunci pintu", "silinder kunci", "gembok")),
     ("sprinkler", ("sprinkler", "springkler", "ampul kaca", "pemadam otomatis")),
