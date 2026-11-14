@@ -63,19 +63,19 @@ def counter_sim(sc):
     h = _fit_h(final, 9.0, 2.8)
     unit = str(sc.get("unit") or "").strip()
     objs = [_txt("num", "0", [0, 0.8, 0], h, "#ffe14d", "glow"),
-            {"id": "ring", "shape": "torus", "pos": [0, 0.8, -0.6], "size": [4.4, 0.08, 0], "color": "#4fc3f7", "material": "glow"}]
+            {"id": "ring", "shape": "torus", "pos": [0, 0.8, -0.6], "size": [3.8, 0.08, 0], "color": "#4fc3f7", "material": "glow"}]
     mot = [{"target": "num", "kind": "count", "value": float(sc.get("number") or 0), "suffix": "", "t0": 0.05, "t1": 0.62},
            {"target": "ring", "kind": "pulse", "speed": 0.9}]
     if unit:
         uh = _fit_h(unit.upper(), 8.5, 1.0)
         objs.append(_txt("unit", unit.upper(), [0, -1.3, 0], uh, "#ffffff"))
         mot.append(_appear("unit", 0.3))
-    for i, p in enumerate((sc.get("points") or [])[:3]):
+    for i, p in enumerate((sc.get("points") or [])[:2]):
         lines = _wrap(p, 18, 1)
         if lines:
-            objs.append(_txt(f"p{i}", lines[0].upper(), [0, -2.7 - 0.8 * i, 0], _fit_h(lines[0], 8.5, 0.5), PAL[i]))
+            objs.append(_txt(f"p{i}", lines[0].upper(), [0, -2.8 - 1.3 * i, 0], _fit_h(lines[0], 8.5, 0.6), PAL[i]))
             mot.append(_appear(f"p{i}", 0.45 + 0.1 * i))
-    flows = [{"path": _circle(4.4, 16, 0.8), "color": "#ffd23f", "count": 18, "size": 0.12, "speed": 0.2}]
+    flows = [{"path": _circle(3.8, 16, 0.8), "color": "#ffd23f", "count": 18, "size": 0.12, "speed": 0.2}]
     return _base(objs, mot, flows, floor=-4.4)
 
 
@@ -96,7 +96,7 @@ def bar_sim(sc):
         objs.append(_txt(f"v{i}", "0", [x, -2 + hgt + 0.75, 0], 0.62, "#ffffff", "glow"))
         mot.append({"target": f"v{i}", "kind": "count", "value": vals[i], "suffix": "", "t0": round(t0, 2), "t1": round(t0 + 0.35, 2)})
         lab = str(it.get("label") or "")[:12].upper()
-        objs.append(_txt(f"l{i}", lab, [x, -2.75, 0.2], _fit_h(lab, 1.8, 0.4), PAL[i % 4]))
+        objs.append(_txt(f"l{i}", lab, [x, -1.45, 1.6], _fit_h(lab, 1.8, 0.5), "#ffffff", "glow"))
         mot.append(_appear(f"l{i}", t0))
     unit = str(sc.get("unit") or "").strip().upper()
     if unit:
@@ -222,7 +222,7 @@ def compare_sim(sc):
             objs.append(_txt(f"v{k}_{j}", ln.upper(), [x, -2 + hh + 0.9 + 1.0 * (len(_wrap(val, 11, 2)) - 1 - j), 0], _fit_h(ln, 3.8, 0.55), "#ffe14d" if k else "#ffffff", "glow"))
             mot.append(_appear(f"v{k}_{j}", 0.4 + 0.12 * k))
         for j, ln in enumerate(_wrap(it.get("label"), 12, 2)):
-            objs.append(_txt(f"l{k}_{j}", ln.upper(), [x, -2.9 - 0.95 * j, 0.3], _fit_h(ln, 3.6, 0.5), PAL[k]))
+            objs.append(_txt(f"l{k}_{j}", ln.upper(), [x, -1.3 - 0.95 * j, 1.6], _fit_h(ln, 3.6, 0.6), "#ffffff", "glow"))
             mot.append(_appear(f"l{k}_{j}", 0.1))
     objs.append(_txt("vs", "VS", [0, 1.4, 0], 1.0, "#ff5252", "glow"))
     mot.append(_appear("vs", 0.3))

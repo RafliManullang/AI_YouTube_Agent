@@ -138,3 +138,11 @@ Adegan angka, grafik, dan garis waktu tetap berupa 3D data.
 - Penutup berputar kini berupa pertanyaan pancingan yang dijawab kalimat pembuka. Kata pembuka tidak lagi diulang di akhir (terdengar gagap).
 - `subject` model 3D harus benda di kalimat adegan itu sendiri; satu model tidak boleh dipakai berturutan atau lebih dari dua kali, sisanya memakai gambar kartun 3D.
 - Cincin kuning di belakang subtitle dihapus, tag yang sama dengan judul disembunyikan, teks perbandingan tidak berhimpit.
+
+## Tahap 16: perapihan dari video "paper cut"
+
+- Klip stok kini diperpanjang sampai klip berikutnya, jadi tidak ada layar kosong di tengah adegan pembuka.
+- Teks perbandingan dan grafik batang berdiri di depan lantai (dulu tenggelam di bawah lantai transparan) dan berwarna putih terang.
+- Transisi antar adegan dipersingkat (0,25 detik) supaya judul tidak bertumpuk.
+- Adegan yang sudah punya animasi 3D tidak lagi meminjam gambar adegan lain; deskripsi gambar yang kembar dilewati.
+- Adegan angka: cincin dan keterangan dirapikan agar tidak menimpa judul.
