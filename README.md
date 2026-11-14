@@ -158,3 +158,14 @@ Hening panjang di ujung suara narator dibuang (sisakan 0,22 detik) dan 0,12 deti
 - Aturan baru: alat ukur dan penghitung hanya untuk besaran abstrak; ukuran fisik kecil dan gerakan benda ditampilkan sebagai adegan mekanisme yang memperlihatkan bendanya bergerak.
 - Lantai tiap adegan berbeda (kisi, mengkilap, cincin, tanpa lantai) supaya latar tidak monoton.
 - Ujung suara: ambang deteksi suara pelan diturunkan dan ruang akhir diperlebar (0,32 detik) supaya suku kata terakhir tidak terpotong.
+
+## Tahap 19: jangkar, kisah inovasi, bahan logam, bunyi baru
+
+- Stok video hanya untuk adegan pembuka. Adegan lain selalu animasi yang menjelaskan isinya (tidak ada lagi ubur-ubur sebagai pengisi).
+- Satu benda utama memakai satu model 3D sepanjang video ("cruise ship" dan "sailing ship" tidak lagi berbeda).
+- Empat animasi 3D baru: `jangkar_rantai` (potongan melintang dasar laut, rantai terseret di lumpur), `sosrobahu` (balok 480 ton diputar 90 derajat di atas minyak), `mobil_dongkrak` (kisah ide di garasi), `jembatan_geser` (tanjakan 6% jadi 1%).
+- Bahan logam bertekstur (bintik, goresan), bahan `rust` untuk karat tipis, dan cahaya tepi (rim light) dua sisi.
+- Batang grafik tumbuh dengan hentakan pegas; tulisan grafik batang tidak lagi berhimpit.
+- Adegan kisah nyata tampil seperti foto polaroid arsip miring dengan selotip dan keterangan.
+- Tiga efek bunyi baru yang cocok kejadiannya: `chain` (rantai), `swell` (berat air), `creak` (derit struktur). Dipakai otomatis oleh animasi yang sesuai.
+- Panduan penulis naskah: kerangka "kisah inovasi" (contoh Sosrobahu dan jembatan berjalan Swiss).

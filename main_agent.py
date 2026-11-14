@@ -89,7 +89,8 @@ SCENE_TYPES = ("flow", "mindmap", "counter", "timeline", "barchart", "compare", 
                "cutaway", "microscale", "story", "mechanism", "question")
 MECHANISMS = ("katrol_lift", "roda_gigi", "piston", "tuas", "aliran", "panas", "rangkaian", "tekanan",
               "nozel_bensin", "roda_kerucut", "eskalator", "kunci_silinder", "sprinkler", "venturi",
-              "eddy_current", "jembatan", "airbag", "mesin_ice", "ball_socket", "capillary", "pressure_leak")
+              "eddy_current", "jembatan", "airbag", "mesin_ice", "ball_socket", "capillary", "pressure_leak", "jangkar_rantai", "sosrobahu",
+              "mobil_dongkrak", "jembatan_geser")
 MOODS = ("senang", "takut", "kaget", "sedih", "tegang", "bangga")
 WEATHERS = ("cerah", "hujan", "salju", "badai", "malam", "kabut")
 AMBIENCES = ("angin", "gesekan", "benturan", "mesin", "air", "hening")
@@ -111,8 +112,9 @@ CATEGORY_THEMES = {
 THEME_HISTORY_PATH = os.path.join(BASE_DIR, "riwayat_tema.json")
 SFX_HISTORY_PATH = os.path.join(BASE_DIR, "riwayat_sfx.json")
 SFX_NAMES = ("whoosh", "impact", "clank", "hiss", "zap", "thud", "sizzle", "bubble", "ding", "bell", "glitch",
-             "riser", "beep", "screech")
-KEY_SOUNDS = ("clank", "hiss", "zap", "thud", "sizzle", "bubble", "ding", "impact", "glitch", "riser", "bell")
+             "riser", "beep", "screech", "chain", "swell", "creak")
+KEY_SOUNDS = ("clank", "hiss", "zap", "thud", "sizzle", "bubble", "ding", "impact", "glitch", "riser", "bell",
+              "chain", "swell", "creak")
 CATEGORIES = ("CARA KERJA", "FAKTA SAINS", "KISAH NYATA")
 THUMB_PATH = os.path.join(OUT_DIR, "thumbnail.jpg")
 WIB = timezone(timedelta(hours=7))
@@ -394,6 +396,11 @@ STORYBOARD PER KATEGORI (contoh urutan adegan, boleh disesuaikan dengan kerangka
 - FAKTA SAINS: (1) hook "question" yang melawan akal sehat; (2) bongkar mitos ("compare"); (3) "microscale" atau
   "mechanism" yang memperlihatkan rahasianya; (4) proses saat kejadian, diucapkan pelan dan jelas agar paham;
   (5) kesimpulan jenius satu kalimat yang mudah diingat; (6) penutup melingkar.
+- KISAH INOVASI (penemuan atau teknologi yang dipakai dunia, contoh: Sosrobahu Indonesia, jembatan berjalan Swiss):
+  (1) hook yang mematahkan dugaan; (2) masalah di lapangan (macet, jalan tertutup) lewat adegan "story" bergaya foto
+  polaroid arsip; (3) kisah lahirnya ide (misalnya mobil diangkat dongkrak di atas oli, mekanisme "mobil_dongkrak");
+  (4) cara kerja lewat adegan "mechanism" ("sosrobahu" atau "jembatan_geser") dan angka asli (480 ton, 6% jadi 1%);
+  (5) hasil nyata, pertanyaan pancingan penutup.
 - KISAH NYATA: (1) hook titik balik dengan "story" atau "footage" yang diberi lingkaran sorot; (2) latar masalah
   dengan taruhan bernada dramatis ("satu goresan kecil saja bisa membunuh setengah kota"); (3) momen "aha" saat
   penemuan; (4) dampak besar ("barchart" atau "counter" yang faktual); (5) pelajaran penutup yang menyambung ke
@@ -402,7 +409,8 @@ BUNYI MOMEN PUNCAK ("sfx"): efek suara TIDAK dipakai untuk tiap kata atau tiap l
 adegan "mechanism" atau "cutaway", dan bunyinya HARUS cocok dengan kejadian yang tampil. Pilihan: "clank" (logam
 beradu, pengunci lepas), "hiss" (desis udara atau tekanan), "zap" (listrik), "thud" (hantaman atau dentum berat),
 "sizzle" (panas, api, menggoreng), "bubble" (cairan, gelembung, mendidih), "ding" (selesai atau berhasil), "bell"
-(momen sejarah), "impact" (kejutan umum). Kosongkan ("") kalau tidak ada kejadian yang pas. Jangan memakai bunyi yang
+(momen sejarah), "impact" (kejutan umum), "chain" (rantai besi diseret atau bergesek), "swell" (berat air atau tekanan
+cairan besar), "creak" (derit struktur menahan beban). Kosongkan ("") kalau tidak ada kejadian yang pas. Jangan memakai bunyi yang
 sama di dua adegan berturutan.
 {SIM_GUIDE}
 VISUAL NYATA (WAJIB, ini yang paling penting): penonton harus MELIHAT persis apa yang sedang diucapkan.
@@ -489,6 +497,10 @@ Aturan visual tiap adegan (field "type"):
                  "ball_socket" (pulpen, roller, bola berputar di soket): 1 tabung tinta, 2 bola kecil, 3 soket, 4 kertas
                  "capillary" (serat kertas, tisu, tanaman menyerap air): 1 serat, 2 cairan, 3 tetesan naik
                  "pressure_leak" (tekanan cairan, bocor, katup penutup): 1 wadah, 2 tekanan, 3 bola penutup
+                 "jangkar_rantai" (jangkar kapal, rantai, gesekan dasar laut): 1 kapal, 2 rantai baja, 3 jangkar, 4 dasar lumpur
+                 "sosrobahu" (balok beton diputar di atas tiang, teknologi konstruksi jalan layang): 1 tiang beton, 2 lapisan minyak, 3 dua piringan, 4 jalan raya, 5 balok 480 ton
+                 "mobil_dongkrak" (mobil diangkat dongkrak di atas oli, kisah ide penemuan di garasi): 1 mobil, 2 dongkrak, 3 tumpahan oli
+                 "jembatan_geser" (jembatan berjalan di atas perbaikan jalan, tanjakan 6% jadi 1%): 1 jalan, 2 alat berat, 3 jembatan, 4 tanjakan
 - "question" : tanda tanya merah besar yang berdenyut, untuk adegan hook atau pembongkar mitos yang melawan akal
                sehat (contoh: "REL KAKU, KOK NGGAK ANJLOK?"). "title" berisi kalimat tanya singkat dan "points"
                berisi 1 teks pendek di bawah tanda tanya (maksimal 5 kata).
@@ -895,6 +907,8 @@ def validate_content(data):
         if len(narration.split()) < 4:
             continue
         scene_type = raw.get("type") if raw.get("type") in SCENE_TYPES else "flow"
+        if scene_type == "footage" and scenes:
+            scene_type = "flow"  # rekaman stok hanya untuk hook; sisanya selalu animasi yang menjelaskan isinya
         points = [clean_text(p, 40) for p in (raw.get("points") or []) if str(p).strip()]
         number = raw.get("number")
         try:

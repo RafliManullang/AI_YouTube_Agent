@@ -60,7 +60,7 @@ export type SimObject = {
   size: Vec3; // box/plate: lebar,tinggi,tebal; cylinder/tube/cone: radius,tinggi,-; sphere: radius; torus: radius besar,radius kecil; gear: radius,tebal,jumlah gigi
   rot?: Vec3; // derajat
   color?: string;
-  material?: "metal" | "glass" | "liquid" | "rubber" | "glow" | "plastic";
+  material?: "metal" | "glass" | "liquid" | "rubber" | "glow" | "plastic" | "rust";
   opacity?: number;
   label?: string;
   link?: [string, string]; // rope: dihubungkan dari benda pertama ke benda kedua
@@ -79,6 +79,7 @@ export type SimMotion = {
   angle?: number; // untuk rotate: sudut akhir (derajat) pada sumbu axis
   color?: string; // untuk color: warna akhir
   loop?: boolean; // move bolak-balik
+  ease?: "spring"; // grow dengan hentakan pegas
 };
 export type SimFlow = {
   path: Vec3[];

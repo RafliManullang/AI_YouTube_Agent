@@ -86,21 +86,21 @@ def bar_sim(sc):
     n = len(items)
     objs, mot = [], []
     for i, it in enumerate(items):
-        x = (i - (n - 1) / 2) * 1.9
-        hgt = max(0.5, vals[i] / mx * 5.2)
+        x = (i - (n - 1) / 2) * 2.3
+        hgt = max(0.5, vals[i] / mx * 4.4)
         top = vals[i] == mx
         objs.append({"id": f"b{i}", "shape": "box", "pos": [x, -2 + hgt / 2, 0], "size": [1.25, round(hgt, 2), 1.25],
                      "color": "#ffd23f" if top else PAL[i % 4], "material": "plastic"})
         t0 = 0.08 + 0.1 * i
-        mot.append({"target": f"b{i}", "kind": "grow", "t0": round(t0, 2), "t1": round(t0 + 0.3, 2)})
+        mot.append({"target": f"b{i}", "kind": "grow", "ease": "spring", "t0": round(t0, 2), "t1": round(t0 + 0.34, 2)})
         objs.append(_txt(f"v{i}", "0", [x, -2 + hgt + 0.75, 0], 0.62, "#ffffff", "glow"))
         mot.append({"target": f"v{i}", "kind": "count", "value": vals[i], "suffix": "", "t0": round(t0, 2), "t1": round(t0 + 0.35, 2)})
-        lab = str(it.get("label") or "")[:12].upper()
-        objs.append(_txt(f"l{i}", lab, [x, -1.45, 1.6], _fit_h(lab, 1.8, 0.5), "#ffffff", "glow"))
+        lab = str(it.get("label") or "")[:10].upper()
+        objs.append(_txt(f"l{i}", lab, [x, -1.45, 1.6], _fit_h(lab, 2.1, 0.28), "#ffffff", "glow"))
         mot.append(_appear(f"l{i}", t0))
     unit = str(sc.get("unit") or "").strip().upper()
     if unit:
-        objs.append(_txt("unit", unit, [0, 4.6, 0], _fit_h(unit, 8, 0.7), "#ffffff"))
+        objs.append(_txt("unit", unit, [0, 5.4, 0], _fit_h(unit, 8, 0.7), "#ffffff"))
         mot.append(_appear("unit", 0.05))
     return _base(objs, mot, floor=-2.0, cam={"dist": 29, "height": 3.2, "orbit": 0.7, "target": [0, -0.4, 0]})
 
