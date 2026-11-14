@@ -155,7 +155,7 @@ def gauge_sim(sc):
         u = unit.upper()[:14]
         objs.append(_txt("unit", u, [0, 1.2 + R + 0.9, 0], _fit_h(u, 8, 0.6), "#ffffff"))
         mot.append(_appear("unit", 0.1))
-    return _base(objs, mot, floor=-(R + 2.9) + 1.2, cam={"dist": 36, "height": 1.5, "orbit": 0.5, "target": [0, -0.9, 0]})
+    return _base(objs, mot, floor=-(R + 2.9) + 1.2, cam={"dist": 33, "height": 1.5, "orbit": 0.5, "target": [0, -0.9, 0]})
 
 
 def flow_sim(sc):
