@@ -371,9 +371,13 @@ Untuk SETIAP adegan selain "footage" isi dua kolom:
 - "subject": 1 sampai 3 kata BAHASA INGGRIS untuk benda, hewan, orang, atau kendaraan utama yang disebut di
   kalimat itu (contoh: "escalator", "cat", "car", "key", "elephant", "doctor"). Kosongkan ("") kalau tidak ada
   satu benda utama (misalnya hanya angka atau gagasan).
-- "art": daftar berisi 1 deskripsi gambar BAHASA INGGRIS (maksimal 40 kata) tentang adegan kartun 3D yang
-  memperlihatkan persis isi kalimat itu: siapa atau apa, sedang melakukan apa, di mana. Boleh ada tokoh kartun
-  atau orang. Untuk cara kerja benda, gambarkan potongan melintang bagian dalamnya. Jangan minta teks atau huruf.
+- "art": daftar berisi 1 deskripsi gambar BAHASA INGGRIS (maksimal 25 kata) tentang adegan kartun 3D yang
+  memperlihatkan persis isi kalimat itu. Mulai dengan benda utamanya yang nyata dan dikenal (contoh: "An airplane
+  window with rounded corners, close-up, cabin wall around it"). Tulis hal yang bisa dipotret, BUKAN gagasan abstrak
+  (hindari kata seperti "concept", "force", "stress", "energy"). Boleh ada tokoh kartun atau orang. Untuk cara kerja
+  benda, gambarkan potongan melintang bagian dalamnya. Jangan minta teks atau huruf.
+- Pakai kata "subject" yang SAMA di semua adegan yang membicarakan benda yang sama (selalu "airplane", jangan
+  campur "plane" dan "aircraft"), supaya model 3D-nya konsisten dan tidak berganti-ganti.
 Setiap momen klimaks atau kejutan diberi satu kalimat pendek yang menghentak (animasi otomatis memberi getaran
 dan kilat di momen itu).
 
@@ -1408,6 +1412,16 @@ def fetch_art_images(scenes):
             else:
                 failed += 1
             time.sleep(2)
+    # adegan tanpa visual meminjam visual adegan lain (adegan terakhir meminjam adegan pertama supaya video berputar mulus)
+    have = [sc for _, sc in todo if sc.get("model") or sc.get("art_urls")]
+    if have:
+        for i, sc in enumerate(scenes):
+            if sc["type"] in data_types or sc.get("model") or sc.get("art_urls") or sc.get("video"):
+                continue
+            src = have[0] if i == len(scenes) - 1 else min(have, key=lambda h: abs(scenes.index(h) - i))
+            for k in ("model", "art_urls"):
+                if src.get(k):
+                    sc[k] = src[k]
     info(f"  -> Visual: {n_model} model 3D, {n_art} gambar kartun 3D" + (f", {failed} gagal (diganti animasi 3D bawaan)." if failed else "."))
     return credits
 

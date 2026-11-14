@@ -123,3 +123,11 @@ Tiap adegan (selain angka) kini memperlihatkan persis apa yang diucapkan. AI men
 2. Kalau tidak ada modelnya: gambar kartun 3D buatan AI (Gemini atau Pollinations) yang digerakkan.
 3. Kalau keduanya gagal: animasi 3D bawaan (`sim_*.py`).
 Adegan angka, grafik, dan garis waktu tetap berupa 3D data.
+
+## Tahap 14: perbaikan dari video Tahap 13
+
+- Gambar kartun AI: deskripsi adegan kini ditaruh di depan perintah (dulu gaya di depan, hasilnya gambar abstrak warna-warni). AI diminta menulis benda nyata yang bisa dipotret, bukan gagasan abstrak.
+- Kata `subject` dibuat konsisten antar adegan supaya model 3D yang sama dipakai (tidak berganti pesawat tiap adegan).
+- Model 3D lebih besar dan naik ke tengah layar, label jadi tag tanpa garis, lantai oval diganti cincin tipis.
+- Adegan tanpa visual meminjam visual adegan lain; adegan terakhir memakai visual adegan pertama (video berputar mulus). Tidak ada lagi adegan yang hanya berisi judul.
+- Alat ukur 3D lebih besar.

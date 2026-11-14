@@ -14,9 +14,8 @@ import urllib.parse
 import requests
 
 STYLE = (
-    "Stylized 3D cartoon render in a modern animated-movie style, vertical 9:16 composition, soft studio lighting, "
-    "vivid colors, smooth rounded shapes, subject large and centered with clear readable action that shows exactly "
-    "the described scene, simple colorful gradient background, NO text, NO letters, NO watermark. Scene: "
+    "Cute stylized 3D cartoon render, bright colors, soft lighting, vertical 9:16, one clear main subject large in the "
+    "center, simple clean background, realistic recognizable shapes, no abstract shapes, NO text, NO letters."
 )
 GEMINI_IMAGE_MODELS = [
     m for m in [os.getenv("GEMINI_IMAGE_MODEL"), "gemini-2.5-flash-image", "gemini-2.0-flash-preview-image-generation"] if m
@@ -72,7 +71,7 @@ def _pollinations(prompt, path, seed, log):
 
 
 def make_image(prompt, path, gemini_key="", log=print):
-    full = STYLE + prompt
+    full = prompt.strip().rstrip(".") + ". " + STYLE  # isi adegan di depan supaya tidak jadi gambar abstrak
     seed = random.randrange(1, 10**6)
     if gemini_key and _gemini_image(gemini_key, full, path, log):
         return True
