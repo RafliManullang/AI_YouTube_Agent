@@ -181,6 +181,53 @@ def library_sim(name, labels):
                 {"target": "poros", "kind": "spin", "axis": "y", "speed": 0.6}, _col("busi", "#ffd23f", 0.38, 0.46),
             ],
             "flows": [_flow([[-3.4, 5.2, 0], [-1.0, 4.4, 0], [-0.6, 1.8, 0]], "#7fd8ff", 14, 0.1, 0.3, 0.0, 0.3)]}
+    if name == "ball_socket":
+        return {"cutaway": True, "cam": {"dist": 24, "height": 2.4, "orbit": 0.9, "target": [0, -0.2, 0]},
+            "objects": [
+                _o("rumah", "box", [0, 0.2, 0], [4.6, 4.2, 2.6], "#9fb4cc", "glass", opacity=0.16),
+                _o("tabung", "tube", [0, 2.4, 0], [0.8, 2.6, 0], "#4aa8ff", "glass", opacity=0.55, label=L(0, "Tabung tinta")),
+                _o("bola", "sphere", [0, -0.6, 0], [1.25, 0, 0], "#e6ebf5", "metal", label=L(1, "Bola kecil")),
+                _o("soket", "torus", [0, -0.2, 0], [1.45, 0.22, 0], "#ff9f43", "metal", rot=[90, 0, 0], label=L(2, "Soket penahan")),
+                _o("kertas", "box", [-3.6, -2.5, 0], [3.2, 0.2, 1.8], "#f3efe2", "plastic", label=L(3, "Kertas")),
+                _o("garis", "box", [0, -2.36, 0], [0.05, 0.08, 0.5], "#2c6bff", "glow"),
+            ],
+            "motions": [
+                {"target": "bola", "kind": "spin", "axis": "x", "speed": 0.9},
+                _mv("kertas", [3.4, -2.5, 0], 0.1, 0.9),
+                {"target": "garis", "kind": "grow", "to": [3.2, 0.08, 0.5], "t0": 0.1, "t1": 0.9},
+                _mv("garis", [-0.2, -2.36, 0], 0.1, 0.9),
+            ],
+            "flows": [_flow([[0, 3.2, 0.3], [0, 1.2, 0.3], [0.5, 0.2, 0.9], [0.5, -0.9, 0.9]], "#4aa8ff", 22, 0.1, 0.35)]}
+
+    if name == "capillary":
+        fib = []
+        for i in range(9):
+            fib.append(_o(f"f{i}", "cylinder", [-2.4 + (i % 5) * 1.2, -1.6 + (i // 5) * 1.5 + (i % 2) * 0.4, 0],
+                          [0.12, 3.2, 0], "#e9dfc3", "plastic", rot=[0, 0, 70 + (i * 37) % 80]))
+        fib[0]["label"] = L(0, "Serat kertas")
+        return {"cutaway": True, "cam": {"dist": 24, "height": 2.2, "orbit": 0.7, "target": [0, -0.2, 0]},
+            "objects": fib + [
+                _o("cair", "box", [0, -3.4, 0.3], [6.0, 0.8, 1.4], "#2c6bff", "liquid", opacity=0.75, label=L(1, "Cairan")),
+                _o("tetes", "sphere", [0, -2.6, 0.4], [0.22, 0, 0], "#7fb2ff", "glow", label=L(2, "Tetesan naik")),
+            ],
+            "motions": [{"target": "cair", "kind": "grow", "to": [6.0, 4.6, 1.4], "t0": 0.15, "t1": 0.8},
+                        _mv("cair", [0, -1.4, 0.3], 0.15, 0.8), _mv("tetes", [0.4, 1.8, 0.4], 0.1, 0.85)],
+            "flows": [_flow([[-2.2, -3.0, 0.5], [-1.2, -1.4, 0.5], [-0.4, 0.2, 0.5], [0.6, 1.8, 0.5]], "#7fb2ff", 20, 0.1, 0.3),
+                      _flow([[1.8, -3.0, 0.5], [1.2, -1.0, 0.5], [0.4, 0.6, 0.5], [-0.8, 2.0, 0.5]], "#7fb2ff", 16, 0.09, 0.4, 0.15)]}
+
+    if name == "pressure_leak":
+        return {"cutaway": True, "cam": {"dist": 24, "height": 2.2, "orbit": 0.9, "target": [0, -0.5, 0]},
+            "objects": [
+                _o("wadah", "cylinder", [0, 0.6, 0], [2.0, 4.4, 0], "#9fb4cc", "glass", opacity=0.22, label=L(0, "Wadah tinta")),
+                _o("cairan", "cylinder", [0, 0.2, 0], [1.85, 3.4, 0], "#2c6bff", "liquid", opacity=0.7),
+                _o("tekan", "cone", [0, 2.6, 0], [0.7, 1.0, 0], "#ff3b3b", "glow", rot=[180, 0, 0], label=L(1, "Tekanan")),
+                _o("lubang", "torus", [0, -2.2, 0], [0.55, 0.12, 0], "#ff9f43", "metal", rot=[90, 0, 0]),
+                _o("sumbat", "sphere", [0, -2.2, 0], [0.5, 0, 0], "#e6ebf5", "metal", label=L(2, "Bola penutup")),
+            ],
+            "motions": [{"target": "tekan", "kind": "pulse", "speed": 3}, _col("cairan", "#ff6b6b", 0.3, 0.45),
+                        _mv("sumbat", [0, -3.0, 1.0], 0.35, 0.5), _mv("sumbat", [0, -2.2, 0], 0.8, 0.92),
+                        _col("cairan", "#2c6bff", 0.82, 0.95)],
+            "flows": [_flow([[0, -2.2, 0.2], [0.3, -3.4, 0.2], [0.8, -4.4, 0.2]], "#2c6bff", 18, 0.14, 0.5, 0.38, 0.84)]}
     return None
 
 
@@ -193,5 +240,8 @@ KEYWORDS = (
     ("jembatan", ("jembatan", "kabel baja jembatan", "bendungan", "dam ")),
     ("airbag", ("airbag", "kantong udara", "bantalan udara")),
     ("mesin_ice", ("busi", "klep", "blok mesin", "mesin pembakaran", "mesin bensin")),
+    ("ball_socket", ("pulpen", "bolpoin", "ballpoint", "bola pena", "soket bola")),
+    ("capillary", ("kapiler", "serat kertas", "menyerap cairan")),
+    ("pressure_leak", ("bocor", "tekanan cairan", "segel otomatis")),
     ("venturi", ("venturi", "bernoulli", "aliran udara sempit")),
 )

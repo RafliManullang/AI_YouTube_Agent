@@ -150,3 +150,11 @@ Adegan angka, grafik, dan garis waktu tetap berupa 3D data.
 ## Tahap 17: ujung suara
 
 Hening panjang di ujung suara narator dibuang (sisakan 0,22 detik) dan 0,12 detik terakhir diberi fade halus, supaya penutup tidak terdengar terpotong dan video berulang menyambung rapat.
+
+## Tahap 18: perbaikan dari video pulpen
+
+- Model 3D hanya diterima kalau judulnya memuat kata kunci (dulu pisau hijau muncul untuk "tinta" dan kristal biru untuk "cangkang logam").
+- Tiga animasi 3D baru untuk mekanika mikro: `ball_socket` (bola berputar di soket mengalirkan tinta ke kertas), `capillary` (serat kertas menyerap cairan), `pressure_leak` (tekanan cairan dan bola penutup).
+- Aturan baru: alat ukur dan penghitung hanya untuk besaran abstrak; ukuran fisik kecil dan gerakan benda ditampilkan sebagai adegan mekanisme yang memperlihatkan bendanya bergerak.
+- Lantai tiap adegan berbeda (kisi, mengkilap, cincin, tanpa lantai) supaya latar tidak monoton.
+- Ujung suara: ambang deteksi suara pelan diturunkan dan ruang akhir diperlebar (0,32 detik) supaya suku kata terakhir tidak terpotong.

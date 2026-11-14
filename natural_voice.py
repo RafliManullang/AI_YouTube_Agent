@@ -20,7 +20,7 @@ FRAME = 0.01  # detik per bingkai analisis
 PAUSE_MIN = 0.09  # hening minimal yang dianggap jeda (detik)
 PAUSE_MAX = 0.38  # jeda lebih panjang dari ini dipersingkat supaya tempo padat
 LEAD = 0.04
-TAIL = 0.14
+TAIL = 0.32  # ujung suara diberi ruang supaya suku kata terakhir yang pelan tidak terpotong
 
 
 def _np():
@@ -96,7 +96,8 @@ def tidy_audio(x):
     if len(idx) == 0:
         raise RuntimeError("Rekaman tidak berisi suara.")
     first = max(0, int(idx[0]) - int(LEAD / FRAME))
-    last = min(k, int(idx[-1]) + int(TAIL / FRAME))
+    soft = np.where(env > max(0.004, 0.02 * float(np.percentile(env, 95))))[0]  # ambang rendah untuk ujung kata pelan
+    last = min(k, int(max(idx[-1], soft[-1] if len(soft) else idx[-1])) + int(TAIL / FRAME))
 
     # runs: urutan (apakah_hening, bingkai_awal, bingkai_akhir)
     runs = []
