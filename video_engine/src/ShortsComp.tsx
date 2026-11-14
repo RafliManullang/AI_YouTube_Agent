@@ -24,7 +24,7 @@ import { Palette, SceneData, ShortsProps, WordItem, paletteFor } from "./types";
 
 export type { ShortsProps, WordItem } from "./types";
 
-const FADE_SECONDS = 0.45; // lama transisi antar adegan
+const FADE_SECONDS = 0.25; // lama transisi antar adegan
 const MAX_PHRASE_WORDS = 3; // jumlah kata maksimal dalam satu frasa subtitle
 const SUBTITLE_LEAD = 0.04; // kata muncul sedikit lebih awal supaya terasa pas dengan suara
 

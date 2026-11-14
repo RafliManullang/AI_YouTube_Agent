@@ -407,7 +407,8 @@ Untuk SETIAP adegan selain "footage" isi dua kolom:
   kalimat itu (contoh: "escalator", "cat", "car", "key", "elephant", "doctor"). Kosongkan ("") kalau tidak ada
   satu benda utama (misalnya hanya angka atau gagasan).
 - "art": daftar berisi 1 deskripsi gambar BAHASA INGGRIS (maksimal 25 kata) tentang adegan kartun 3D yang
-  memperlihatkan persis isi kalimat itu. Mulai dengan benda utamanya yang nyata dan dikenal (contoh: "An airplane
+  memperlihatkan persis isi kalimat itu. Deskripsi tiap adegan HARUS berbeda dari adegan lain (sudut, benda, atau
+  tindakan berbeda). Mulai dengan benda utamanya yang nyata dan dikenal (contoh: "An airplane
   window with rounded corners, close-up, cabin wall around it"). Tulis hal yang bisa dipotret, BUKAN gagasan abstrak
   (hindari kata seperti "concept", "force", "stress", "energy"). Boleh ada tokoh kartun atau orang. Untuk cara kerja
   benda, gambarkan potongan melintang bagian dalamnya. Jangan minta teks atau huruf.
@@ -1433,6 +1434,7 @@ def fetch_art_images(scenes):
     info("  -> Menyiapkan visual tiap adegan (model 3D / gambar kartun 3D), bisa beberapa menit...")
     n_model, n_art, failed = 0, 0, 0
     used = []
+    seen_art = set()
     for i, sc in todo:
         if model_key and sc.get("subject"):
             path, credit = models3d.fetch_model(sc["subject"], PUBLIC_DIR, model_key, info)
@@ -1448,6 +1450,10 @@ def fetch_art_images(scenes):
                     credits.add(credit)
                 continue
         if art_on and sc.get("art"):
+            sig = sc["art"][0].lower()[:40]
+            if sig in seen_art:  # deskripsi gambar kembar dengan adegan lain: pakai animasi 3D bawaan saja
+                continue
+            seen_art.add(sig)
             path = os.path.join(PUBLIC_DIR, f"art_{i}_0.jpg")
             if ai_art.make_image(sc["art"][0], path, key, info):
                 sc["art_urls"] = [f"art_{i}_0.jpg"]
@@ -1459,8 +1465,8 @@ def fetch_art_images(scenes):
     have = [sc for _, sc in todo if sc.get("model") or sc.get("art_urls")]
     if have:
         for i, sc in enumerate(scenes):
-            if sc["type"] in data_types or sc.get("model") or sc.get("art_urls") or sc.get("video"):
-                continue
+            if sc["type"] in data_types or sc.get("model") or sc.get("art_urls") or sc.get("video") or sc.get("sim"):
+                continue  # adegan yang sudah punya animasi 3D sendiri tidak meminjam (supaya tidak ada gambar kembar)
             src = have[0] if i == len(scenes) - 1 else min(have, key=lambda h: abs(scenes.index(h) - i))
             for k in ("model", "art_urls"):
                 if src.get(k):

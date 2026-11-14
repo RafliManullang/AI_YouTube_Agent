@@ -212,7 +212,9 @@ export const Background: React.FC<Props> = ({
           {clips && clips.length > 0
             ? clips.map((c, i) => {
                 const from = Math.round(c.start * fps);
-                const len = Math.max(1, Math.round((c.end - c.start) * fps));
+                // klip diperpanjang sampai klip berikutnya (atau akhir adegan) supaya tidak ada layar kosong di sela kalimat
+                const until = i < clips.length - 1 ? clips[i + 1].start : c.end + 600;
+                const len = Math.max(1, Math.round((until - c.start) * fps));
                 const one = (
                   <OffthreadVideo
                     src={staticFile(c.file)}
