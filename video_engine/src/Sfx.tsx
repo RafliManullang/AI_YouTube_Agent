@@ -21,7 +21,10 @@ export type SfxName =
   | "thud"
   | "sizzle"
   | "bubble"
-  | "bell";
+  | "bell"
+  | "chain"
+  | "swell"
+  | "creak";
 
 export const SfxEnabled = createContext<boolean>(true);
 // Angka acak per video: dipakai untuk memilih variasi bunyi supaya tiap video terdengar beda
@@ -30,7 +33,7 @@ export const SfxSeed = createContext<number>(0);
 export const SfxMap = createContext<Record<string, number>>({});
 
 // Bunyi momen puncak yang cocok dengan jenis animasinya
-export const KEY_SOUNDS: SfxName[] = ["clank", "hiss", "zap", "thud", "sizzle", "bubble", "ding", "impact", "glitch", "riser", "bell"];
+export const KEY_SOUNDS: SfxName[] = ["clank", "hiss", "zap", "thud", "sizzle", "bubble", "ding", "impact", "glitch", "riser", "bell", "chain", "swell", "creak"];
 const BY_MECHANISM: Record<string, SfxName> = {
   katrol_lift: "clank",
   roda_gigi: "clank",
@@ -42,6 +45,21 @@ const BY_MECHANISM: Record<string, SfxName> = {
   tekanan: "hiss",
   nozel_bensin: "hiss",
   roda_kerucut: "clank",
+  jangkar_rantai: "chain",
+  eskalator: "clank",
+  kunci_silinder: "clank",
+  sprinkler: "sizzle",
+  venturi: "hiss",
+  eddy_current: "zap",
+  jembatan: "creak",
+  airbag: "thud",
+  mesin_ice: "thud",
+  ball_socket: "click",
+  capillary: "bubble",
+  pressure_leak: "swell",
+  sosrobahu: "swell",
+  jembatan_geser: "creak",
+  mobil_dongkrak: "clank",
 };
 export const climaxSound = (scene: { sfx?: string; mechanism?: string; type?: string }): SfxName => {
   if (scene.sfx && (KEY_SOUNDS as string[]).includes(scene.sfx)) return scene.sfx as SfxName;
@@ -68,6 +86,9 @@ const DEFAULT_VOLUME: Record<SfxName, number> = {
   riser: 0.3,
   click: 0.3,
   clank: 0.34,
+  chain: 0.34,
+  swell: 0.4,
+  creak: 0.3,
   hiss: 0.3,
   tock: 0.22,
   glitch: 0.3,

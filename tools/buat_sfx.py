@@ -270,6 +270,41 @@ def bell():
     return sum(np.sin(2 * np.pi * f * t) * w for f, w in ((880, 1.0), (1760, 0.45), (2637, 0.25))) * np.exp(-t * 4.2)
 
 
+def chain():
+    # rantai besi diseret: rentetan denting logam kecil yang tidak teratur
+    rng = np.random.default_rng(71)
+    t = t_axis(0.9)
+    out = np.zeros(len(t))
+    pos = 0.0
+    while pos < 0.8:
+        m = t >= pos
+        u = t[m] - pos
+        base = rng.uniform(900, 2600)
+        out[m] += np.sin(2 * np.pi * base * u) * np.exp(-u * 55) * rng.uniform(0.4, 1.0)
+        out[m] += np.sin(2 * np.pi * base * 1.51 * u) * np.exp(-u * 70) * 0.35
+        pos += rng.uniform(0.04, 0.12)
+    return out + smooth(rng.standard_normal(len(t)), 3) * 0.08 * np.exp(-t * 2)
+
+
+def swell():
+    # berat air dalam: dentum rendah yang menggembung lalu mereda
+    rng = np.random.default_rng(73)
+    t = t_axis(1.2)
+    env = np.sin(np.pi * np.clip(t / 1.2, 0, 1)) ** 1.5
+    low = np.sin(2 * np.pi * 52 * t) * 0.7 + np.sin(2 * np.pi * 78 * t) * 0.35
+    wash = smooth(rng.standard_normal(len(t)), 40) * 0.9
+    return (low + wash) * env
+
+
+def creak():
+    # derit kayu atau besi menahan beban: nada rendah bergetar yang meliuk
+    rng = np.random.default_rng(79)
+    t = t_axis(0.8)
+    f = 130 + 60 * np.sin(2 * np.pi * 3.2 * t) + 40 * t
+    tone = np.sign(np.sin(2 * np.pi * np.cumsum(f) / SR)) * 0.35
+    return (tone + smooth(rng.standard_normal(len(t)), 5) * 0.4) * np.sin(np.pi * np.clip(t / 0.8, 0, 1))
+
+
 if __name__ == "__main__":
     save("pop", pop())
     save("whoosh", whoosh(), peak=0.7)
@@ -292,4 +327,7 @@ if __name__ == "__main__":
     save("sizzle", sizzle(), peak=0.6)
     save("bubble", bubble(), peak=0.6)
     save("bell", bell(), peak=0.6)
+    save("chain", chain(), peak=0.7)
+    save("swell", swell(), peak=0.8)
+    save("creak", creak(), peak=0.5)
     print("Efek suara tersimpan di", os.path.abspath(OUT))

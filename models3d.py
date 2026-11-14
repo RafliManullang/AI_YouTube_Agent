@@ -23,7 +23,8 @@ def fetch_model(subject, public_dir, key, log=print):
         return None, None
     folder = os.path.join(public_dir, "models")
     os.makedirs(folder, exist_ok=True)
-    name = f"{_slug(subject)}.glb"
+    # satu benda utama = satu model sepanjang video ("cruise ship" dan "sailing ship" memakai kapal yang sama)
+    name = f"{_slug(subject.split()[-1])}.glb"
     path = os.path.join(folder, name)
     credit_path = path + ".txt"
     if os.path.exists(path) and os.path.getsize(path) > 2000:

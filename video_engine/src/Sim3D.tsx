@@ -16,6 +16,12 @@ const W = 1080;
 const H = 1920;
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const smooth = (x: number) => x * x * (3 - 2 * x);
+// pegas: melewati sasaran sedikit lalu kembali (batang grafik tumbuh dengan hentakan, bukan kaku)
+const springOut = (x: number) => {
+  const c1 = 1.9;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+};
 const CLIMAX = 0.62;
 
 type Pose = { pos: Vec3; scale: number; color?: string; glow: number; rot: Vec3; count?: string };
@@ -34,7 +40,8 @@ const poseOf = (o: SimObject, motions: SimMotion[], u: number, t: number): Pose 
       if (m.loop) k = 0.5 - 0.5 * Math.cos(((t * (m.speed ?? 0.5)) % 1) * Math.PI * 2);
       for (let i = 0; i < 3; i++) pose.pos[i] = o.pos[i] + (m.to[i] - o.pos[i]) * k;
     } else if (m.kind === "grow") {
-      const k = Math.max(0.001, smooth(clamp01((u - t0) / (t1 - t0))));
+      const lin = clamp01((u - t0) / (t1 - t0));
+      const k = Math.max(0.001, m.ease === "spring" ? springOut(lin) : smooth(lin));
       pose.scale *= k;
       pose.pos[1] = o.pos[1] - (o.size[1] / 2) * (1 - k) * (o.shape === "box" || o.shape === "cylinder" ? 1 : 0);
     } else if (m.kind === "appear") {
@@ -130,6 +137,33 @@ const geometryOf = (o: SimObject) => {
   }
 };
 
+// Tekstur bintik acak buatan sendiri: dipakai untuk logam bergores dan karat tipis supaya permukaan tidak mulus polos
+let NOISE: THREE.CanvasTexture | null = null;
+const noiseTexture = (): THREE.CanvasTexture | null => {
+  if (NOISE) return NOISE;
+  if (typeof document === "undefined") return null;
+  const c = document.createElement("canvas");
+  c.width = c.height = 256;
+  const g = c.getContext("2d");
+  if (!g) return null;
+  g.fillStyle = "#b8b8b8";
+  g.fillRect(0, 0, 256, 256);
+  let seed = 1234567;
+  const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+  for (let i = 0; i < 1400; i++) {
+    const v = 90 + Math.floor(rnd() * 150);
+    g.fillStyle = `rgba(${v},${v},${v},${0.12 + rnd() * 0.3})`;
+    g.beginPath();
+    g.arc(rnd() * 256, rnd() * 256, 1 + rnd() * 9, 0, Math.PI * 2);
+    g.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(2, 2);
+  NOISE = t;
+  return t;
+};
+
 const materialOf = (o: SimObject, pose: Pose, clip: THREE.Plane[]) => {
   const color = pose.color ?? o.color ?? "#9aa7b8";
   const kind = o.material ?? "metal";
@@ -149,17 +183,27 @@ const materialOf = (o: SimObject, pose: Pose, clip: THREE.Plane[]) => {
       return new THREE.MeshStandardMaterial({ ...common, metalness: 0.05, roughness: 0.85 });
     case "plastic":
       return new THREE.MeshPhysicalMaterial({ ...common, metalness: 0.0, roughness: 0.35, clearcoat: 0.8 });
+    case "rust": {
+      const n = noiseTexture();
+      return new THREE.MeshPhysicalMaterial({ ...common, color: pose.color ?? o.color ?? "#8a5a3a", metalness: 0.35, roughness: 0.9, map: n, bumpMap: n, bumpScale: 1.4 });
+    }
     case "metal":
-    default:
+    default: {
+      const n = noiseTexture();
       return new THREE.MeshPhysicalMaterial({
         ...common,
-        metalness: 0.55,
-        roughness: 0.38,
+        metalness: 0.78,
+        roughness: 0.34,
+        roughnessMap: n,
+        bumpMap: n,
+        bumpScale: 0.5,
+        clearcoat: 0.25,
         emissive: pose.glow > 0 ? color : "#000000",
         emissiveIntensity: pose.glow * 0.9,
         transparent: o.opacity !== undefined && o.opacity < 1,
         opacity: o.opacity ?? 1,
       });
+    }
   }
 };
 
@@ -340,7 +384,8 @@ export const Sim3D: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
           <Rig spec={spec} u={u} />
           <ambientLight intensity={0.35} />
           <directionalLight position={[5, 8, 6]} intensity={2.4} />
-          <directionalLight position={[-6, 3, -4]} intensity={1.0} color={palette.accent2} />
+          <directionalLight position={[-6, 3, -4]} intensity={2.4} color={palette.accent2} />
+          <directionalLight position={[6, 4, -6]} intensity={1.8} color={palette.accent} />
           <pointLight position={[0, 4, 5]} intensity={18} color={palette.accent} distance={30} />
           {spec.floor !== undefined && floorStyle !== 3 ? (
             <group position={[0, spec.floor, 0]}>

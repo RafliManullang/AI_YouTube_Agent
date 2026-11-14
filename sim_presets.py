@@ -7,7 +7,7 @@ import math
 import re
 
 SHAPES = ("box", "cylinder", "sphere", "cone", "torus", "tube", "gear", "plate", "rope", "text")
-MATERIALS = ("metal", "glass", "liquid", "rubber", "glow", "plastic")
+MATERIALS = ("metal", "glass", "liquid", "rubber", "glow", "plastic", "rust")
 KINDS = ("move", "spin", "pulse", "color", "rotate", "grow", "appear", "count")
 HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 

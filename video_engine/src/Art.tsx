@@ -39,6 +39,8 @@ export const ArtScene: React.FC<DiagramProps> = ({ scene, palette, lengthFrames 
   const step = Math.max(0.55, ((len / fps) * 0.5) / Math.max(1, labels.length));
   void slow;
 
+  const polaroid = scene.type === "story";
+
   // kilau cahaya yang menyapu tiap beberapa detik
   const sweepPhase = (t % 3.2) / 3.2;
   const sweepX = -600 + sweepPhase * 2300;
@@ -51,6 +53,23 @@ export const ArtScene: React.FC<DiagramProps> = ({ scene, palette, lengthFrames 
           transformOrigin: "50% 45%",
         }}
       >
+        {polaroid ? (
+          // kisah nyata: gambar tampil seperti foto polaroid arsip yang miring, dengan selotip dan keterangan
+          <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", transform: `rotate(${-3 + Math.sin(t * 0.7) * 0.8}deg)` }}>
+            <div style={{ position: "relative", width: 800, padding: "34px 34px 150px", background: "#f4efe4", boxShadow: "0 40px 90px rgba(0,0,0,0.65)", marginTop: -60 }}>
+              <div style={{ position: "absolute", top: -26, left: 300, width: 200, height: 52, background: "rgba(240,225,170,0.85)", transform: "rotate(2deg)" }} />
+              <div style={{ position: "relative", width: 732, height: 900, overflow: "hidden", filter: "sepia(0.45) contrast(1.05)" }}>
+                {urls.map((u) => (
+                  <Img key={u} src={staticFile(u)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                ))}
+              </div>
+              <div style={{ position: "absolute", left: 40, right: 40, bottom: 44, textAlign: "center", color: "#3b3326", fontFamily: "'Segoe Script','Comic Sans MS',cursive", fontSize: 46 }}>
+                {String(scene.title ?? "")}
+              </div>
+            </div>
+          </AbsoluteFill>
+        ) : (
+          <>
         {urls.map((u, i) => (
           <Img
             key={u}
@@ -65,6 +84,8 @@ export const ArtScene: React.FC<DiagramProps> = ({ scene, palette, lengthFrames 
             }}
           />
         ))}
+          </>
+        )}
       </AbsoluteFill>
 
       {/* setelah klimaks: bagian dalam memerah sebentar, tanda tekanan */}

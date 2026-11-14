@@ -228,6 +228,92 @@ def library_sim(name, labels):
                         _mv("sumbat", [0, -3.0, 1.0], 0.35, 0.5), _mv("sumbat", [0, -2.2, 0], 0.8, 0.92),
                         _col("cairan", "#2c6bff", 0.82, 0.95)],
             "flows": [_flow([[0, -2.2, 0.2], [0.3, -3.4, 0.2], [0.8, -4.4, 0.2]], "#2c6bff", 18, 0.14, 0.5, 0.38, 0.84)]}
+    if name == "jangkar_rantai":
+        objs = [
+            _o("laut", "box", [0, 0.3, 0], [9.4, 6.4, 3.0], "#2c7fd6", "glass", opacity=0.12),
+            _o("lumpur", "box", [0, -3.4, 0], [9.4, 1.5, 3.0], "#6b4a2f", "rubber", label=L(3, "Dasar lumpur")),
+            _o("kapal", "box", [2.4, 2.9, 0], [3.4, 0.8, 1.6], "#c94b3a", "plastic", label=L(0, "Kapal")),
+            _o("kabin", "box", [2.8, 3.6, 0], [1.2, 0.8, 1.2], "#f1f1f1", "plastic"),
+            _o("jangkar", "box", [-3.6, -2.5, 0], [1.6, 0.28, 0.5], "#4a4f5a", "rust", label=L(2, "Jangkar")),
+            _o("kaki", "box", [-4.2, -2.55, 0], [0.7, 0.2, 1.4], "#4a4f5a", "rust", rot=[0, 0, -25]),
+        ]
+        mot = [_mv("kapal", [3.4, 2.9, 0], 0.15, 0.85), _mv("kabin", [3.8, 3.6, 0], 0.15, 0.85),
+               _mv("jangkar", [-3.4, -2.5, 0], 0.55, 0.85), _mv("kaki", [-4.0, -2.55, 0], 0.55, 0.85)]
+        for i in range(14):
+            if i < 6:
+                x, y = -2.5 + 0.55 * i, -2.5
+            else:
+                k = (i - 5) / 8.0
+                x, y = 0.25 + k * 3.0, -2.5 + (k ** 2) * 5.2
+            o = _o(f"r{i}", "torus", [round(x, 2), round(y, 2), 0], [0.3, 0.075, 0],
+                   "#8a8f99", "metal", rot=[0, 0, 0] if i % 2 else [90, 0, 0])
+            if i == 8:
+                o["label"] = L(1, "Rantai baja")
+            objs.append(o)
+            if i >= 6:
+                mot.append(_mv(f"r{i}", [round(x + 0.45, 2), round(y + 0.1 * (i - 5), 2), 0], 0.15, 0.85))
+        for j in range(3):
+            objs.append(_o(f"g{j}", "cone", [-1.6 + 1.3 * j, -2.15, 1.0], [0.28, 0.7, 0], "#ff3b3b", "glow", rot=[0, 0, 90]))
+            mot.append({"target": f"g{j}", "kind": "pulse", "speed": 3 + j})
+        objs[1]["label"] = L(3, "Gesekan lumpur")
+        return {"cutaway": True, "cam": {"dist": 33, "height": 1.6, "orbit": 0.4, "target": [1.0, -0.3, 0]},
+                "objects": objs, "motions": mot,
+                "flows": [_flow([[-3.8, -3.3, 1.0], [3.0, -3.3, 1.0]], "#a9794e", 14, 0.09, 0.2),
+                          _flow([[-3.2, -2.2, 1.0], [-2.6, 0.4, 1.0], [-3.0, 2.4, 1.0]], "#bfe8ff", 14, 0.07, 0.25)]}
+
+    if name == "sosrobahu":
+        objs = [
+            _o("jalanA", "box", [-2.6, -2.5, 0], [1.8, 0.12, 12], "#3a3f4b", "rubber", label=L(3, "Jalan raya")),
+            _o("jalanB", "box", [2.6, -2.5, 0], [1.8, 0.12, 12], "#3a3f4b", "rubber"),
+            _o("tiang", "box", [0, -0.3, 0], [1.4, 4.4, 1.4], "#9aa0a8", "metal", label=L(0, "Tiang beton")),
+            _o("bawah", "cylinder", [0, 2.0, 0], [1.1, 0.18, 0], "#4fc3f7", "metal", label=L(2, "Dua piringan")),
+            _o("minyak", "cylinder", [0, 2.18, 0], [1.05, 0.08, 0], "#ffb300", "liquid", opacity=0.85, label=L(1, "Lapisan minyak")),
+            _o("atas", "cylinder", [0, 2.35, 0], [1.1, 0.18, 0], "#ff9f43", "metal"),
+            _o("balok", "box", [0, 2.95, 0], [1.3, 0.9, 7.6], "#b9b4a8", "rust", label=L(4, "Balok 480 ton")),
+            _t("ton", "480 TON", [0, 6.2, 0], 0.9, "#ffd23f"),
+        ]
+        mot = [{"target": "atas", "kind": "rotate", "axis": "y", "angle": 90, "t0": 0.4, "t1": 0.85},
+               {"target": "balok", "kind": "rotate", "axis": "y", "angle": 90, "t0": 0.4, "t1": 0.85},
+               {"target": "ton", "kind": "appear", "t0": 0.05, "t1": 0.15},
+               {"target": "minyak", "kind": "pulse", "speed": 2}, _col("minyak", "#ffe082", 0.3, 0.45)]
+        for i, z in enumerate((-5.0, 0.5, 4.0)):
+            objs.append(_o(f"mobil{i}", "box", [-2.6 if i != 1 else 2.6, -2.2, z], [0.8, 0.45, 1.5], ("#ff5252", "#4fc3f7", "#ffd23f")[i], "plastic"))
+            mot.append(_mv(f"mobil{i}", [-2.6 if i != 1 else 2.6, -2.2, z + 5.5], 0.0, 1.0))
+        return {"cam": {"dist": 27, "height": 8.5, "orbit": 0.25, "target": [0, 0.2, 0]}, "objects": objs, "motions": mot,
+                "flows": [_flow([[-1.0, 2.2, 0.0], [0.0, 2.2, 1.0], [1.0, 2.2, 0.0], [0.0, 2.2, -1.0], [-1.0, 2.2, 0.0]], "#ffb300", 16, 0.09, 0.5, 0.25, 0.9)]}
+
+    if name == "mobil_dongkrak":
+        objs = [
+            _o("lantai", "box", [0, -2.6, 0], [9, 0.2, 6], "#59606e", "rubber"),
+            _o("oli", "cylinder", [0, -2.47, 0], [1.2, 0.06, 0], "#1b1b1f", "liquid", opacity=0.95, label=L(2, "Tumpahan oli")),
+            _o("badan", "box", [0, -1.0, 0], [4.2, 0.9, 1.9], "#4f7cff", "plastic", label=L(0, "Mobil")),
+            _o("kabin", "box", [-0.2, -0.2, 0], [2.2, 0.8, 1.7], "#9fd0ff", "glass", opacity=0.7),
+            _o("dongkrak", "cylinder", [0, -2.0, 0], [0.28, 0.9, 0], "#ff9f43", "metal", label=L(1, "Dongkrak")),
+        ]
+        for i, (x, z) in enumerate(((-1.4, 1.0), (1.4, 1.0), (-1.4, -1.0), (1.4, -1.0))):
+            objs.append(_o(f"w{i}", "cylinder", [x, -1.55, z * 1.05], [0.5, 0.35, 0], "#22252b", "rubber", rot=[90, 0, 0]))
+        mot = [{"target": "oli", "kind": "grow", "to": [3.0, 0.06, 0], "t0": 0.0, "t1": 0.4}]
+        for oid in ["badan", "kabin"] + [f"w{i}" for i in range(4)]:
+            mot.append({"target": oid, "kind": "rotate", "axis": "y", "angle": 90, "t0": 0.5, "t1": 0.9, "pivot": [0, 0, 0]})
+        return {"cam": {"dist": 25, "height": 4.0, "orbit": 0.8, "target": [0, -1.0, 0]}, "objects": objs, "motions": mot, "flows": []}
+
+    if name == "jembatan_geser":
+        return {"cam": {"dist": 41, "height": 5.0, "orbit": 0.5, "target": [-0.4, -0.8, 0]},
+            "objects": [
+                _o("jalan", "box", [0, -2.6, 0], [11, 0.3, 2.6], "#3a3f4b", "rubber", label=L(0, "Jalan yang diperbaiki")),
+                _o("alat", "box", [-0.6, -2.0, 0], [1.4, 0.8, 1.2], "#ffc107", "plastic", label=L(1, "Alat berat di bawah")),
+                _o("dek", "box", [0, -0.6, 0], [5.4, 0.3, 2.4], "#b0b6c0", "metal", label=L(2, "Jembatan berjalan")),
+                _o("kaki1", "box", [-2.4, -1.6, 0.9], [0.3, 2.0, 0.3], "#8a8f99"), _o("kaki2", "box", [2.4, -1.6, 0.9], [0.3, 2.0, 0.3], "#8a8f99"),
+                _o("kaki3", "box", [-2.4, -1.6, -0.9], [0.3, 2.0, 0.3], "#8a8f99"), _o("kaki4", "box", [2.4, -1.6, -0.9], [0.3, 2.0, 0.3], "#8a8f99"),
+                _o("curam", "box", [-3.6, -1.1, 0], [2.4, 0.2, 2.4], "#ff5252", "plastic", rot=[0, 0, 24], label=L(3, "Tanjakan 6%")),
+                _o("landai", "box", [-4.2, -1.45, 0], [4.4, 0.2, 2.4], "#3ddc84", "plastic", rot=[0, 0, 7]),
+                _o("mobil", "box", [-5.0, -1.3, 0.4], [0.9, 0.45, 0.8], "#4f7cff", "plastic"),
+                _t("persen", "6%", [-2.6, 2.4, 0], 1.1, "#ff5252"),
+            ],
+            "motions": [_mv("mobil", [4.8, -0.2, 0.4], 0.05, 0.95), _mv("curam", [-3.6, -6.0, 0], 0.5, 0.6),
+                        {"target": "landai", "kind": "appear", "t0": 0.5, "t1": 0.6}, _col("persen", "#3ddc84", 0.5, 0.6),
+                        _mv("dek", [1.8, -0.6, 0], 0.7, 0.98), _mv("alat", [0.6, -2.0, 0], 0.7, 0.98)],
+            "flows": []}
     return None
 
 
@@ -243,5 +329,9 @@ KEYWORDS = (
     ("ball_socket", ("pulpen", "bolpoin", "ballpoint", "bola pena", "soket bola")),
     ("capillary", ("kapiler", "serat kertas", "menyerap cairan")),
     ("pressure_leak", ("bocor", "tekanan cairan", "segel otomatis")),
+    ("jangkar_rantai", ("jangkar", "rantai kapal", "catenary", "tambat")),
+    ("sosrobahu", ("sosrobahu", "balok beton diputar", "piringan minyak")),
+    ("mobil_dongkrak", ("dongkrak", "tumpahan oli")),
+    ("jembatan_geser", ("jembatan berjalan", "jembatan geser", "perbaikan jalan tol")),
     ("venturi", ("venturi", "bernoulli", "aliran udara sempit")),
 )
