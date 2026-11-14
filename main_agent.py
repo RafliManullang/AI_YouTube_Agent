@@ -213,6 +213,36 @@ THUMB_HISTORY_PATH = os.path.join(BASE_DIR, "riwayat_thumb.json")
 THUMB_LAYOUTS = 5
 
 
+STRUCTURES = (
+    ("MITOS LAWAN FAKTA", "buka dengan keyakinan umum yang salah, patahkan pelan-pelan dengan bukti, tutup dengan fakta sebenarnya"),
+    ("DETEKTIF", "rangkaian pertanyaan: tiap jawaban memunculkan pertanyaan baru yang lebih besar, sampai terpecahkan"),
+    ("HITUNG MUNDUR", "tiga alasan atau tiga bagian bernomor (3, 2, 1) dengan yang paling mengejutkan di nomor terakhir"),
+    ("ANDAI TIDAK ADA", "eksperimen pikiran: apa yang terjadi kalau benda ini dihilangkan atau dibuat salah, lalu tunjukkan versi yang benar"),
+    ("BEDAH LANGKAH DEMI LANGKAH", "ikuti satu kejadian dari detik pertama sampai akhir, tiap adegan satu tahap, tanpa analogi"),
+    ("ORANG DI BALIKNYA", "mulai dari seseorang atau kejadian nyata yang melahirkan benda ini, lalu hubungkan ke cara kerjanya sekarang"),
+)
+STRUCTURE_HISTORY_PATH = os.path.join(BASE_DIR, "riwayat_alur.json")
+
+
+def pick_structure():
+    """Pilih kerangka cerita yang beda dari dua video terakhir supaya video tidak terasa seperti cetakan yang sama."""
+    try:
+        with open(STRUCTURE_HISTORY_PATH, "r", encoding="utf-8") as f:
+            old = [int(x) for x in json.load(f)]
+    except Exception:
+        old = []
+    fresh = [i for i in range(len(STRUCTURES)) if i not in old[-2:]] or list(range(len(STRUCTURES)))
+    pick = random.choice(fresh)
+    try:
+        with open(STRUCTURE_HISTORY_PATH, "w", encoding="utf-8") as f:
+            json.dump((old + [pick])[-4:], f)
+    except OSError:
+        pass
+    name, desc = STRUCTURES[pick]
+    return (f"KERANGKA CERITA VIDEO INI: \"{name}\": {desc}. Susun semua adegan mengikuti kerangka ini; elemen lain "
+            "(taruhan, analogi, titik balik, angka) hanya dipakai kalau pas dengan kerangka.")
+
+
 def pick_thumb_layout():
     """Pilih tata letak thumbnail yang tidak sama dengan dua video terakhir."""
     try:
@@ -314,6 +344,7 @@ def build_prompt(forced_topic, done_titles):
             "kreator yang sedang bercerita ke teman: ekspresif, ada penekanan, boleh bertanya ke penonton, tanpa "
             "basa-basi dan tanpa tanya-jawab dengan orang lain."
         )
+    STRUCTURE_RULE = pick_structure()
     return f"""
 Kamu adalah scriptwriter YouTube Shorts edukasi berbahasa Indonesia, gaya Kok Bisa / Veritasium.
 {topic_rule}
@@ -330,7 +361,7 @@ pakai kaca rumah untuk mobil, ini akibatnya!"). Visual adegan pertama sudah memp
 ke-0 (pakai tipe "mechanism" atau "cutaway" kalau topiknya cara kerja benda). DILARANG membuka dengan sapaan (halo, hai, selamat datang), basa-basi,
 "kali ini kita bahas", atau percakapan santai bernada datar. Visual adegan pertama harus langsung
 memperlihatkan inti masalahnya, bukan pemandangan umum.
-ALUR CERITA (supaya orang menonton sampai habis): (1) HOOK menghentak; (2) TARUHAN: kenapa ini penting
+ALUR CERITA (supaya orang menonton sampai habis; ini kotak peralatan, BUKAN urutan wajib, ikuti KERANGKA CERITA VIDEO INI di bawah): (1) HOOK menghentak; (2) TARUHAN: kenapa ini penting
 atau bahaya apa yang mengintai; (3) PENJELASAN bertahap dengan analogi benda sehari-hari yang mudah dibayangkan;
 (4) TITIK BALIK tepat di tengah video: kalimat seperti "Tapi tunggu, ada yang lebih gila..." disusul fakta
 yang berlawanan dengan dugaan; (5) ANGKA GILA yang dibandingkan dengan benda yang akrab (contoh: "setara
@@ -340,13 +371,17 @@ satu angka per kalimat, dan jangan ada dua angka di kalimat berdekatan. Pilih an
 sisanya, lalu ganti dengan perbandingan kata-kata ("sedikit lebih cepat", "seberat mobil"). Tiap angka yang
 disebut harus punya adegan sendiri yang memperlihatkannya (counter, barchart, gauge, atau animasi 3D);
 (6) JAWABAN yang memuaskan rasa penasaran. Jangan membocorkan jawaban inti di awal: simpan sampai bagian
-(6). PENUTUP MELINGKAR (seamless loop): kalimat terakhir harus tersambung secara tata bahasa dengan kalimat
-pertama, sehingga saat video berulang otomatis, kedua kalimat terdengar seperti satu kalimat yang berputar. WAJIB: kalimat terakhir diakhiri dengan
-mengulang 4 sampai 6 kata pertama dari kalimat pembuka secara persis, tanpa tanda titik di ujungnya.
-Contoh: kalimat pertama "Di balik dinding lift ini ada balok besi seberat mobil." dan kalimat terakhir
-"Jadi, itulah rahasia kenapa lift tidak jatuh, dan itu semua karena di balik dinding lift ini". Kalimat
-terakhir boleh menggantung seperti itu.
-STORYBOARD PER KATEGORI (urutan adegan, ikuti sebagai kerangka):
+(6). PENUTUP MELINGKAR (seamless loop): kalimat terakhir adalah PERTANYAAN PANCINGAN pendek (maksimal 10 kata)
+yang dijawab langsung oleh kalimat pembuka saat video berulang. JANGAN mengulang kata-kata pembuka di penutup
+(pengulangan kata terdengar seperti gagap). Contoh: pembuka "Tiga pesawat hancur di udara gara-gara jendela
+kotak." dan penutup "Jadi, apa jadinya kalau jendela pesawat berbentuk kotak?". Contoh lain: pembuka "Karena
+di baliknya ada balok besi seberat mobil." dan penutup "Lalu kenapa lift tidak pernah jatuh?".
+{STRUCTURE_RULE}
+LARANGAN KLISE (supaya video tidak terasa seperti cetakan yang sama): jangan memakai "Tapi tunggu", "ternyata",
+"bayangkan kamu", "rahasianya adalah", "inilah rahasia", dan jangan memberi judul adegan "ANALOGI ...". Tidak semua
+video perlu analogi; pakai hanya kalau benar-benar membantu. Judul adegan harus spesifik pada isi (contoh:
+"Pin pegas", bukan "Penjelasan"). Variasikan jenis adegan, jangan selalu counter lalu gauge lalu barchart.
+STORYBOARD PER KATEGORI (contoh urutan adegan, boleh disesuaikan dengan kerangka cerita di atas):
 - CARA KERJA: (1) hook: benda konkret + "question" atau "footage" (kenapa begini?); (2) taruhan: apa bahayanya kalau
   tidak ada bagian rahasia ini; (3) "mechanism" atau "cutaway" yang menyorot bagian rahasia dengan label; (4) proses
   alirannya (panah dan aliran bercahaya) dalam "mechanism"; (5) klimaks: momen bagian itu bekerja memutus atau
@@ -376,8 +411,11 @@ Untuk SETIAP adegan selain "footage" isi dua kolom:
   window with rounded corners, close-up, cabin wall around it"). Tulis hal yang bisa dipotret, BUKAN gagasan abstrak
   (hindari kata seperti "concept", "force", "stress", "energy"). Boleh ada tokoh kartun atau orang. Untuk cara kerja
   benda, gambarkan potongan melintang bagian dalamnya. Jangan minta teks atau huruf.
-- Pakai kata "subject" yang SAMA di semua adegan yang membicarakan benda yang sama (selalu "airplane", jangan
-  campur "plane" dan "aircraft"), supaya model 3D-nya konsisten dan tidak berganti-ganti.
+- "subject" harus benda yang disebut di kalimat ADEGAN ITU SENDIRI, bukan benda topik besar. Kalau topiknya
+  pesawat, adegan jendela memakai "window", adegan retakan memakai "crack" atau "glass", adegan kaca berlapis
+  memakai "glass", adegan sayap memakai "wing". DILARANG memakai subject yang sama di lebih dari 2 adegan dalam
+  satu video dan dilarang di dua adegan berturutan. Pakai kata benda umum yang mudah ditemukan di perpustakaan
+  model 3D (satu kata Inggris, bukan istilah teknik).
 Setiap momen klimaks atau kejutan diberi satu kalimat pendek yang menghentak (animasi otomatis memberi getaran
 dan kilat di momen itu).
 
@@ -817,19 +855,18 @@ def clean_items(raw_items, numeric):
 
 
 def enforce_loop(scenes):
-    """Pastikan kalimat terakhir berakhir dengan kata-kata pembuka supaya video berulang terasa menyambung."""
+    """Penutup yang mengulang kata-kata pembuka terdengar gagap saat video berputar. Kata ulangan di ujung dibuang."""
     try:
         first = scenes[0]["lines"][0]["text"].split()[:4]
         last_line = scenes[-1]["lines"][-1]
         norm = lambda ws: [w.strip(".,!?;:\"'").lower() for w in ws]
-        tail = norm(last_line["text"].split()[-8:])
+        words = last_line["text"].split()
         key = norm(first)
-        if len(key) < 3 or any(key[i:i + len(key)] == tail[j:j + len(key)] and j + len(key) <= len(tail)
-                               for i in (0,) for j in range(len(tail))):
-            return
-        base = last_line["text"].rstrip(" .!?")
-        last_line["text"] = base + ", " + " ".join(first[:1]).lower() + " " + " ".join(first[1:])
-        scenes[-1]["narration"] = " ".join(l["text"] for l in scenes[-1]["lines"])
+        for n in range(min(len(key), 4), 1, -1):
+            if len(words) > n and norm(words[-n:]) == key[:n]:
+                last_line["text"] = " ".join(words[:-n]).rstrip(" ,")
+                scenes[-1]["narration"] = " ".join(l["text"] for l in scenes[-1]["lines"])
+                break
     except Exception:
         pass
 
@@ -1395,10 +1432,16 @@ def fetch_art_images(scenes):
         info("  -> POLYPIZZA_KEY belum diisi di .env: model 3D dilewati, dipakai gambar kartun 3D AI.")
     info("  -> Menyiapkan visual tiap adegan (model 3D / gambar kartun 3D), bisa beberapa menit...")
     n_model, n_art, failed = 0, 0, 0
+    used = []
     for i, sc in todo:
         if model_key and sc.get("subject"):
             path, credit = models3d.fetch_model(sc["subject"], PUBLIC_DIR, model_key, info)
+            # model yang sama jangan dipakai berturutan atau lebih dari dua kali: pakai gambar kartun sebagai gantinya
+            if path and (used.count(path) >= 2 or (used and used[-1] == path)):
+                info(f"  -> Model '{sc['subject']}' sudah sering dipakai, adegan ini memakai gambar kartun 3D.")
+                path = None
             if path:
+                used.append(path)
                 sc["model"] = path
                 n_model += 1
                 if credit:
