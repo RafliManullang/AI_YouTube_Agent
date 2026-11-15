@@ -3,6 +3,8 @@ Dipakai kalau naskah menyebut benda ini dan AI tidak menulis model 3D sendiri.""
 
 import math
 
+import metaphors
+
 
 def _o(id, shape, pos, size, color="#9aa7b8", material="metal", **kw):
     d = {"id": id, "shape": shape, "pos": pos, "size": size, "color": color, "material": material}
@@ -347,70 +349,67 @@ def library_sim(name, labels):
         return {"cam": {"dist": 25, "height": 3.0, "orbit": 0.3, "target": [0.6, 0.5, 0]}, "objects": objs, "motions": mot, "flows": flows}
 
     if name == "bimetal":
-        n, seg, th = 14, 0.44, 0.26
-        dphi = 0.075  # lengkung tiap potongan (radian); total sekitar 60 derajat
-        ax = -3.3
-        objs = [
-            _o("jepit", "box", [ax - 0.45, 0.0, 0], [0.9, 1.5, 1.9], "#59606e", "metal", label=L(2, "Ujung terjepit")),
-            _o("skala", "box", [3.9, 0.4, -1.1], [0.16, 3.8, 0.1], "#59606e", "plastic"),
-            _o("suhu", "box", [3.9, -1.3, -1.1], [0.34, 0.3, 0.3], "#ff4d3a", "glow", label=L(3, "Suhu")),
-            _o("lampu", "sphere", [-3.3, 2.7, -0.4], [0.34, 0, 0], "#ffb020", "glow", label=L(4, "Pemanas menyala")),
-            _o("kontak", "box", [1.49, 0.38, 0], [1.0, 0.16, 1.2], "#c0c8d4", "metal", label=L(5, "Saklar terdorong")),
-        ]
-        mot = [
-            {"target": "suhu", "kind": "move", "to": [3.9, 1.9, -1.1], "loop": True, "speed": 0.2, "t0": 0, "t1": 1},
-            {"target": "suhu", "kind": "color", "color": "#ffd23f", "loop": True, "speed": 0.2, "t0": 0, "t1": 1},
-            {"target": "lampu", "kind": "color", "color": "#2a2f3a", "loop": True, "speed": 0.2, "t0": 0, "t1": 1},
-            {"target": "kontak", "kind": "move", "to": [1.49, 3.39, 0], "loop": True, "speed": 0.2, "t0": 0, "t1": 1},
-        ]
-        x = y = 0.0
-        for k in range(n):
-            phi = (k + 0.5) * dphi
-            cx0 = ax + seg * (k + 0.5)
-            cx1, cy1 = ax + x + seg / 2 * math.cos(phi), y + seg / 2 * math.sin(phi)
-            nx, ny = -math.sin(phi), math.cos(phi)
-            for lay, off, col, mat in (("b", -th / 2, "#d8a62e", "metal"), ("s", th / 2, "#9fb0c3", "metal")):
-                oid = f"{lay}{k}"
-                lab = {"label": L(0, "Kuningan (memuai banyak)")} if (lay == "b" and k == 2) else ({"label": L(1, "Besi (memuai sedikit)")} if (lay == "s" and k == 2) else {})
-                objs.append(_o(oid, "box", [round(cx0, 3), off, 0], [seg * 1.18, th, 1.5], col, mat, **lab))
-                mot.append({"target": oid, "kind": "move", "to": [round(cx1 + nx * off, 3), round(cy1 + ny * off, 3), 0], "loop": True, "speed": 0.2, "t0": 0, "t1": 1})
-                mot.append({"target": oid, "kind": "rotate", "axis": "z", "angle": round(math.degrees(phi), 2), "loop": True, "speed": 0.2, "t0": 0, "t1": 1})
-                mot.append({"target": oid, "kind": "color", "color": "#ff6a3d" if lay == "s" else "#ff4a22", "loop": True, "speed": 0.2, "t0": 0, "t1": 1})
-            x += seg * math.cos(phi)
-            y += seg * math.sin(phi)
-        return {"cam": {"dist": 20, "height": 1.5, "orbit": 0.25, "target": [0.2, 0.6, 0]}, "objects": objs, "motions": mot,
-                "floor": -2.2}
+        return {
+            "cam": {"dist": 22, "height": 1.8, "orbit": 0.3, "target": [0.0, 1.2, 0]},
+            "components": [
+                {"id": "BimetalStrip", "pos": [0, 0, 0], "labels": [L(0, "Kuningan (memuai)"), L(1, "Besi (sedikit)")]},
+                {"id": "ThermostatSwitch", "pos": [0, 0, 0], "labels": [L(2, "Saklar")]},
+            ],
+            "objects": [
+                _o("dasar", "box", [0, -0.7, 0], [9.0, 0.3, 2.6], "#2b3342", "metal"),
+                _o("kabel", "box", [-3.4, 1.6, 0], [0.12, 2.4, 0.12], "#cfd6e2", "metal"),
+            ],
+            "flows": [_flow([[-3.4, 0.6, 0], [-3.4, 2.8, 0], [-0.2, 2.8, 0]], "#ffd23f", 8, 0.1, 0.35)],
+            "floor": -1.2,
+        }
 
     if name == "setrika":
+        return {
+            "cam": {"dist": 27, "height": 4.0, "orbit": 0.6, "target": [0.0, -0.2, 0]},
+            "components": [
+                {"id": "IronBody", "pos": [0, -1.8, 0], "labels": [L(0, "Tapak setrika"), L(1, "Bodi bening")]},
+                {"id": "HeatingCoil", "pos": [-0.3, -1.05, 0], "scale": 0.9, "labels": [L(2, "Elemen pemanas")]},
+                {"id": "BimetalStrip", "pos": [-0.2, -0.45, 0.0], "scale": 0.3, "props": {"width": 1.8}, "labels": [L(3, "Keping bimetal")]},
+            ],
+            "objects": [
+                _o("kain", "box", [0, -1.95, 0], [10.0, 0.2, 4.6], "#c9d6ff", "plastic"),
+                _o("alas", "box", [0, -2.2, 0], [11.0, 0.2, 5.2], "#2b3342", "metal"),
+            ],
+            "flows": [_flow([[x0, -1.6, 0.4], [x0 + 0.2, 0.0, 0.2], [x0, 2.0, 0.0]], "#ff9a3d", 8, 0.1, 0.4, 0.3) for x0 in (-2.0, 1.4)],
+            "floor": -2.4,
+        }
+
+    if name == "aliran_listrik":
+        return {
+            "cam": {"dist": 22, "height": 2.2, "orbit": 0.4, "target": [0, 0, 0]},
+            "objects": [
+                _o("pipa", "tube", [0, 0, 0], [0.55, 9.6, 0], "#7fb2ff", "glass", rot=[0, 0, 90], opacity=0.3, label=L(0, "Kabel (pipa bening)")),
+                _o("sumber", "box", [-5.4, 0, 0], [1.5, 1.8, 1.5], "#ffd23f", "plastic", label=L(1, "Sumber listrik")),
+                _o("lampu", "sphere", [5.4, 0, 0], [0.8, 0, 0], "#2a2f3a", "glow", label=L(2, "Lampu")),
+            ],
+            "motions": [_col("lampu", "#fff3a0", 0.45, 0.6), {"target": "sumber", "kind": "pulse", "speed": 0.8}],
+            "flows": [dict(_flow([[-4.6, 0, 0], [4.6, 0, 0]], "#4fc3f7", 18, 0.09, 1.1), kind="light"),
+                      dict(_flow([[-4.6, 0.12, 0.12], [4.6, 0.12, 0.12]], "#9be7ff", 10, 0.07, 1.4), kind="light")],
+            "floor": -1.6,
+        }
+
+    if name == "panas_berlebih":
         objs = [
-            _o("kain", "box", [0, -1.95, 0], [9.4, 0.12, 4.4], "#c9d6ff", "plastic", label=L(3, "Kain")),
-            _o("tapak", "box", [-0.5, -1.55, 0], [6.4, 0.5, 3.2], "#b9c3d1", "metal", label=L(0, "Tapak setrika")),
-            _o("hidung", "cylinder", [2.7, -1.55, 0], [1.6, 0.5, 0], "#b9c3d1", "metal"),
-            _o("bodi", "box", [-0.5, -0.1, 0], [6.4, 2.4, 3.0], "#7fa6d6", "glass", opacity=0.3, label=L(4, "Bodi (tembus pandang)")),
-            _o("kubah", "cylinder", [2.7, -0.1, 0], [1.5, 2.4, 0], "#7fa6d6", "glass", opacity=0.16),
-            _o("gagang", "torus", [-1.6, 1.7, 0], [0.9, 0.2, 0], "#ff6b4a", "plastic"),
-            _o("bs", "box", [-2.3, -0.88, 0], [2.0, 0.1, 0.9], "#9fb0c3", "metal", label=L(2, "Keping bimetal")),
-            _o("bb", "box", [-2.3, -1.0, 0], [2.0, 0.1, 0.9], "#d8a62e", "metal"),
+            _o("kaki", "box", [0, -1.7, 0], [4.6, 0.5, 3.0], "#2b3342", "metal"),
+            _o("logam", "box", [0, -0.9, 0], [4.2, 0.35, 2.6], "#9aa7b8", "metal", label=L(0, "Logam makin panas")),
+            _o("termo", "cylinder", [3.9, -0.2, 0], [0.18, 2.6, 0], "#cfd6e2", "glass", opacity=0.5, label=L(1, "Suhu naik")),
+            _o("merkuri", "box", [3.9, -0.9, 0], [0.12, 0.3, 0.12], "#ff3b1f", "glow"),
         ]
-        mot = [
-            {"target": "bs", "kind": "color", "color": "#ff6a3d", "t0": 0.35, "t1": 0.6},
-            {"target": "bb", "kind": "color", "color": "#ff4a22", "t0": 0.35, "t1": 0.6},
-            {"target": "tapak", "kind": "color", "color": "#ff7a45", "t0": 0.3, "t1": 0.65},
-        ]
-        for k in range(6):
-            nid = f"c{k}"
-            objs.append(_o(nid, "torus", [-2.2 + k * 0.95, -1.12, 0], [0.5, 0.09, 0], "#8a5a3a", "metal", rot=[0, 90, 0], **({"label": L(1, "Elemen pemanas")} if k == 2 else {})))
-            mot.append(_col(nid, "#ff3b1f", 0.12 + 0.03 * k, 0.3 + 0.03 * k))
-        flows = [_flow([[x0, -1.6, 0.4], [x0 + 0.2, -0.3, 0.2], [x0, 1.0, 0.0]], "#ff9a3d", 8, 0.1, 0.4, 0.3) for x0 in (-1.5, 1.2)]
-        return {"cutaway": False, "cam": {"dist": 24, "height": 4.0, "orbit": 0.7, "target": [0.0, -1.1, 0]}, "objects": objs, "motions": mot, "flows": flows,
-                "floor": -2.2}
+        mot = [_col("logam", "#ff4a22", 0.15, 0.7), _mv("merkuri", [3.9, 0.7, 0], 0.15, 0.7),
+               {"target": "logam", "kind": "pulse", "speed": 1.6}]
+        flows = [dict(_flow([[x0, -0.6, z0], [x0 + 0.15, 0.8, z0], [x0 - 0.1, 2.6, z0]], "#ff7a3d", 10, 0.1, 0.7, 0.25), kind="light")
+                 for x0, z0 in ((-1.4, 0.4), (0.0, -0.4), (1.4, 0.3))]
+        return {"cam": {"dist": 22, "height": 2.8, "orbit": 0.6, "target": [0.6, 0.4, 0]}, "objects": objs, "motions": mot, "flows": flows, "floor": -2.0}
 
     return None
 
 
-KEYWORDS = (
-    ("bimetal", ("bimetal", "bimetallic", "keping logam", "kuningan dan besi", "kuningan memuai")),
-    ("setrika", ("setrika", "tapak setrika")),
+KEYWORDS = metaphors.keyword_table() + (
     ("loop_induksi", ("loop induksi", "kawat induksi", "sensor lampu merah", "sensor jalan", "garis aspal", "lampu merah", "kawat tembaga di bawah")),
     ("eskalator", ("eskalator", "escalator", "handrail", "pegangan tangan")),
     ("kunci_silinder", ("anak kunci", "kunci pintu", "silinder kunci", "gembok")),
@@ -429,3 +428,6 @@ KEYWORDS = (
     ("jembatan_geser", ("jembatan berjalan", "jembatan geser", "perbaikan jalan tol")),
     ("venturi", ("venturi", "bernoulli", "aliran udara sempit")),
 )
+
+
+PRESET_NAMES = tuple(dict.fromkeys(name for name, _ in KEYWORDS))

@@ -188,3 +188,30 @@ Hening panjang di ujung suara narator dibuang (sisakan 0,22 detik) dan 0,12 deti
 - Gerakan berputar dan perubahan warna kini bisa bolak-balik (`loop`), dan warna berubah bertahap seperti suhu. Batas bagian per animasi dinaikkan (60 benda, 140 gerakan).
 - Adegan yang sudah punya animasi bawaan tidak lagi diganti model 3D dari Poly Pizza (dulu muncul pemanas ruangan untuk "setrika"). Model yang judulnya pemanas, radiator, atau benda berbeda juga ditolak.
 - Subtitle dikecilkan, dibuat dalam bantalan gelap tipis, dan diturunkan agar tidak menutupi tengah layar.
+
+## Tahap 22: arsitektur penuh (10 modul)
+
+Repo ini memakai Python sebagai pengatur (`main_agent.py`, dijalankan lewat `jalankan_agen.bat`; boleh juga `--topic` selain `--topik`) dan Remotion untuk gambar. Sepuluh modul dipasang sesuai pembagian itu. Satu hal sengaja berbeda: LLM tidak menulis kode Remotion. Ia hanya memilih jenis adegan, animasi terverifikasi, dan isi teks, sehingga tidak ada kode karangan yang bisa rusak.
+
+| # | Modul | Berkas |
+|---|-------|--------|
+| 1 | Skema Zod dan gerbang validasi | `video_engine/src/schemas/sceneSchema.ts`, `video_engine/src/cli/validateProps.ts`, `schema_gate.py` |
+| 2 | Registry komponen terverifikasi | `video_engine/src/components/library/` (IronBody, HeatingCoil, BimetalStrip, ThermostatSwitch) |
+| 3 | Mesin perumpamaan visual | `metaphors.py` (kamus), dipakai `sim_library.KEYWORDS`, prompt naskah, dan Director |
+| 4 | Animasi pegas dan stagger | `video_engine/src/utils/animation.ts` |
+| 5 | Kamera sinematik | `video_engine/src/components/CameraRig.tsx` |
+| 6 | Zona aman dan tata letak | `video_engine/src/layout/SafeLayout.tsx` |
+| 7 | Irama dan bobot adegan | `pacing.py` (+ lama transisi per adegan di `ShortsComp.tsx`) |
+| 8 | Audio dan SFX | sudah ada: `Sfx.tsx`, `tools/buat_sfx.py`. Sengaja hanya di momen penting, bukan per kata |
+| 9 | AI Director | `director.py` |
+| 10 | Pekerja render dan pemulihan | `render_worker.py` |
+
+Alur: naskah (penulis + editor) -> Director memeriksa dan memperbaiki -> irama diberi tag -> suara dan visual -> data divalidasi Zod (dengan perbaikan otomatis oleh LLM bila ditolak) -> render dengan pemulihan otomatis -> keras suara disamakan.
+
+- Zod dipasang pada versi persis 4.6.7 karena itu yang diminta Remotion 4.0.541.
+- Komponen registry dipakai lewat `sim.components` (`{id, pos, scale, rot, props, labels}`). Id di luar registry ditolak oleh `clean_sim` dan skema.
+- Animasi `setrika` dan `bimetal` kini dibangun dari komponen registry. Preset baru `aliran_listrik` dan `panas_berlebih` ditambahkan oleh mesin perumpamaan.
+- Zona visual: isi adegan 3D/diagram dikecilkan ke 72% tinggi layar, subtitle di zona bawah dengan bantalan gelap. Latar, footage, dan gambar penuh tetap memenuhi layar.
+- Kamera: 3 detik pertama zoom-in cepat, setelahnya pan pelan yang arahnya berganti tiap adegan.
+- Irama: hook memakai potongan footage sekitar 1,5 detik dan perpindahan cepat, penjelasan 3 sampai 4 detik, penutup lembut.
+- Render worker: periksa tipe kode, validasi data, lalu bila gagal baca galat dan pulihkan (mode GL, memori, model macet, 3D diganti 2D, semua tambahan dibuang).

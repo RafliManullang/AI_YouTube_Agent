@@ -91,8 +91,10 @@ export type SimFlow = {
   t0?: number;
   t1?: number;
 };
+export type ComponentUse = import("./schemas/sceneSchema").ComponentUse;
 export type SimSpec = {
   objects: SimObject[];
+  components?: ComponentUse[]; // komponen terverifikasi dari src/components/library
   motions?: SimMotion[];
   flows?: SimFlow[];
   floor?: number; // tinggi lantai (y) bila ingin ada alas bergaris
@@ -121,6 +123,8 @@ export type SceneData = {
   mood?: "senang" | "takut" | "kaget" | "sedih" | "tegang" | "bangga"; // untuk story
   weather?: "cerah" | "hujan" | "salju" | "badai" | "malam" | "kabut"; // untuk story
   sound?: AmbienceName;
+  urgency?: "high" | "normal" | "low"; // tingkat kepentingan adegan (irama)
+  transition?: { kind: "fade" | "slide" | "zoom" | "whip"; seconds: number }; // gaya dan lama perpindahan masuk
 };
 
 export type ShortsProps = {

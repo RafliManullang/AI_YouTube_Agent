@@ -4,6 +4,7 @@ dan pemeriksa spesifikasi 3D buatan penulis naskah.
 Satuan kira-kira meter, sumbu y ke atas, kamera menghadap titik tengah (0, 0, 0) dari depan (z positif)."""
 
 import math
+import os
 import re
 
 SHAPES = ("box", "cylinder", "sphere", "cone", "torus", "tube", "gear", "plate", "rope", "text")
@@ -26,6 +27,43 @@ def _vec(v, lo=-14.0, hi=14.0, default=0.0):
     if not isinstance(v, (list, tuple)) or len(v) != 3:
         return None
     return [round(_num(x, lo, hi, default), 3) for x in v]
+
+
+def _component_ids():
+    """Daftar komponen terverifikasi dibaca dari skema TypeScript supaya selalu sama dengan yang dipakai render."""
+    try:
+        here = os.path.dirname(os.path.abspath(__file__))
+        text = open(os.path.join(here, "video_engine", "src", "schemas", "sceneSchema.ts"), encoding="utf-8").read()
+        block = re.search(r"COMPONENT_IDS = \[(.*?)\]", text, re.S).group(1)
+        return tuple(re.findall(r'"(\w+)"', block))
+    except Exception:
+        return ("IronBody", "HeatingCoil", "BimetalStrip", "ThermostatSwitch")
+
+
+COMPONENT_IDS = _component_ids()
+
+
+def _clean_components(raw):
+    out = []
+    for c in (raw or [])[:12]:
+        if not isinstance(c, dict) or c.get("id") not in COMPONENT_IDS:
+            continue  # id di luar registry ditolak: LLM tidak boleh mengarang komponen
+        item = {"id": c["id"]}
+        if _vec(c.get("pos")) is not None:
+            item["pos"] = _vec(c.get("pos"))
+        if c.get("scale") is not None:
+            item["scale"] = round(_num(c.get("scale"), 0.1, 5, 1), 2)
+        if _vec(c.get("rot")) is not None:
+            item["rot"] = _vec(c.get("rot"))
+        props = c.get("props")
+        if isinstance(props, dict):
+            item["props"] = {str(k)[:20]: v for k, v in props.items()
+                             if isinstance(v, (int, float, bool)) or (isinstance(v, str) and len(v) <= 40)}
+        labs = c.get("labels")
+        if isinstance(labs, list):
+            item["labels"] = [re.sub(r"[^\w\s%/.\-]", "", str(x), flags=re.U)[:40] for x in labs[:4]]
+        out.append(item)
+    return out
 
 
 def clean_sim(raw):
@@ -93,7 +131,8 @@ def clean_sim(raw):
     # tali yang menunjuk benda yang tidak ada dibuang
     objs = [o for o in objs if o["shape"] != "rope" or all(x in ids for x in o["link"])]
     solid = [o for o in objs if o["shape"] != "rope"]
-    if len(solid) < 2:
+    comps = _clean_components(raw.get("components"))
+    if len(solid) < 2 and not comps:
         return None
 
     motions = []
@@ -144,10 +183,11 @@ def clean_sim(raw):
             "count": int(_num(f.get("count"), 4, 48, 20)),
             "size": round(_num(f.get("size"), 0.03, 0.3, 0.1), 3),
             "speed": round(_num(f.get("speed"), 0.05, 2.0, 0.5), 2),
+            **({"kind": f["kind"]} if f.get("kind") in ("water", "mud", "oil", "light") else {}),
             "t0": round(_num(f.get("t0"), 0, 1, 0), 2),
             "t1": round(_num(f.get("t1"), 0, 1, 1), 2),
         })
-    if not motions and not flows:
+    if not motions and not flows and not comps:
         return None  # tidak ada yang bergerak: bukan simulasi
 
     cam_raw = raw.get("cam") if isinstance(raw.get("cam"), dict) else {}
@@ -158,6 +198,8 @@ def clean_sim(raw):
         "target": _vec(cam_raw.get("target")) or [0, 0, 0],
     }
     out = {"objects": objs, "motions": motions, "flows": flows, "cutaway": bool(raw.get("cutaway")), "cam": cam}
+    if comps:
+        out["components"] = comps
     if raw.get("floor") is not None:
         out["floor"] = round(_num(raw.get("floor"), -10, 10, -4), 2)
     return out
