@@ -378,11 +378,13 @@ export const Sim3D: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
   const { fps } = useVideoConfig();
   const spec = scene.sim as SimSpec;
   const len = Math.max(1, lengthFrames);
-  const u = clamp01(frame / len);
-  const t = frame / fps;
+  // Gerak mekanis baru dimulai saat kata pemicu diucapkan (trigger = bagian adegan 0..1); sebelum itu benda diam di keadaan awal.
+  const trig = clamp01(spec.trigger ?? 0);
+  const u = trig > 0 ? clamp01((frame / len - trig) / Math.max(0.05, 1 - trig)) : clamp01(frame / len);
+  const t = trig > 0 ? Math.max(0, frame / fps - trig * (len / fps)) : frame / fps;
   // gaya lantai berbeda per adegan supaya latar tidak monoton (kisi, mengkilap, cincin, tanpa lantai)
   const floorStyle = Array.from(String(scene.title ?? "x")).reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 997, 7) % 4;
-  const c = Math.round(len * CLIMAX);
+  const c = Math.round(len * (trig + (1 - trig) * CLIMAX)); // klimaks dan efek suara jatuh di momen aksi, bukan di awal adegan
   const since = frame - c;
   const shakeAmp = since >= 0 && since < 12 ? (1 - since / 12) * 14 : 0;
   const flash = since >= 0 && since < 8 ? 0.6 * (1 - since / 8) : 0;
@@ -431,6 +433,8 @@ export const Sim3D: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
       <AbsoluteFill
         style={{
           transform: `translate(${shakeAmp * Math.sin(frame * 3.1)}px, ${shakeAmp * Math.cos(frame * 2.3)}px)`,
+          // pendaran lembut di sekitar benda yang menyala, kontras dengan latar gelap
+          filter: "drop-shadow(0 0 12px rgba(255,120,40,0.55)) drop-shadow(0 0 26px rgba(80,170,255,0.25)) saturate(1.18) contrast(1.05)",
         }}
       >
         <ThreeCanvas width={W} height={H} camera={{ fov: spec.cam?.fov ?? 38, position: [0, 2, 11], near: 0.1, far: 200 }}>

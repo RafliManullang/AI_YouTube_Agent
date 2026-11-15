@@ -406,6 +406,17 @@ def library_sim(name, labels):
                  for x0, z0 in ((-1.4, 0.4), (0.0, -0.4), (1.4, 0.3))]
         return {"cam": {"dist": 22, "height": 2.8, "orbit": 0.6, "target": [0.6, 0.4, 0]}, "objects": objs, "motions": mot, "flows": flows, "floor": -2.0}
 
+    if name == "gelombang_bising":
+        return {"cam": {"dist": 25, "height": 0.8, "orbit": 0.0, "target": [0, 0.3, 0]},
+                "components": [{"id": "SoundWave", "pos": [0, 0, 0], "props": {"mode": "noise", "amp": 0.7}, "labels": [L(0, "Bising dari luar")]}],
+                "objects": [], "motions": [], "flows": []}
+
+    if name == "gelombang_suara":
+        return {"cam": {"dist": 26, "height": 0.6, "orbit": 0.0, "target": [0, 0.1, 0]},
+                "components": [{"id": "SoundWave", "pos": [0, 0, 0], "props": {"mode": "interference", "amp": 0.55},
+                                "labels": [L(0, "Bising luar"), L(1, "Gelombang lawan"), L(2, "Hasil: hening")]}],
+                "objects": [], "motions": [], "flows": []}
+
     if name == "pemantik_pegas":
         spring = [("p%d" % i, y) for i, y in enumerate((2.3, 1.8, 1.3, 0.8, 0.3))]
         objs = [
@@ -421,6 +432,7 @@ def library_sim(name, labels):
 
     if name == "pemantik_kristal":
         objs = [
+            _o("cangkang", "box", [0, -0.6, -1.2], [6.4, 8.6, 0.3], "#9fb4cc", "glass", opacity=0.25),
             _o("kristal", "box", [0, 0, 0], [2.4, 1.8, 1.6], "#6fd6ff", "glass", opacity=0.75, label=L(0, "Kristal kuarsa")),
             _o("palu", "box", [0, 2.7, 0], [1.8, 1.0, 1.3], "#ffb020", "metal", label=L(1, "Hantaman palu")),
             _o("plusA", "box", [-2.2, 0, 0], [0.18, 1.5, 1.3], "#8aa0b8", "metal", label=L(2, "Muatan plus")),
@@ -439,6 +451,7 @@ def library_sim(name, labels):
 
     if name == "pemantik_api":
         objs = [
+            _o("cangkang", "box", [-0.6, 0.3, -1.2], [8.2, 4.6, 0.3], "#9fb4cc", "glass", opacity=0.25),
             _o("tabung", "cylinder", [-3.4, -0.6, 0], [1.3, 2.6, 0], "#4fc3f7", "glass", opacity=0.6, label=L(0, "Gas butana")),
             _o("katup", "cylinder", [-1.6, 0.4, 0], [0.28, 1.6, 0], "#cfd6e2", "metal", rot=[0, 0, 90], label=L(1, "Katup gas")),
             _o("percik", "sphere", [0.4, 0.2, 0], [0.5, 0, 0], "#fff2a8", "glow", label=L(2, "Percikan")),
@@ -453,6 +466,8 @@ def library_sim(name, labels):
 
 
 KEYWORDS = metaphors.keyword_table() + (
+    ("gelombang_bising", ("bising luar", "suara bising", "kebisingan", "suara dari luar")),
+    ("gelombang_suara", ("interferensi", "destruktif", "membunuh suara", "gelombang lawan", "gelombang terbalik", "meredam", "noise cancelling", "peredam bising")),
     ("pemantik_pegas", ("pegas pemukul", "tombol pemantik", "tombol tekan", "pegas baja", "palu logam")),
     ("pemantik_kristal", ("kristal kuarsa", "efek piezoelektrik", "piezoelektrik", "benturan kristal", "hantaman palu")),
     ("pemantik_api", ("gas butana", "penyalaan api", "percikan api", "celah percikan")),

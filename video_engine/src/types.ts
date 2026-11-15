@@ -95,6 +95,7 @@ export type ComponentUse = import("./schemas/sceneSchema").ComponentUse;
 export type SimSpec = {
   objects: SimObject[];
   components?: ComponentUse[]; // komponen terverifikasi dari src/components/library
+  trigger?: number; // bagian adegan (0..1) saat kata pemicu diucapkan
   motions?: SimMotion[];
   flows?: SimFlow[];
   floor?: number; // tinggi lantai (y) bila ingin ada alas bergaris

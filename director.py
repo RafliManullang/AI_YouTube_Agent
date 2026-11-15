@@ -159,3 +159,19 @@ def review(data, call_sources=None, log=print, forced_topic=""):
         fixed += topic_lock.continuity(data, lock, log)
     log(f"  -> Director: {len(issues)} catatan, {fixed} diperbaiki otomatis.")
     return data
+
+
+def require_clean(data, forced_topic=""):
+    """Gerbang akhir: kalau masih ada visual di luar topik terkunci, hentikan alur (jangan merender naskah rusak)."""
+    lock = topic_lock.detect(data, forced_topic)
+    if not lock:
+        return
+    left = []
+    for i, sc in enumerate(data["scenes"]):
+        blob = " ".join(str(x) for x in (sc.get("subject"), sc.get("art"), sc.get("preset_name"))).lower()
+        if sc.get("sim_preset") and sc.get("preset_name") not in lock["chain"]:
+            left.append(i)
+        elif any(b in blob for b in lock["banned"]):
+            left.append(i)
+    if left:
+        raise RuntimeError(f"AI Director: adegan {left} masih memuat benda di luar topik '{lock['name']}'. Render dibatalkan.")
