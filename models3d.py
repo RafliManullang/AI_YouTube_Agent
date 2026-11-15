@@ -37,13 +37,24 @@ def fetch_model(subject, public_dir, key, log=print):
             log(f"  -> Model 3D '{subject}' tidak ditemukan ({res.status_code}).")
             return None, None
         results = res.json().get("results") or []
-        # utamakan model yang judulnya memuat kata kunci
-        # hanya terima model yang judulnya memuat kata kunci (kalau tidak, hasilnya sering ngawur: pisau untuk "tinta")
-        words = [w[:-1] if w.endswith("s") and len(w) > 3 else w for w in subject.lower().split() if len(w) >= 3]
-        results = [r for r in results if any(w in str(r.get("Title", "")).lower() for w in words)]
-        # buang model yang jelas beda benda (pemanas ruangan untuk "iron", dsb.)
-        bad = ("heater", "radiator", "fireplace", "man", "golem", "ore", "ingot", "bar")
-        results = [r for r in results if not any(b in re.findall(r"[a-z]+", str(r.get("Title", "")).lower()) and b not in words for b in bad)]
+        # Aturan ketat: SELURUH kata di judul model harus ada di kata kunci (kecuali kata hiasan). "Anonymous mask" ditolak untuk
+        # "oxygen mask"; kursi, topeng, dan benda lain yang cuma mirip tidak lolos. Lebih baik tanpa model daripada model salah.
+        stem = lambda w: w[:-1] if w.endswith("s") and len(w) > 3 else w
+        want = {stem(w) for w in re.findall(r"[a-z]+", subject.lower()) if len(w) >= 3}
+        filler = {"low", "poly", "lowpoly", "simple", "cartoon", "model", "the", "and", "with", "old", "new", "big", "small", "mini"}
+        banned = {"anonymous", "vendetta", "fawkes", "guy", "joker", "halloween", "scary", "skull", "horror", "zombie", "ghost",
+                  "heater", "radiator", "fireplace", "golem", "ore", "ingot", "chair", "seat", "cockpit", "toy", "lego", "minecraft"}
+
+        def good(r):
+            toks = [stem(t) for t in re.findall(r"[a-z]+", str(r.get("Title", "")).lower())]
+            toks = [t for t in toks if t not in filler and len(t) >= 2]
+            if not toks or any(t in banned and t not in want for t in toks):
+                return False
+            return all(t in want for t in toks) and any(t in want for t in toks)
+
+        results = [r for r in results if good(r)]
+        if not results:
+            log(f"  -> Model 3D '{subject}': tidak ada yang cocok persis, dilewati (memakai animasi bawaan).")
         for r in results:
             url = r.get("Download")
             if not url:
