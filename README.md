@@ -215,3 +215,10 @@ Alur: naskah (penulis + editor) -> Director memeriksa dan memperbaiki -> irama d
 - Kamera: 3 detik pertama zoom-in cepat, setelahnya pan pelan yang arahnya berganti tiap adegan.
 - Irama: hook memakai potongan footage sekitar 1,5 detik dan perpindahan cepat, penjelasan 3 sampai 4 detik, penutup lembut.
 - Render worker: periksa tipe kode, validasi data, lalu bila gagal baca galat dan pulihkan (mode GL, memori, model macet, 3D diganti 2D, semua tambahan dibuang).
+
+## Tahap 23: paket Node otomatis setelah pembaruan
+
+- Dulu paket Node hanya dipasang kalau `node_modules` belum ada. Setelah `git pull` yang menambah paket baru (misalnya `zod` di Tahap 22), render gagal karena paketnya tidak ditemukan. Sekarang setiap render memeriksa `package.json` dan memasang paket yang kurang secara otomatis.
+- Bila galat render berbunyi "cannot find module" atau "can't resolve", pekerja render memasang ulang paket lalu mengulang render.
+- Keluaran konsol dan galat dibaca dengan UTF-8 supaya tidak crash di Windows.
+- Catatan: validator Zod di sisi Python butuh Node 22.6 atau lebih baru. Kalau Node lebih lama, langkah itu dilewati dengan pesan di layar, dan validasi tetap berjalan di dalam Remotion.

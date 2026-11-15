@@ -41,7 +41,7 @@ def run_validator(props, remotion_dir, log=print):
 def _run_validator_file(node, remotion_dir, src, log, props):
     try:
         res = subprocess.run([node] + NODE_FLAGS + [os.path.join("src", "cli", "validateProps.ts"), src],
-                             cwd=remotion_dir, capture_output=True, text=True, timeout=60)
+                             cwd=remotion_dir, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
     except Exception as e:
         log(f"  -> Validator Zod tidak bisa dijalankan ({str(e)[:60]}), dilewati.")
         return True, [], props

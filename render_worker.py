@@ -24,13 +24,36 @@ import schema_gate
 GL_LADDER = ["angle", "swangle", "swiftshader"]
 
 
+def missing_packages(remotion_dir):
+    """Paket Node di package.json yang belum terpasang di node_modules (mis. paket baru setelah git pull)."""
+    try:
+        with open(os.path.join(remotion_dir, "package.json"), encoding="utf-8") as f:
+            pkg = json.load(f)
+    except Exception:
+        return []
+    names = list((pkg.get("dependencies") or {}).keys()) + list((pkg.get("devDependencies") or {}).keys())
+    return [n for n in names if not os.path.exists(os.path.join(remotion_dir, "node_modules", *n.split("/"), "package.json"))]
+
+
+def ensure_deps(remotion_dir, log=print):
+    """Pasang paket Node yang kurang. Dijalankan setiap render, jadi paket baru dari pembaruan kode ikut terpasang otomatis."""
+    missing = missing_packages(remotion_dir)
+    if not missing and os.path.isdir(os.path.join(remotion_dir, "node_modules")):
+        return
+    npm = shutil.which("npm")
+    if not npm:
+        raise RuntimeError("Node.js belum terpasang. Unduh dari https://nodejs.org lalu jalankan ulang.")
+    log("  -> Memasang paket yang belum ada" + (f" ({', '.join(missing[:4])})" if missing else "") + ", butuh beberapa menit...")
+    subprocess.run([npm, "install", "--no-audit", "--no-fund"], cwd=remotion_dir, check=True)
+
+
 def typecheck(remotion_dir, log=print):
     """Dry-run pemeriksaan tipe. Hasil: True kalau bersih."""
     tsc = os.path.join(remotion_dir, "node_modules", ".bin", "tsc")
     if not os.path.exists(tsc):
         return True
     try:
-        res = subprocess.run([tsc, "--noEmit", "-p", "."], cwd=remotion_dir, capture_output=True, text=True, timeout=240)
+        res = subprocess.run([tsc, "--noEmit", "-p", "."], cwd=remotion_dir, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=240)
     except Exception as e:
         log(f"  -> Pemeriksaan kode dilewati ({str(e)[:60]}).")
         return True
@@ -43,12 +66,15 @@ def typecheck(remotion_dir, log=print):
 
 def _run(cmd, cwd):
     """Jalankan perintah, tampilkan keluaran langsung, dan simpan ekornya untuk dibaca saat gagal."""
-    proc = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+    proc = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
     tail = []
 
     def pump():
         for line in proc.stdout:
-            print(line, end="", flush=True)
+            try:
+                print(line, end="", flush=True)
+            except UnicodeEncodeError:  # konsol Windows lama tidak bisa menampilkan sebagian simbol
+                print(line.encode("ascii", "replace").decode("ascii"), end="", flush=True)
             tail.append(line)
             if len(tail) > 400:
                 del tail[:100]
@@ -63,6 +89,8 @@ def _run(cmd, cwd):
 def diagnose(output):
     """Baca galat render dan tentukan tindakan pemulihan."""
     low = (output or "").lower()
+    if any(k in low for k in ("cannot find module", "can't resolve", "module not found")):
+        return "deps"
     if "ditolak skema" in low:
         return "schema"
     if any(k in low for k in ("heap out of memory", "enomem", "sigkill", "out of memory", "std::bad_alloc")):
@@ -105,8 +133,10 @@ def _strip_extras(props):
 def render(props, output_mp4, remotion_dir, callers=None, log=print, max_attempts=5):
     """Validasi, lalu render dengan tangga pemulihan. Mengembalikan jalur video; melempar RuntimeError bila semua gagal."""
     npx = shutil.which("npx")
+    npm_path = shutil.which("npm") or "npm"
     if not npx:
         raise RuntimeError("Node.js belum terpasang. Unduh dari https://nodejs.org lalu jalankan ulang.")
+    ensure_deps(remotion_dir, log)
     typecheck(remotion_dir, log)
     props_path = os.path.join(remotion_dir, "render_props.json")
     gl_step, concurrency, done = 0, None, set()
@@ -129,7 +159,11 @@ def render(props, output_mp4, remotion_dir, callers=None, log=print, max_attempt
 
         kind = diagnose(last_out)
         log(f"  -> Render gagal (percobaan {attempt}/{max_attempts}), jenis masalah: {kind}.")
-        if kind == "memory" and "memory" not in done:
+        if kind == "deps" and "deps" not in done:
+            done.add("deps")
+            log("     Pemulihan: memasang ulang paket Node yang kurang.")
+            subprocess.run([npm_path, "install", "--no-audit", "--no-fund"], cwd=remotion_dir)
+        elif kind == "memory" and "memory" not in done:
             concurrency, _ = 1, done.add("memory")
             log("     Pemulihan: render satu bingkai pada satu waktu.")
         elif kind == "gl" and gl_step < len(GL_LADDER) - 1 and not os.getenv("GL_MODE"):
