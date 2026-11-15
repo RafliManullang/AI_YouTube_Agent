@@ -13,6 +13,10 @@ METAPHORS = (
      "logam yang memerah menyala dengan partikel panas naik dan getaran udara di atasnya"),
     ("bimetal", ("bimetal", "bimetallic", "keping logam", "kuningan dan besi", "kuningan memuai", "memuai dan melengkung"),
      "dua lapis logam pipih berbeda warna yang melengkung saat dipanaskan dan lurus saat dingin"),
+    ("gelombang_suara", ("interferensi destruktif", "membunuh suara", "meredam suara", "noise cancelling", "peredam bising", "gelombang lawan"),
+     "tiga garis gelombang: bising (oranye), gelombang lawan berfase terbalik (biru), dan hasil penjumlahan yang menjadi garis lurus"),
+    ("gelombang_bising", ("bising luar", "suara bising", "kebisingan"),
+     "satu gelombang acak yang bergerak, bising dari luar, dengan siluet headphone tembus pandang"),
     ("setrika", ("setrika", "tapak setrika"),
      "setrika bening yang memperlihatkan tapak, elemen pemanas, dan keping pengatur suhu di dalamnya"),
 )

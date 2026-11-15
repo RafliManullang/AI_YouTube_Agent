@@ -5,10 +5,10 @@ import { AbsoluteFill } from "remotion";
 //  - Zona visual (0% sampai 72% tinggi): hanya untuk animasi atau objek 3D utama.
 //  - Zona subtitle (72% sampai bawah): hanya untuk teks kata demi kata dalam bantalan gelap semi-transparan.
 export const SAFE = {
-  visualBottom: 0.72, // batas bawah zona visual
-  visualScale: 0.72, // isi adegan dikecilkan supaya muat di zona visual (tinggi 1920 x 0,72)
-  captionBottomPx: 330, // jarak subtitle dari tepi bawah (di atas tombol dan judul Shorts)
-  captionMaxHeightPx: 207, // tinggi maksimal zona subtitle
+  visualBottom: 0.8, // batas bawah zona visual
+  visualScale: 0.8, // isi adegan dikecilkan supaya muat di zona visual (tinggi 1920 x 0,8)
+  captionBottomPx: 120, // jarak subtitle dari tepi bawah (di atas tombol dan judul Shorts)
+  captionMaxHeightPx: 150, // tinggi maksimal zona subtitle
 } as const;
 
 // Latar (Background) tetap penuh layar di luar komponen ini; hanya isi adegan yang dimasukkan ke zona visual.
@@ -43,7 +43,7 @@ export const CaptionZone: React.FC<{ children: React.ReactNode; show: boolean }>
         justifyContent: "center",
         alignItems: "flex-end",
         gap: "6px 24px",
-        minHeight: 96,
+        minHeight: 64,
         ...(show ? { backgroundColor: "rgba(5,10,25,0.42)", borderRadius: 40, padding: "12px 30px" } : {}),
       }}
     >

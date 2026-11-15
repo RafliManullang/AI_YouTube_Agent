@@ -200,6 +200,19 @@ export const Background: React.FC<Props> = ({
     </>
   );
 
+  // Latar bersih: gradasi radial gelap tanpa garis kotak, titik, atau gumpalan ramai. Tengah layar dibiarkan kosong untuk animasi.
+  if (!video && !(clips && clips.length > 0)) {
+    return (
+      <AbsoluteFill style={{ background: "radial-gradient(ellipse at 50% 42%, #1a1a2e 0%, #131324 55%, #0f0f1a 100%)", overflow: "hidden" }}>
+        <AbsoluteFill
+          style={{
+            background: `radial-gradient(circle at ${50 + Math.sin(t * 0.3 + phase) * 8}% 38%, ${palette.accent}14 0%, transparent 55%)`,
+          }}
+        />
+      </AbsoluteFill>
+    );
+  }
+
   return (
     <AbsoluteFill
       style={{

@@ -3,6 +3,7 @@ import { COMPONENT_IDS, ComponentId, ComponentUse as ComponentSpec } from "../..
 import { BimetalStrip } from "./BimetalStrip";
 import { HeatingCoil } from "./HeatingCoil";
 import { IronBody } from "./IronBody";
+import { SoundWave } from "./SoundWave";
 import { ThermostatSwitch } from "./ThermostatSwitch";
 import { LibProps } from "./common";
 
@@ -18,6 +19,7 @@ export const REGISTRY: Record<ComponentId, Entry> = {
   IronBody: { Comp: IronBody, desc: "setrika rumahan: tapak aluminium, bodi tembus pandang, gagang, tombol suhu", props: ["heat", "speed", "ghost", "handleColor"], anchors: [[0, 0.2, 1.5], [0, 1.4, 0], [-1.6, 3.5, 0]] },
   HeatingCoil: { Comp: HeatingCoil, desc: "elemen pemanas berbentuk pegas, memerah saat panas", props: ["heat", "speed", "turns"], anchors: [[0, 0, 0]] },
   BimetalStrip: { Comp: BimetalStrip, desc: "keping bimetal dua lapis (kuningan bawah, besi atas) yang melengkung ke atas saat panas", props: ["heat", "speed", "bend", "width"], anchors: [[-2.4, 0.3, 0], [2.4, 0.9, 0], [-3.3, 0.3, 0]] },
+  SoundWave: { Comp: SoundWave, desc: "gelombang suara dihitung tiap frame: bising, gelombang lawan, hasil lurus (interferensi destruktif), dengan siluet headphone tembus pandang", props: ["mode", "amp", "shell"], anchors: [[0, 3.1, 0], [0, 1.0, 0], [0, -1.3, 0]] },
   ThermostatSwitch: { Comp: ThermostatSwitch, desc: "saklar pemutus: kontak terangkat dan lampu padam saat panas", props: ["heat", "speed"], anchors: [[0, 0.7, 0], [1.4, 0.9, 0]] },
 };
 

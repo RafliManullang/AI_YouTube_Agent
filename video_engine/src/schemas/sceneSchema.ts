@@ -18,7 +18,7 @@ export const SCENE_TYPES = [
 ] as const;
 
 // Daftar ID komponen terverifikasi (src/components/library). LLM hanya boleh memilih dari daftar ini.
-export const COMPONENT_IDS = ["IronBody", "HeatingCoil", "BimetalStrip", "ThermostatSwitch"] as const;
+export const COMPONENT_IDS = ["IronBody", "HeatingCoil", "BimetalStrip", "ThermostatSwitch", "SoundWave"] as const;
 export type ComponentId = (typeof COMPONENT_IDS)[number];
 
 export const URGENCY = ["high", "normal", "low"] as const;
@@ -89,6 +89,7 @@ export const componentSchema = z.object({
 export const simSchema = z.object({
   objects: z.array(objectSchema).max(80),
   components: z.array(componentSchema).max(12).optional(),
+  trigger: unit01.optional(), // bagian adegan (0..1) saat kata kunci diucapkan: gerak mekanis baru mulai di sini
   motions: z.array(motionSchema).max(160).optional(),
   flows: z.array(flowSchema).max(8).optional(),
   floor: finite.min(-30).max(30).optional(),

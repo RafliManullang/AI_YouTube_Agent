@@ -222,3 +222,13 @@ Alur: naskah (penulis + editor) -> Director memeriksa dan memperbaiki -> irama d
 - Bila galat render berbunyi "cannot find module" atau "can't resolve", pekerja render memasang ulang paket lalu mengulang render.
 - Keluaran konsol dan galat dibaca dengan UTF-8 supaya tidak crash di Windows.
 - Catatan: validator Zod di sisi Python butuh Node 22.6 atau lebih baru. Kalau Node lebih lama, langkah itu dilewati dengan pesan di layar, dan validasi tetap berjalan di dalam Remotion.
+
+
+## Tahap 27: bersih, tegas, dan hanya benda yang disebut
+
+- Prompt visual diganti tiga aturan tegas: dilarang menghalusinasi benda, kunci ke aset topik (kalau tidak ada, gelombang suara), dan kiasan tidak boleh diterjemahkan harfiah.
+- Gambar kartun 3D, foto Wikimedia, stok video, dan model unduhan MATI secara bawaan. Nyalakan lagi dengan `ASET_LUAR=on` di `.env` (tidak disarankan).
+- Komponen baru `SoundWave`: gelombang suara dihitung tiap frame (bising, gelombang lawan, hasil lurus). Topik headphone terkunci ke aset ini.
+- Gerak mekanis mulai tepat saat kata pemicu diucapkan (`trigger` di naskah, waktu kata dari suara).
+- Latar gradasi radial gelap tanpa garis kotak; subtitle 52 sampai 56 px, 120 px dari bawah; musik latar 0,10; pendaran di benda menyala; cangkang tembus pandang (X-ray) pada pemantik dan headphone.
+- Tahap Editor wajib berhasil (kalau tidak, naskah diulang dengan sumber lain). Bypass hanya dengan `ALLOW_UNEDITED=on`. Prompt Editor diperkecil agar tidak kena 413 di Groq. Batas waktu Gemini 120 detik; `gemini-2.5-flash` dihapus dari daftar.

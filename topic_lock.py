@@ -14,6 +14,21 @@ import sim_presets
 
 LOCKS = (
     {
+        "name": "headphone",
+        "triggers": ("headphone", "earphone", "peredam bising", "noise cancelling", "peredam suara", "headset"),
+        "min_hits": 2,
+        # jika aset khusus tidak ada, hanya gelombang suara yang boleh tampil (bukan benda acak)
+        "chain": ("gelombang_bising", "gelombang_suara"),
+        "stage_words": {
+            "gelombang_bising": ("bising", "mesin", "suara luar", "mikrofon", "menangkap", "penangkap", "desing"),
+            "gelombang_suara": ("interferensi", "destruktif", "terbalik", "lawan", "hening", "meredam", "saling", "menghilang", "membunuh"),
+        },
+        "subjects_ok": ("headphone", "earphone", "headset", "wave", "sound"),
+        "banned": ("microphone", "mic", "speaker", "chip", "circuit", "goat", "bus", "train", "radio", "guitar", "piano", "mikrofon",
+                   "kambing", "mask", "weapon", "gun", "monster", "sword", "oven", "stove", "fridge"),
+        "banned_presets": ("aliran_listrik", "panas_berlebih", "setrika", "bimetal", "mesin_ice", "pemantik_pegas", "pemantik_kristal", "pemantik_api"),
+    },
+    {
         "name": "pemantik",
         "triggers": ("korek", "pemantik", "lighter", "piezo"),
         "min_hits": 2,
@@ -138,13 +153,14 @@ def enforce(data, lock, call_sources=None, log=print):
             uses[sc["preset_name"]] = uses.get(sc["preset_name"], 0) + 1
     fixed = 0
     for i, sc in enumerate(data["scenes"]):
-        if sc.get("type") in ("counter", "barchart", "timeline", "compare", "gauge", "footage"):
+        if sc.get("type") in ("counter", "barchart", "timeline", "compare", "gauge"):
             continue  # adegan data dan rekaman tidak membawa benda 3D
         subj = str(sc.get("subject") or "")
         art = " ".join(map(str, sc.get("art") or [])) if isinstance(sc.get("art"), list) else str(sc.get("art") or "")
         pre = sc.get("preset_name") or ""
         bad = (
-            _bad_subject(lock, subj) or _bad_subject(lock, art)
+            sc.get("type") == "footage"  # rekaman stok tidak dipakai: pembuka diganti animasi resmi topik
+            or _bad_subject(lock, subj) or _bad_subject(lock, art)
             or (subj and not any(o in subj.lower() for o in lock["subjects_ok"]))
             or pre in lock["banned_presets"]
             or (sc.get("sim_preset") and pre not in lock["chain"])

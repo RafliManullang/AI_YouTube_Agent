@@ -133,7 +133,7 @@ const SceneView: React.FC<SceneViewProps> = ({
         seed={bgSeed + index}
         footageStrength={scene.type === "footage" ? 1 : scene.type === "mechanism" || scene.type === "question" || !!scene.sim || !!scene.model || (scene.artUrls && scene.artUrls.length > 0) ? 0 : 0.62}
       />
-      {isStory && !isFirst ? <Sfx name="glitch" at={0} volume={0.22} /> : null}
+      
       {isFirst ? <HookPunch text={scene.title} /> : null}
       <AbsoluteFill style={{ transform }}>
         <SafeVisual fullBleed={scene.type === "footage" || (!!scene.artUrls?.length && !scene.model && !scene.sim)}>
@@ -302,7 +302,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
             const sec = f / fps;
             const fadeIn = Math.min(1, sec / 1.5);
             const fadeOut = Math.min(1, Math.max(0, (total - sec) / 1.5));
-            return 0.13 * Math.min(fadeIn, fadeOut);
+            return 0.1 * Math.min(fadeIn, fadeOut);
           }}
         />
       ) : null}
@@ -324,7 +324,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
                 key={`${item.start}-${index}`}
                 style={{
                   fontFamily: "Impact, 'Arial Black', sans-serif",
-                  fontSize: emph ? 78 : 62,
+                  fontSize: emph ? 56 : 52,
                   fontWeight: 900,
                   lineHeight: 1.1,
                   letterSpacing: 1,

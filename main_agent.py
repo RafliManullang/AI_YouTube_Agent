@@ -72,7 +72,6 @@ GEMINI_MODELS = [
     m for m in [
         os.getenv("GEMINI_MODEL", "gemini-3.8-flash"),
         "gemini-3.6-flash",
-        "gemini-2.5-flash",
         "gemini-2.5-flash-lite",
     ] if m
 ]
@@ -399,7 +398,7 @@ LARANGAN KLISE (supaya video tidak terasa seperti cetakan yang sama): jangan mem
 video perlu analogi; pakai hanya kalau benar-benar membantu. Judul adegan harus spesifik pada isi (contoh:
 "Pin pegas", bukan "Penjelasan"). Variasikan jenis adegan, jangan selalu counter lalu gauge lalu barchart.
 STORYBOARD PER KATEGORI (contoh urutan adegan, boleh disesuaikan dengan kerangka cerita di atas):
-- CARA KERJA: (1) hook: benda konkret + "question" atau "footage" (kenapa begini?); (2) taruhan: apa bahayanya kalau
+- CARA KERJA: (1) hook: benda konkret + "question" (kenapa begini?); (2) taruhan: apa bahayanya kalau
   tidak ada bagian rahasia ini; (3) "mechanism" atau "cutaway" yang menyorot bagian rahasia dengan label; (4) proses
   alirannya (panah dan aliran bercahaya) dalam "mechanism"; (5) klimaks: momen bagian itu bekerja memutus atau
   menahan, diucapkan dengan kalimat paling dramatis; (6) fakta mencengangkan berupa angka besar ("counter" atau
@@ -412,7 +411,7 @@ STORYBOARD PER KATEGORI (contoh urutan adegan, boleh disesuaikan dengan kerangka
   polaroid arsip; (3) kisah lahirnya ide (misalnya mobil diangkat dongkrak di atas oli, mekanisme "mobil_dongkrak");
   (4) cara kerja lewat adegan "mechanism" ("sosrobahu" atau "jembatan_geser") dan angka asli (480 ton, 6% jadi 1%);
   (5) hasil nyata, pertanyaan pancingan penutup.
-- KISAH NYATA: (1) hook titik balik dengan "story" atau "footage" yang diberi lingkaran sorot; (2) latar masalah
+- KISAH NYATA: (1) hook titik balik dengan "story"; (2) latar masalah
   dengan taruhan bernada dramatis ("satu goresan kecil saja bisa membunuh setengah kota"); (3) momen "aha" saat
   penemuan; (4) dampak besar ("barchart" atau "counter" yang faktual); (5) pelajaran penutup yang menyambung ke
   kalimat pertama.
@@ -424,31 +423,26 @@ beradu, pengunci lepas), "hiss" (desis udara atau tekanan), "zap" (listrik), "th
 cairan besar), "creak" (derit struktur menahan beban). Kosongkan ("") kalau tidak ada kejadian yang pas. Jangan memakai bunyi yang
 sama di dua adegan berturutan.
 {SIM_GUIDE}
-VISUAL NYATA (WAJIB, ini yang paling penting): penonton harus MELIHAT persis apa yang sedang diucapkan.
-Untuk SETIAP adegan selain "footage" isi dua kolom:
-- "subject": 1 sampai 3 kata BAHASA INGGRIS untuk benda, hewan, orang, atau kendaraan utama yang disebut di
-  kalimat itu (contoh: "escalator", "cat", "car", "key", "elephant", "doctor"). Kosongkan ("") kalau tidak ada
-  satu benda utama (misalnya hanya angka atau gagasan).
-- "photo": HANYA untuk adegan "story" tentang peristiwa, tempat, bangunan, atau tokoh yang NYATA: 2 sampai 5 kata
-  BAHASA INGGRIS untuk mencari foto dokumentasi aslinya di Wikimedia Commons (contoh: "Sosrobahu Cawang flyover",
-  "Otis safety elevator demonstration"). Kosongkan ("") kalau bukan kisah nyata atau fotonya tidak mungkin ada.
-- "art": daftar berisi 1 deskripsi gambar BAHASA INGGRIS (maksimal 25 kata) tentang adegan kartun 3D yang
-  memperlihatkan persis isi kalimat itu. Deskripsi tiap adegan HARUS berbeda dari adegan lain (sudut, benda, atau
-  tindakan berbeda). Mulai dengan benda utamanya yang nyata dan dikenal (contoh: "An airplane
-  window with rounded corners, close-up, cabin wall around it"). Tulis hal yang bisa dipotret, BUKAN gagasan abstrak
-  (hindari kata seperti "concept", "force", "stress", "energy"). Boleh ada tokoh kartun atau orang. Untuk cara kerja
-  benda, gambarkan potongan melintang bagian dalamnya. Jangan minta teks atau huruf.
-- "subject" harus benda yang disebut di kalimat ADEGAN ITU SENDIRI, bukan benda topik besar. Kalau topiknya
-  pesawat, adegan jendela memakai "window", adegan retakan memakai "crack" atau "glass", adegan kaca berlapis
-  memakai "glass", adegan sayap memakai "wing". DILARANG memakai subject yang sama di lebih dari 2 adegan dalam
-  satu video dan dilarang di dua adegan berturutan. Pakai kata benda umum yang mudah ditemukan di perpustakaan
-  model 3D (satu kata Inggris, bukan istilah teknik).
+ATURAN VISUAL (WAJIB, ini yang paling penting). Semua visual adalah simulasi animasi mekanis atau diagram buatan sendiri.
+Tidak ada foto, gambar kartun, rekaman stok, atau model unduhan.
+1. DILARANG BERHALUSINASI OBJEK: kamu dilarang keras membuat atau memilih aset visual (kambing, kulkas, kompor,
+   topeng, kursi, dan sejenisnya) yang tidak secara langsung disebutkan dalam naskah sains adegan itu. Kalau
+   benda tidak ada di kalimat adegan, jangan pernah muncul di layar.
+2. KUNCI KE ASET YANG RELEVAN: pakai hanya animasi yang tersedia (nama di PERUMPAMAAN VISUAL dan KUNCI TOPIK).
+   Kalau topiknya Headphone, hanya boleh memakai aset kelompok Headphone. Kalau aset khusus bendanya tidak ada,
+   pakai gelombang suara 2D (mechanism "gelombang_suara"), jangan memakai benda acak seperti mikrofon, speaker,
+   atau chip.
+3. ANALOGI VISUAL YANG KETAT: jangan menerjemahkan kata kiasan secara harfiah. "Membunuh suara" BUKAN berarti
+   senjata atau monster, melainkan animasi "interferensi destruktif gelombang" (mechanism "gelombang_suara").
+   "Bisingnya menggila", "listrik mengamuk", "dingin menusuk" dan kiasan lain digambarkan dengan mekanisme
+   fisiknya, bukan dengan benda dari arti harfiahnya.
+Isi "subject" hanya dengan 1 sampai 3 kata Inggris benda yang disebut langsung di kalimat adegan itu (boleh kosong).
+"photo" dan "art" selalu dikosongkan ("").
 Setiap momen klimaks atau kejutan diberi satu kalimat pendek yang menghentak (animasi otomatis memberi getaran
 dan kilat di momen itu).
 
-SEMUA VISUAL BERUPA ANIMASI 3D: setiap adegan selain "footage" otomatis ditampilkan sebagai animasi 3D. Pakai tipe
-"footage" paling banyak SATU adegan (misalnya hook berupa rekaman nyata), sisanya pilih tipe animasi supaya seluruh
-video berupa simulasi 3D.
+TIPE "footage" TIDAK DIPAKAI (tidak ada rekaman stok). Adegan pembuka berupa "question" atau "mechanism" yang langsung
+bergerak dan menampilkan benda utama topik.
 
 TEMPO PADAT: kalimat pendek, tanpa pengantar bertele-tele, tanpa pengulangan. Setiap kalimat membawa
 informasi baru. Adegan terakhir penutup singkat yang bikin orang ingin menonton ulang. Ucapan hanya berisi
@@ -468,9 +462,7 @@ Aturan visual tiap adegan (field "type"):
                angka dramatis lain. Isi "items" dengan 1 sampai 2 item {{"label": "nama maksimal 3 kata",
                "value": angka}} dan isi "unit". Dua item = dua jam berdampingan (misalnya ban mobil
                lawan ban pesawat).
-- "footage"  : rekaman video asli layar penuh dengan judul besar. WAJIB dipakai untuk adegan pertama (hook)
-               dan boleh untuk 1 adegan lain. "points" berisi 1 label pendek (opsional). Wajib isi
-               "footage_query" yang menggambarkan kejadian nyatanya (contoh: "airplane landing runway").
+- "footage"  : JANGAN dipakai.
 - "cutaway"  : potongan melintang / tembus pandang (X-ray) untuk memperlihatkan bagian dalam benda yang
                sedang bekerja, dengan panah arah gerak. Isi "items" dengan 2 sampai 4 komponen
                {{"label": "nama komponen maksimal 3 kata", "value": "fungsinya maksimal 7 kata"}} berurutan
@@ -525,11 +517,11 @@ Aturan visual tiap adegan (field "type"):
 Pakai "counter" dan "barchart" HANYA kalau angkanya benar-benar faktual, jangan mengarang angka.
 Pakai "timeline" hanya kalau memang ada urutan waktu. Hindari kartu teks dan diagram kotak-kotak ("flow", "mindmap") kecuali terpaksa: penonton cepat bosan melihat
 teks muncul bergantian. Utamakan visual yang bergerak dan konkret ("mechanism", "cutaway", "microscale",
-"story", "gauge"), dan pakai "footage" paling banyak 2 adegan (adegan pembuka dan satu lagi).
+"story", "gauge"), dan JANGAN memakai "footage".
 Pakai campuran minimal 4 tipe yang berbeda.
 PILIH GAYA ANIMASI SESUAI KATEGORI: kategori "CARA KERJA" utamakan "cutaway" (minimal 2 adegan) ditambah
 "mechanism"; kategori "FAKTA SAINS" utamakan "microscale" (minimal 1 adegan) ditambah "gauge", "barchart" atau
-"compare"; kategori "KISAH NYATA" utamakan "story" (minimal 2 adegan) ditambah "timeline" atau "footage".
+"compare"; kategori "KISAH NYATA" utamakan "story" (minimal 2 adegan) ditambah "timeline".
 "title" maksimal 4 kata. Setiap isi "points" maksimal 4 kata, tanpa emoji dan tanpa tanda baca.
 VISUAL SESUAI ISI KALIMAT: setiap giliran bicara di "lines" boleh punya "footage_query" sendiri, yaitu 2 sampai
 4 kata bahasa Inggris untuk rekaman nyata yang cocok dengan kalimat itu (contoh untuk video kaca mobil:
@@ -538,6 +530,8 @@ closeup"). Pakai benda atau kejadian konkret, bukan konsep abstrak, dan jangan m
 dari awal sampai akhir. "footage_query" di tingkat adegan juga diisi untuk semua adegan (cadangan).
 "keywords" berisi 1 sampai 3 kata kunci terpenting dari ucapan adegan itu, ditulis persis seperti yang
 diucapkan (contoh: "tempered glass", "600 derajat", "butiran"). Kata ini akan ditonjolkan di subtitle.
+"trigger" (adegan "mechanism" atau "cutaway"): SATU kata persis seperti yang diucapkan narator di adegan itu, yaitu kata
+saat gerak mekanis harus mulai (contoh: "memuai", "menekan", "menabrak", "terbalik"). Animasi diam sampai kata itu diucapkan.
 "sound" adalah suara latar adegan, pilih satu: "angin", "gesekan" (ban atau benda bergesek), "benturan",
 "mesin", "air", atau "hening". Pilih yang cocok dengan kejadian di adegan itu.
 "music" adalah musik latar seluruh video: "misterius", "semangat", atau "tenang".
@@ -629,13 +623,13 @@ def call_openai_style(url, key, model, prompt):
     }
     if "gpt-oss" in model:
         body["reasoning_effort"] = "low"  # model penalaran jangan menghabiskan jatah token untuk berpikir
-    res = requests.post(url, headers=headers, json=body, timeout=90)
+    res = requests.post(url, headers=headers, json=body, timeout=120)
     if res.status_code == 400 and "response_format" in res.text:
         body.pop("response_format")  # model ini tidak mendukung mode JSON
-        res = requests.post(url, headers=headers, json=body, timeout=90)
+        res = requests.post(url, headers=headers, json=body, timeout=120)
     if res.status_code == 400 and "reasoning_effort" in res.text:
         body.pop("reasoning_effort")
-        res = requests.post(url, headers=headers, json=body, timeout=90)
+        res = requests.post(url, headers=headers, json=body, timeout=120)
     if res.status_code != 200:
         raise RuntimeError(f"{res.status_code} {res.text[:200]}")
     return res.json()["choices"][0]["message"]["content"]
@@ -663,7 +657,7 @@ def build_text_sources(prompt):
 
         client = genai.Client(api_key=GEMINI_KEY)
         config = types.GenerateContentConfig(response_mime_type="application/json", temperature=1.0,
-                                             http_options=types.HttpOptions(timeout=75000))
+                                             http_options=types.HttpOptions(timeout=120000))
         for model_name in GEMINI_MODELS:
             sources.append((
                 f"Gemini {model_name}",
@@ -692,7 +686,7 @@ def build_text_sources(prompt):
 
 GREETINGS = ("halo", "hai", "hay", "selamat datang", "kali ini", "hari ini kita", "apa kabar", "teman-teman")
 DRAFT_SCENE_KEYS = ("lines", "title", "type", "tone", "points", "items", "number", "unit", "footage_query",
-                    "keywords", "variant", "mood", "weather", "sound", "mechanism", "sfx", "sim", "art", "subject", "photo")
+                    "keywords", "variant", "mood", "weather", "sound", "mechanism", "sfx", "sim", "art", "subject", "photo", "trigger")
 
 
 def polish_script(data, base_prompt):
@@ -704,11 +698,12 @@ def polish_script(data, base_prompt):
     draft = {k: data[k] for k in ("title", "description", "tags", "category", "thumbnail_text", "music") if k in data}
     draft["scenes"] = [{k: sc[k] for k in DRAFT_SCENE_KEYS if k in sc} for sc in data["scenes"]]
     editor_prompt = (
-        base_prompt
-        + "\n\n===== TUGAS KAMU SEKARANG: EDITOR =====\n"
-        "Di bawah ini ada DRAF naskah untuk topik di atas. Kamu editor video viral yang sangat kritis. Tulis ulang "
+        "===== TUGAS KAMU: EDITOR NASKAH VIDEO SHORTS BAHASA INDONESIA =====\n"
+        "Aturan visual: semua visual simulasi mekanis atau diagram; DILARANG menambah benda yang tidak disebut di kalimat adegan; "
+        "kiasan jangan diterjemahkan harfiah; tipe \"footage\" tidak dipakai; kosongkan \"art\" dan \"photo\".\n"
+        "Di bawah ini ada DRAF naskah. Kamu editor video viral yang sangat kritis. Tulis ulang "
         "draf itu menjadi versi yang jauh lebih menarik, dengan TOPIK YANG SAMA dan FORMAT JSON YANG SAMA PERSIS "
-        "seperti aturan di atas (jumlah adegan 8 sampai 10, total ucapan 150 sampai 175 kata).\n"
+        "seperti DRAF (semua kolom tiap adegan tetap ada; jumlah adegan 8 sampai 10, total ucapan 150 sampai 175 kata).\n"
         "Periksa dan perbaiki satu per satu:\n"
         "1. Hook: apakah 3 detik pertama membuat orang berhenti scroll? Kalau datar, ganti dengan fakta "
         "mengejutkan atau peringatan yang lebih tajam. Tanpa sapaan.\n"
@@ -720,7 +715,7 @@ def polish_script(data, base_prompt):
         "pakai \"sekitar\" atau buang klaimnya.\n"
         "7. Obrolan Shela dan Flay terdengar natural dan lucu-ringan, bukan membaca teks.\n"
         "8. Penutup menyambung ke hook atau mengajak penonton berkomentar.\n"
-        "9. Pilih tipe adegan, footage_query, dan keywords yang paling pas untuk tiap kalimat. Ganti kartu teks "
+        "9. Pilih tipe adegan dan keywords yang paling pas untuk tiap kalimat. Ganti kartu teks "
         "(\"flow\", \"mindmap\") dengan animasi konkret (\"mechanism\", \"cutaway\", \"microscale\", \"story\") bila bisa.\n"
         "10. Pastikan kalimat terakhir tersambung secara tata bahasa dengan kalimat pertama (seamless loop).\n"
         "Jawab HANYA dengan JSON hasil perbaikan.\n\nDRAF:\n"
@@ -743,11 +738,13 @@ def polish_script(data, base_prompt):
             return better
         except Exception as e:
             message = str(e)
-            if any(x in message for x in ("404", "NOT_FOUND", "401", "403", "invalid_api_key", "model_not_found")):
+            if any(x in message for x in ("404", "NOT_FOUND", "401", "403", "413", "invalid_api_key", "model_not_found")):
                 dead.add(name)
             info(f"  -> Editor ({name}) dilewati: {message[:100]}")
-    info("  -> Tahap editor tidak berhasil, memakai naskah pertama.")
-    return data
+    if os.getenv("ALLOW_UNEDITED", "off").strip().lower() == "on":
+        info("  -> Tahap editor tidak berhasil, memakai naskah pertama (ALLOW_UNEDITED=on).")
+        return data
+    raise RuntimeError("Tahap Editor tidak berhasil di semua sumber. Video tidak dirender dengan naskah mentah; mengulang dengan sumber lain.")
 
 
 def upgrade_sims(data, base_prompt):
@@ -813,7 +810,7 @@ def research_and_write(forced_topic=None):
                 except Exception as e:
                     last_error = e
                     message = str(e)
-                    if any(x in message for x in ("404", "NOT_FOUND", "401", "403", "invalid_api_key", "model_not_found")):
+                    if any(x in message for x in ("404", "NOT_FOUND", "401", "403", "413", "invalid_api_key", "model_not_found")):
                         info(f"  -> {name} tidak bisa dipakai ({message[:90]}), mencoba sumber lain...")
                         dead.add(name)
                         break
@@ -935,8 +932,8 @@ def validate_content(data):
         if len(narration.split()) < 4:
             continue
         scene_type = raw.get("type") if raw.get("type") in SCENE_TYPES else "flow"
-        if scene_type == "footage" and scenes:
-            scene_type = "flow"  # rekaman stok hanya untuk hook; sisanya selalu animasi yang menjelaskan isinya
+        if scene_type == "footage":
+            scene_type = "flow" if scenes else "mechanism"  # rekaman stok tidak dipakai: pembuka menjadi simulasi yang langsung bergerak
         points = [clean_text(p, 40) for p in (raw.get("points") or []) if str(p).strip()]
         number = raw.get("number")
         try:
@@ -1037,6 +1034,7 @@ def validate_content(data):
             "sim_preset": sim_preset,
             "preset_name": preset_name,
             "sfx": sfx_raw if sfx_raw in KEY_SOUNDS else "",
+            "trigger": clean_text(raw.get("trigger"), 30).lower(),
             "art": art,
             "subject": subject,
             "photo": clean_text(str(raw.get("photo") or ""), 60) if scene_type == "story" else "",
@@ -1418,6 +1416,10 @@ def fetch_stock_videos(scenes):
     Hasilnya: daftar nama sumber yang dipakai (untuk kredit)."""
     info("[3/5] Menyiapkan visual latar...")
     os.makedirs(PUBLIC_DIR, exist_ok=True)
+    if os.getenv("ASET_LUAR", "off").strip().lower() != "on":
+        info("  -> Stok video dimatikan: semua visual memakai simulasi mekanis dan diagram buatan sendiri (ASET_LUAR=on untuk menyalakan lagi).")
+        downgrade_footage(scenes)
+        return set()
 
     # Hapus klip dan gambar lama supaya tidak terpakai lagi tanpa sengaja
     for name in os.listdir(PUBLIC_DIR):
@@ -1479,6 +1481,9 @@ def fetch_art_images(scenes):
     gambar kartun 3D buatan AI. Yang gagal tetap memakai animasi 3D bawaan. Mengembalikan daftar kredit model.
     Matikan gambar AI dengan ART=off dan model 3D dengan MODEL3D=off di .env."""
     credits = set()
+    if os.getenv("ASET_LUAR", "off").strip().lower() != "on":
+        info("  -> Gambar kartun 3D, foto, dan model unduhan dimatikan: memakai simulasi buatan sendiri.")
+        return credits
     art_on = os.getenv("ART", "on").strip().lower() != "off"
     model_key = os.getenv("POLYPIZZA_KEY", "").strip() if os.getenv("MODEL3D", "on").strip().lower() != "off" else ""
     for name in os.listdir(PUBLIC_DIR):
@@ -1653,6 +1658,38 @@ def llm_callers():
     return [(n, (lambda p, n=n: dict(build_text_sources(p))[n]())) for n in names]
 
 
+def _norm_word(w):
+    return re.sub(r"[^a-z0-9]", "", str(w or "").lower())
+
+
+def apply_triggers(scenes, words):
+    """Animasi mekanis dimulai tepat saat kata pemicu diucapkan (waktu kata dari TTS), bukan di frame 0 adegan.
+    Pemicu: kata 'trigger' dari naskah; kalau tidak ketemu, kata penting pertama; kalau tidak ada, 12% awal adegan."""
+    for s in scenes:
+        sim = s.get("sim")
+        if not sim or s.get("type") == "footage":
+            continue
+        start, end = float(s["start"]), float(s["end"])
+        span = max(0.5, end - start)
+        inside = [w for w in words if start - 0.05 <= float(w.get("start", 0)) < end]
+        want = _norm_word(s.get("trigger"))
+        hit = None
+        if want:
+            hit = next((w for w in inside if _norm_word(w.get("word")) == want), None) or \
+                  next((w for w in inside if want in _norm_word(w.get("word")) or _norm_word(w.get("word")) in want and len(_norm_word(w.get("word"))) > 3), None)
+        if hit is None:
+            for kw in (s.get("keywords") or []):
+                first = _norm_word(str(kw).split()[0]) if str(kw).strip() else ""
+                hit = next((w for w in inside if first and _norm_word(w.get("word")) == first), None)
+                if hit:
+                    break
+        if hit is None:
+            hit = next((w for w in inside if w.get("emphasis")), None)
+        frac = (float(hit["start"]) - start) / span if hit else 0.12
+        sim["trigger"] = round(min(0.7, max(0.05, frac)), 3)
+        s["sim"] = sim
+
+
 def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3"):
     info("[4/5] Menjalankan Remotion (membuat video beranimasi)...")
     npm = shutil.which("npm")
@@ -1668,6 +1705,7 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
     if os.path.exists(output_mp4):
         os.remove(output_mp4)
 
+    apply_triggers(scenes, words)
     props = {
         "audioUrl": audio_file,
         "scenes": [
@@ -1915,6 +1953,7 @@ def main():
         info(f"  -> Topik dipilih: {data['title']} ({len(data['scenes'])} adegan)")
         info("\n[1b/5] AI Director memeriksa rencana visual dan irama adegan...")
         data = director.review(data, llm_callers(), info, args.topik)
+        director.require_clean(data, args.topik)  # masih ada benda di luar topik: berhenti, jangan render
         pacing.tag_urgency(data["scenes"])
         info(f"  -> Tema warna: {THEME_NAMES[data['theme_index']]}")
 
