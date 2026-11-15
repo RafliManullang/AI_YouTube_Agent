@@ -1655,10 +1655,8 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
     if not npm or not npx:
         raise RuntimeError("Node.js belum terpasang. Unduh dari https://nodejs.org lalu jalankan ulang.")
 
-    # Pasang paket Remotion otomatis kalau belum ada
-    if not os.path.isdir(os.path.join(REMOTION_DIR, "node_modules", "@remotion", "three")):
-        info("  -> Pertama kali: memasang paket Remotion (butuh beberapa menit)...")
-        run_command([npm, "install", "--no-audit", "--no-fund"], REMOTION_DIR)
+    # Pasang paket Node yang belum ada (termasuk paket baru setelah git pull)
+    render_worker.ensure_deps(REMOTION_DIR, info)
 
     os.makedirs(OUT_DIR, exist_ok=True)
     output_mp4 = os.path.join(OUT_DIR, "shorts_final.mp4")
