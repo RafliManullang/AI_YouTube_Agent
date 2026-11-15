@@ -92,6 +92,37 @@ def auto_fix(props):
     return props
 
 
+# Bidang pelengkap: kalau isinya tidak sah, cukup dibuang (video tetap jadi) daripada menggagalkan seluruh video.
+PRUNABLE = {"who", "emphasis", "mood", "weather", "sound", "variant", "mechanism", "sfx", "unit", "number", "transition",
+            "urgency", "model", "video", "videoSeconds", "artUrls", "clips", "items", "sim", "label", "kind", "ease", "opacity", "labels"}
+
+
+def prune_invalid(props, errors, log=print):
+    """Buang bidang pelengkap yang ditolak skema. Hasil: jumlah bidang yang dibuang."""
+    removed = 0
+    for e in errors:
+        path = e.split(":")[0].split(".")
+        if len(path) < 2 or path[-1] not in PRUNABLE:
+            # galat di dalam bidang pelengkap bertingkat (mis. sim.objects.3.color): buang bidang pelengkap terdekat
+            idx = next((i for i, p in enumerate(path) if p in PRUNABLE and i > 0), None)
+            if idx is None:
+                continue
+            path = path[: idx + 1]
+        node = props
+        try:
+            for p in path[:-1]:
+                node = node[int(p)] if isinstance(node, list) else node[p]
+            key = int(path[-1]) if isinstance(node, list) else path[-1]
+            if isinstance(node, dict) and key in node:
+                del node[key]
+                removed += 1
+        except (KeyError, IndexError, ValueError, TypeError):
+            continue
+    if removed:
+        log(f"  -> {removed} bidang pelengkap yang tidak sah dibuang otomatis.")
+    return removed
+
+
 def _bad_scene_indexes(errors):
     idx = set()
     for e in errors:
@@ -141,7 +172,12 @@ def validate_or_repair(props, remotion_dir, callers=None, log=print, max_rounds=
     props = auto_fix(props)
     ok, errors, clean = run_validator(props, remotion_dir, log)
     rounds = 0
-    while not ok and rounds < max_rounds and callers:
+    pruned = 0
+    while not ok and pruned < 3 and prune_invalid(props, errors, log):
+        pruned += 1
+        props = auto_fix(props)
+        ok, errors, clean = run_validator(props, remotion_dir, log)
+    while not ok and rounds < max_rounds and callers and _bad_scene_indexes(errors):
         rounds += 1
         log(f"  -> Data ditolak skema ({len(errors)} masalah), meminta perbaikan (putaran {rounds})...")
         fixed = llm_repair(props, errors, callers, log)

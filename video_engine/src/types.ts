@@ -2,7 +2,7 @@ export type WordItem = {
   word: string;
   start: number;
   end: number;
-  who?: "shela" | "flay"; // siapa yang bicara (mode obrolan)
+  who?: string; // siapa yang bicara ("shela", "flay", atau "narator")
   emphasis?: boolean; // kata kunci yang ditonjolkan di subtitle
 };
 
