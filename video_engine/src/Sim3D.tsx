@@ -10,6 +10,7 @@ import { useThree } from "@react-three/fiber";
 import { DiagramProps, SceneTitle } from "./Diagrams";
 import { Callouts } from "./Mechanisms";
 import { Sfx, climaxSound } from "./Sfx";
+import { LibraryComponent, anchorWorld } from "./components/library";
 import { SimMotion, SimObject, SimSpec, Vec3 } from "./types";
 
 const W = 1080;
@@ -388,8 +389,16 @@ export const Sim3D: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
   const clip = useMemo(() => (spec.cutaway ? [new THREE.Plane(new THREE.Vector3(0, 0, -1), 0)] : []), [spec.cutaway]);
 
   const labeled = spec.objects.filter((o) => o.label).slice(0, 4);
-  const labels = labeled.map((o) => o.label as string);
-  const raw = labeled.map((o) => {
+  // label dari komponen terverifikasi: teks ke-i dipasang di titik penanda ke-i milik komponen itu
+  const compLabels: { text: string; at: Vec3 }[] = [];
+  (spec.components ?? []).forEach((cu) =>
+    (cu.labels ?? []).forEach((text, i) => {
+      const at = anchorWorld(cu, i);
+      if (at && text) compLabels.push({ text, at });
+    }),
+  );
+  const labels = [...labeled.map((o) => o.label as string), ...compLabels.map((c) => c.text)].slice(0, 4);
+  const raw = [...labeled.map((o) => {
     let at: Vec3 = poseOf(o, spec.motions ?? [], u, t).pos;
     if (o.shape === "rope" && o.link) {
       const ends = o.link.map((id, k) => {
@@ -402,7 +411,10 @@ export const Sim3D: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
     }
     const [x, y] = project(spec, u, at);
     return { x: Math.min(W - 60, Math.max(60, x)), y: Math.min(1300, Math.max(420, y)) };
-  });
+  }), ...compLabels.map((c) => {
+    const [x, y] = project(spec, u, c.at);
+    return { x: Math.min(W - 60, Math.max(60, x)), y: Math.min(1300, Math.max(420, y)) };
+  })].slice(0, 4);
   // label di sisi terdekat, diurutkan menurut tinggi supaya garis penunjuk tidak saling menyilang
   const anchors = raw.map((a) => ({ ...a, side: (a.x < W / 2 ? "L" : "R") as "L" | "R", labelY: 0 }));
   (["L", "R"] as const).forEach((side) => {
@@ -416,7 +428,11 @@ export const Sim3D: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
 
   return (
     <AbsoluteFill>
-      <AbsoluteFill style={{ transform: `translate(${shakeAmp * Math.sin(frame * 3.1)}px, ${shakeAmp * Math.cos(frame * 2.3)}px)` }}>
+      <AbsoluteFill
+        style={{
+          transform: `translate(${shakeAmp * Math.sin(frame * 3.1)}px, ${shakeAmp * Math.cos(frame * 2.3)}px)`,
+        }}
+      >
         <ThreeCanvas width={W} height={H} camera={{ fov: spec.cam?.fov ?? 38, position: [0, 2, 11], near: 0.1, far: 200 }}>
           <Rig spec={spec} u={u} />
           <ambientLight intensity={0.35} />
@@ -443,6 +459,9 @@ export const Sim3D: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
           ) : null}
           {spec.objects.map((o) => (
             <Mesh key={o.id} o={o} spec={spec} u={u} t={t} clip={clip} />
+          ))}
+          {(spec.components ?? []).map((cu, i) => (
+            <LibraryComponent key={`c${i}`} use={cu} u={u} t={t} />
           ))}
           {(spec.flows ?? []).map((f, i) => (
             <Flow key={i} f={f} u={u} t={t} />

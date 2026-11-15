@@ -20,6 +20,9 @@ import { Sim3D } from "./Sim3D";
 import { ModelScene } from "./ModelScene";
 import { BarChart, BeforeAfter, Timeline } from "./MoreDiagrams";
 import { Ambience, Sfx, SfxEnabled, SfxMap, SfxSeed } from "./Sfx";
+import { CameraRig } from "./components/CameraRig";
+import { CaptionZone, SafeVisual } from "./layout/SafeLayout";
+import { springIn } from "./utils/animation";
 import { Palette, SceneData, ShortsProps, WordItem, paletteFor } from "./types";
 
 export type { ShortsProps, WordItem } from "./types";
@@ -82,7 +85,8 @@ const SceneView: React.FC<SceneViewProps> = ({
   const { fps } = useVideoConfig();
   const isFirst = index === 0;
 
-  const t = interpolate(frame, [0, FADE_SECONDS * fps], [0, 1], {
+  const fadeSeconds = scene.transition?.seconds ?? FADE_SECONDS; // hook cepat, penutup lembut (lihat pacing.py)
+  const t = interpolate(frame, [0, fadeSeconds * fps], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -130,6 +134,7 @@ const SceneView: React.FC<SceneViewProps> = ({
       />
       {isStory && !isFirst ? <Sfx name="glitch" at={0} volume={0.22} /> : null}
       <AbsoluteFill style={{ transform }}>
+        <SafeVisual fullBleed={scene.type === "footage" || (!!scene.artUrls?.length && !scene.model && !scene.sim)}>
         {scene.model ? (
           <ModelScene {...diagramProps} />
         ) : scene.artUrls && scene.artUrls.length > 0 && !["counter", "barchart", "timeline", "compare", "gauge"].includes(scene.type) ? (
@@ -165,6 +170,7 @@ const SceneView: React.FC<SceneViewProps> = ({
         ) : (
           <FlowDiagram {...diagramProps} />
         )}
+        </SafeVisual>
       </AbsoluteFill>
       {isStory ? (
         <AbsoluteFill
@@ -238,17 +244,8 @@ export const ShortsComp: React.FC<ShortsProps> = ({
     <SfxSeed.Provider value={bgSeed}>
     <SfxMap.Provider value={sfxMap}>
     <HideChrome.Provider value={clean}>
-    <AbsoluteFill
-      style={{
-        backgroundColor: "#0b0f19",
-        // hook: tiga detik pertama langsung "menampar" dengan zoom-in cepat dan getaran
-        transform: clean
-          ? undefined
-          : `scale(${1 + 0.32 * Math.pow(Math.max(0, 1 - frame / 14), 2)}) translate(${
-              frame < 12 ? Math.sin(frame * 3.1) * (12 - frame) * 1.2 : 0
-            }px, ${frame < 12 ? Math.cos(frame * 2.7) * (12 - frame) : 0}px)`,
-      }}
-    >
+    <AbsoluteFill style={{ backgroundColor: "#0b0f19" }}>
+    <CameraRig sceneStarts={safeScenes.map((sc) => sc.start)} total={total} enabled={!clean}>
       {safeScenes.length === 0 ? (
         <Background palette={paletteFor(0, themeIndex)} />
       ) : null}
@@ -257,7 +254,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
         const from = Math.round(scene.start * fps);
         const next = safeScenes[i + 1];
         const to = Math.round((next ? next.start : total) * fps);
-        const extra = next ? Math.round(FADE_SECONDS * fps) : 0;
+        const extra = next ? Math.round((next.transition?.seconds ?? FADE_SECONDS) * fps) : 0;
         const length = Math.max(1, to - from + extra);
         return (
           <Sequence key={i} from={from} durationInFrames={length}>
@@ -272,6 +269,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
         );
       })}
 
+    </CameraRig>
       {/* Lapisan gelap tipis di bawah supaya teks mudah dibaca */}
       <AbsoluteFill
         style={{
@@ -309,53 +307,13 @@ export const ShortsComp: React.FC<ShortsProps> = ({
 
       {/* Teks kinetik: di atas area tombol Shorts */}
       {clean ? null : (
-      <AbsoluteFill
-        style={{
-          justifyContent: "flex-end",
-          alignItems: "center",
-          paddingLeft: 60,
-          paddingRight: 60,
-          paddingBottom: 360,
-        }}
-      >
-        {speaker ? (
-          <div
-            style={{
-              alignSelf: "center",
-              marginBottom: 18,
-              padding: "4px 26px",
-              borderRadius: 30,
-              backgroundColor: speaker.color,
-              color: "#0b0f19",
-              fontFamily: "Impact, 'Arial Black', sans-serif",
-              fontSize: 36,
-              letterSpacing: 2,
-            }}
-          >
-            {speaker.name}
-          </div>
-        ) : null}
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            justifyContent: "center",
-            gap: "6px 24px",
-            minHeight: 96,
-            maxWidth: 940,
-            ...(activePhrase ? { backgroundColor: "rgba(5,10,25,0.42)", borderRadius: 40, padding: "12px 30px" } : {}),
-          }}
-        >
+      <CaptionZone show={!!activePhrase}>
           {activePhrase?.map((item, index) => {
             // hanya kata yang sudah diucapkan yang tampil, jadi penonton tidak membaca mendahului suara
             if (time < item.start - SUBTITLE_LEAD) return null;
             const isActive = time <= item.end;
 
-            const pop = spring({
-              frame: frame - Math.round(item.start * fps),
-              fps,
-              config: { damping: 12, stiffness: 220, mass: 0.5 },
-            });
+            const pop = springIn(frame, fps, item.start, "snappy");
             const emph = !!item.emphasis;
             const scale = emph ? 0.7 + 0.45 * pop : 0.85 + 0.2 * pop;
 
@@ -380,8 +338,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
               </span>
             );
           })}
-        </div>
-      </AbsoluteFill>
+      </CaptionZone>
       )}
 
       {/* Garis kemajuan di bagian atas */}

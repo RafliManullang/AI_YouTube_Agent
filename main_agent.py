@@ -27,6 +27,11 @@ from datetime import datetime, timedelta, timezone
 import requests
 
 import ai_art
+import director
+import metaphors
+import pacing
+import render_worker
+import schema_gate
 import models3d
 import wikiphoto
 import sim_presets
@@ -91,7 +96,7 @@ SCENE_TYPES = ("flow", "mindmap", "counter", "timeline", "barchart", "compare", 
 MECHANISMS = ("katrol_lift", "roda_gigi", "piston", "tuas", "aliran", "panas", "rangkaian", "tekanan",
               "nozel_bensin", "roda_kerucut", "eskalator", "kunci_silinder", "sprinkler", "venturi",
               "eddy_current", "jembatan", "airbag", "mesin_ice", "ball_socket", "capillary", "pressure_leak", "jangkar_rantai", "sosrobahu",
-              "mobil_dongkrak", "jembatan_geser", "loop_induksi", "bimetal", "setrika")
+              "mobil_dongkrak", "jembatan_geser", "loop_induksi", "bimetal", "setrika", "aliran_listrik", "panas_berlebih")
 MOODS = ("senang", "takut", "kaget", "sedih", "tegang", "bangga")
 WEATHERS = ("cerah", "hujan", "salju", "badai", "malam", "kabut")
 AMBIENCES = ("angin", "gesekan", "benturan", "mesin", "air", "hening")
@@ -381,6 +386,8 @@ yang dijawab langsung oleh kalimat pembuka saat video berulang. JANGAN mengulang
 kotak." dan penutup "Jadi, apa jadinya kalau jendela pesawat berbentuk kotak?". Contoh lain: pembuka "Karena
 di baliknya ada balok besi seberat mobil." dan penutup "Lalu kenapa lift tidak pernah jatuh?".
 {STRUCTURE_RULE}
+
+{metaphors.prompt_guide()}
 ATURAN PILIH JENIS ADEGAN: "gauge" dan "counter" hanya untuk besaran abstrak (suhu, persen, jumlah, harga), BUKAN
 untuk ukuran fisik kecil (mikron, milimeter) dan bukan untuk gerakan benda (putaran, kecepatan geser). Untuk ukuran
 fisik dan gerakan benda, pakai adegan "mechanism" dengan nama mekanisme yang cocok supaya penonton melihat
@@ -1397,7 +1404,8 @@ def plan_clips(scene):
         plan[-1][2] = length  # klip terakhir sampai akhir adegan
         for i in range(1, len(plan)):
             plan[i][1] = plan[i - 1][2]  # tanpa celah antar klip
-    return plan[:3]
+        plan = pacing.split_plan(plan, scene, query_variants)  # hook dipotong rapat, penjelasan lebih longgar
+    return plan
 
 
 def fetch_stock_videos(scenes):
@@ -1631,6 +1639,15 @@ async def generate_voices(scenes):
     return words, duration, "voice.mp3"
 
 
+def llm_callers():
+    """Daftar penulis LLM yang tersedia dalam bentuk (nama, fungsi(prompt)->teks), dipakai gerbang skema dan Director."""
+    try:
+        names = [n for n, _ in build_text_sources("x")]
+    except Exception:
+        return []
+    return [(n, (lambda p, n=n: dict(build_text_sources(p))[n]())) for n in names]
+
+
 def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3"):
     info("[4/5] Menjalankan Remotion (membuat video beranimasi)...")
     npm = shutil.which("npm")
@@ -1665,6 +1682,8 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
                 "mechanism": s.get("mechanism", ""),
                 "mood": s.get("mood", "tegang"),
                 "weather": s.get("weather", "cerah"),
+                **({"urgency": s["urgency"]} if s.get("urgency") else {}),
+                **({"transition": s["transition"]} if s.get("transition") else {}),
                 **({"sfx": s["sfx"]} if s.get("sfx") else {}),
                 **({"sim": s["sim"]} if s.get("sim") else {}),
                 **({"video": s["video"], "videoSeconds": s.get("video_seconds") or 0} if s.get("video") else {}),
@@ -1690,28 +1709,8 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
         props["bgmUrl"] = f"bgm/{music}.wav"
         info(f"  -> Musik latar bawaan: {music}.")
 
-    props_path = os.path.join(REMOTION_DIR, "render_props.json")
-    with open(props_path, "w", encoding="utf-8") as f:
-        json.dump(props, f, ensure_ascii=False)
-
-    cmd = [npx, "remotion", "render", "src/index.ts", "ShortsComp", output_mp4, "--props=render_props.json"]
-    has_sim = any(sc.get("sim") for sc in props["scenes"])
-    if has_sim:
-        cmd.append("--gl=" + (os.getenv("GL_MODE") or "angle"))  # animasi 3D butuh WebGL
-    try:
-        run_command(cmd, REMOTION_DIR)
-    except Exception as e:
-        if not has_sim:
-            raise
-        info(f"  -> Render dengan animasi 3D gagal ({str(e)[:100]}). Mengulang tanpa 3D (animasi 2D bawaan)...")
-        for sc in props["scenes"]:
-            sc.pop("sim", None)
-            if sc.get("type") == "mechanism" and not sc.get("mechanism"):
-                sc["type"] = "flow"
-                sc["points"] = [str(i.get("label") or "") for i in (sc.get("items") or [])][:4] or sc.get("points") or ["Cara kerja"]
-        with open(props_path, "w", encoding="utf-8") as f:
-            json.dump(props, f, ensure_ascii=False)
-        run_command([c for c in cmd if not c.startswith("--gl=")], REMOTION_DIR)
+    # Semua data wajib lolos skema Zod, lalu render berjalan dengan pemulihan otomatis (render_worker.py)
+    render_worker.render(props, output_mp4, REMOTION_DIR, llm_callers(), info)
 
     if not os.path.exists(output_mp4) or os.path.getsize(output_mp4) < 10_000:
         raise RuntimeError("Video hasil render tidak ditemukan atau rusak.")
@@ -1891,7 +1890,7 @@ def main():
                         help="Unggah video yang sudah jadi (hasil terakhir) tanpa membuat video baru")
     parser.add_argument("--jadwal", default=None, metavar="JAM",
                         help="Jam tayang di YouTube (WIB), contoh: 13:00. Video diunggah dulu, tayang otomatis di jam itu")
-    parser.add_argument("--topik", default=None, help="Tentukan topik sendiri (kalau kosong, dipilih acak)")
+    parser.add_argument("--topik", "--topic", dest="topik", default=None, help="Tentukan topik sendiri (kalau kosong, dipilih acak)")
     parser.add_argument(
         "--privasi", default=PRIVACY, choices=["private", "unlisted", "public"],
         help="Status video di YouTube (bawaan: private)",
@@ -1911,6 +1910,9 @@ def main():
 
         data = research_and_write(args.topik)
         info(f"  -> Topik dipilih: {data['title']} ({len(data['scenes'])} adegan)")
+        info("\n[1b/5] AI Director memeriksa rencana visual dan irama adegan...")
+        data = director.review(data, llm_callers(), info)
+        pacing.tag_urgency(data["scenes"])
         info(f"  -> Tema warna: {THEME_NAMES[data['theme_index']]}")
 
         os.makedirs(PUBLIC_DIR, exist_ok=True)

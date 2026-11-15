@@ -3,6 +3,7 @@ import { Composition } from "remotion";
 import { ShortsComp } from "./ShortsComp";
 import { Thumbnail } from "./Thumbnail";
 import { ShortsProps, ThumbnailProps } from "./types";
+import { validateShortsProps } from "./schemas/sceneSchema";
 
 const FPS = 30;
 
@@ -96,7 +97,10 @@ export const Root: React.FC = () => {
         defaultProps={defaultProps}
         // Panjang video mengikuti durasi suara yang dikirim dari main_agent.py,
         // jadi tidak perlu lagi memasukkan angka durasi lewat perintah terminal.
-        calculateMetadata={({ props }) => {
+        calculateMetadata={({ props }: { props: ShortsProps }) => {
+          // Pagar kedua: data yang tidak lolos skema dihentikan di sini, sebelum satu bingkai pun dirender.
+          const report = validateShortsProps(props);
+          if (!report.ok) throw new Error("Data video ditolak skema: " + report.errors.slice(0, 5).join("; "));
           const seconds = Math.max(5, props.durationInSeconds || 40);
           return { durationInFrames: Math.ceil(seconds * FPS) };
         }}
