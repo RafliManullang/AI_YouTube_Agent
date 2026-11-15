@@ -27,7 +27,7 @@ export const wordSchema = z.object({
   word: text(40).min(1),
   start: finite.min(0).max(600),
   end: finite.min(0).max(600),
-  who: z.enum(["shela", "flay"]).optional(),
+  who: text(30).optional(), // nama pembicara (mis. "narator"); bebas, hanya untuk pewarnaan subtitle
   emphasis: z.boolean().optional(),
 }).refine((w) => w.end >= w.start, { message: "end kata harus >= start" });
 
