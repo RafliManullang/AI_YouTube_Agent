@@ -21,6 +21,7 @@ import { ModelScene } from "./ModelScene";
 import { BarChart, BeforeAfter, Timeline } from "./MoreDiagrams";
 import { Ambience, Sfx, SfxEnabled, SfxMap, SfxSeed } from "./Sfx";
 import { CameraRig } from "./components/CameraRig";
+import { HookPunch } from "./components/HookPunch";
 import { CaptionZone, SafeVisual } from "./layout/SafeLayout";
 import { springIn } from "./utils/animation";
 import { Palette, SceneData, ShortsProps, WordItem, paletteFor } from "./types";
@@ -133,6 +134,7 @@ const SceneView: React.FC<SceneViewProps> = ({
         footageStrength={scene.type === "footage" ? 1 : scene.type === "mechanism" || scene.type === "question" || !!scene.sim || !!scene.model || (scene.artUrls && scene.artUrls.length > 0) ? 0 : 0.62}
       />
       {isStory && !isFirst ? <Sfx name="glitch" at={0} volume={0.22} /> : null}
+      {isFirst ? <HookPunch text={scene.title} /> : null}
       <AbsoluteFill style={{ transform }}>
         <SafeVisual fullBleed={scene.type === "footage" || (!!scene.artUrls?.length && !scene.model && !scene.sim)}>
         {scene.model ? (
