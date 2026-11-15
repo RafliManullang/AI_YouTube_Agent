@@ -12,6 +12,7 @@ import re
 import metaphors
 import sim_library
 import sim_presets
+import topic_lock
 
 VALID_TYPES = ("flow", "mindmap", "counter", "timeline", "barchart", "compare", "gauge", "footage",
                "cutaway", "microscale", "story", "question", "mechanism")
@@ -67,6 +68,8 @@ def _apply(data, issue):
         if not sim:
             return False
         sc["sim"], sc["sim_preset"], sc["sim_generic"] = sim, True, False
+        sc["preset_name"] = value
+        sc["subject"] = ""
         sc["type"] = "mechanism"
         for k in ("model", "art_urls", "video", "clips"):
             sc.pop(k, None)
@@ -99,8 +102,10 @@ def _llm_review(data, call_sources, log):
     ask = (
         "Kamu AI Director, pengawas independen video sains Shorts. Periksa tiap adegan: (1) apakah visualnya akurat secara ilmiah dan "
         "memperlihatkan benda yang disebut narasi? (2) apakah ada adegan yang visualnya terlalu abstrak atau salah benda? "
+        "(3) KESINAMBUNGAN: apakah benda di tiap adegan menyambung secara fisik dengan benda di adegan sebelumnya (sebab-akibat), "
+        "bukan melompat ke benda asing? Adegan yang melompat ditandai action \"clear_visual\". "
         "Animasi terverifikasi yang tersedia: " + ", ".join(catalog) + ".\n"
-        "Jawab HANYA JSON {\"fixes\": [{\"scene\": nomor, \"problem\": \"alasan singkat\", \"action\": \"set_preset\" atau \"set_type\" atau \"ok\", "
+        "Jawab HANYA JSON {\"fixes\": [{\"scene\": nomor, \"problem\": \"alasan singkat\", \"action\": \"set_preset\" atau \"set_type\" atau \"clear_visual\" atau \"ok\", "
         "\"value\": \"nama preset atau tipe adegan\"}]}. Hanya sertakan adegan yang benar-benar salah; kalau semua baik, fixes kosong.\n\n"
         + json.dumps(rows, ensure_ascii=False)[:9000]
     )
@@ -115,6 +120,8 @@ def _llm_review(data, call_sources, log):
                     continue
                 if act == "set_preset" and val in sim_library.PRESET_NAMES:
                     fixes.append({"scene": idx, "problem": str(f.get("problem"))[:100], "fix": ("set_preset", val)})
+                elif act == "clear_visual":
+                    fixes.append({"scene": idx, "problem": str(f.get("problem"))[:100], "fix": ("clear_visual", None)})
                 elif act == "set_type" and val in VALID_TYPES:
                     fixes.append({"scene": idx, "problem": str(f.get("problem"))[:100], "fix": ("set_type", val)})
             log(f"  -> Director ({name}) selesai memeriksa.")
@@ -124,12 +131,17 @@ def _llm_review(data, call_sources, log):
     return None
 
 
-def review(data, call_sources=None, log=print):
+def review(data, call_sources=None, log=print, forced_topic=""):
     """Periksa naskah dan rencana visual, lalu perbaiki otomatis sebelum video dibuat. Selalu mengembalikan data."""
     issues = check(data)
     llm = _llm_review(data, call_sources, log) if call_sources else None
     if llm:
         issues += llm
+    lock = topic_lock.detect(data, forced_topic)
+    if lock:
+        log(f"  -> Topik terkunci: {lock['name']} (hanya benda dan animasi resmi topik ini yang boleh tampil).")
+        # saran perbaikan yang menarik animasi di luar topik tidak boleh dipakai
+        issues = [i for i in issues if not (i.get("fix") and i["fix"][0] == "set_preset" and i["fix"][1] not in lock["chain"])]
     fixed = 0
     for issue in issues:
         if issue.get("fix") and issue["fix"][0] == "set_type":
@@ -140,5 +152,10 @@ def review(data, call_sources=None, log=print):
             fixed += 1
         if issue.get("problem"):
             log(f"     Director: adegan {issue['scene'] if issue.get('scene') is not None else '-'}: {issue['problem']}")
+    if lock:
+        fixed += topic_lock.enforce(data, lock, call_sources, log)
+    fixed += topic_lock.dedupe(data, lock, log)
+    if lock:
+        fixed += topic_lock.continuity(data, lock, log)
     log(f"  -> Director: {len(issues)} catatan, {fixed} diperbaiki otomatis.")
     return data

@@ -406,10 +406,56 @@ def library_sim(name, labels):
                  for x0, z0 in ((-1.4, 0.4), (0.0, -0.4), (1.4, 0.3))]
         return {"cam": {"dist": 22, "height": 2.8, "orbit": 0.6, "target": [0.6, 0.4, 0]}, "objects": objs, "motions": mot, "flows": flows, "floor": -2.0}
 
+    if name == "pemantik_pegas":
+        spring = [("p%d" % i, y) for i, y in enumerate((2.3, 1.8, 1.3, 0.8, 0.3))]
+        objs = [
+            _o("badan", "box", [0, 0.2, 0], [3.2, 7.4, 2.2], "#9fb4cc", "glass", opacity=0.16),
+            _o("tombol", "cylinder", [0, 4.3, 0], [1.3, 0.8, 0], "#ff5252", "plastic", label=L(0, "Tombol tekan")),
+            _o("palu", "box", [0, -0.5, 0], [1.3, 1.0, 1.3], "#ffb020", "metal", label=L(2, "Palu logam")),
+            _o("kristal", "box", [0, -2.7, 0], [1.2, 0.8, 1.2], "#6fd6ff", "glass", opacity=0.7, label=L(3, "Kristal")),
+        ] + [_o(n, "torus", [0, y, 0], [1.0, 0.16, 0], "#dfe6f2", "metal", rot=[90, 0, 0], **({"label": L(1, "Pegas baja")} if i == 0 else {})) for i, (n, y) in enumerate(spring)]
+        mot = [_mv("tombol", [0, 3.4, 0], 0.15, 0.38), _mv("palu", [0, 0.5, 0], 0.15, 0.38)]
+        mot += [_mv(n, [0, y - 0.9 + 0.12 * i, 0], 0.15, 0.38) for i, (n, y) in enumerate(spring)]
+        mot += [_mv("palu", [0, -2.0, 0], 0.55, 0.6), _col("kristal", "#ffffff", 0.6, 0.66), _col("tombol", "#ffd23f", 0.4, 0.5)]
+        return {"cutaway": True, "cam": {"dist": 17, "height": 2.2, "orbit": 0.8, "target": [0, 0.6, 0]}, "objects": objs, "motions": mot, "flows": []}
+
+    if name == "pemantik_kristal":
+        objs = [
+            _o("kristal", "box", [0, 0, 0], [2.4, 1.8, 1.6], "#6fd6ff", "glass", opacity=0.75, label=L(0, "Kristal kuarsa")),
+            _o("palu", "box", [0, 2.7, 0], [1.8, 1.0, 1.3], "#ffb020", "metal", label=L(1, "Hantaman palu")),
+            _o("plusA", "box", [-2.2, 0, 0], [0.18, 1.5, 1.3], "#8aa0b8", "metal", label=L(2, "Muatan plus")),
+            _o("minB", "box", [2.2, 0, 0], [0.18, 1.5, 1.3], "#8aa0b8", "metal", label=L(3, "Muatan minus")),
+            _o("elA", "cylinder", [-0.9, -3.2, 0], [0.22, 1.2, 0], "#cfd6e2", "metal", rot=[0, 0, 90]),
+            _o("elB", "cylinder", [0.9, -3.2, 0], [0.22, 1.2, 0], "#cfd6e2", "metal", rot=[0, 0, 90], label=L(4, "Celah percikan")),
+            _o("percik", "sphere", [0, -3.2, 0], [0.55, 0, 0], "#fff2a8", "glow"),
+        ]
+        mot = [_mv("palu", [0, 1.4, 0], 0.2, 0.28), _mv("palu", [0, 2.7, 0], 0.4, 0.55),
+               _col("plusA", "#ff5252", 0.3, 0.36), _col("minB", "#4f7cff", 0.3, 0.36),
+               {"target": "kristal", "kind": "pulse", "speed": 5},
+               {"target": "percik", "kind": "appear", "t0": 0.5, "t1": 0.53}, {"target": "percik", "kind": "pulse", "speed": 7}]
+        flows = [_flow([[-2.2, -0.8, 0.9], [-2.2, -3.2, 0.9], [-0.7, -3.2, 0.9]], "#ff8a80", 10, 0.1, 0.5, 0.3),
+                 _flow([[2.2, -0.8, 0.9], [2.2, -3.2, 0.9], [0.7, -3.2, 0.9]], "#82b1ff", 10, 0.1, 0.5, 0.3)]
+        return {"cam": {"dist": 16, "height": 2.0, "orbit": 0.9, "target": [0, -0.8, 0]}, "objects": objs, "motions": mot, "flows": flows}
+
+    if name == "pemantik_api":
+        objs = [
+            _o("tabung", "cylinder", [-3.4, -0.6, 0], [1.3, 2.6, 0], "#4fc3f7", "glass", opacity=0.6, label=L(0, "Gas butana")),
+            _o("katup", "cylinder", [-1.6, 0.4, 0], [0.28, 1.6, 0], "#cfd6e2", "metal", rot=[0, 0, 90], label=L(1, "Katup gas")),
+            _o("percik", "sphere", [0.4, 0.2, 0], [0.5, 0, 0], "#fff2a8", "glow", label=L(2, "Percikan")),
+            _o("api", "cone", [0.45, 1.3, 0], [1.0, 2.6, 0], "#ff4d00", "glow", label=L(3, "Api menyala")),
+        ]
+        mot = [{"target": "percik", "kind": "appear", "t0": 0.4, "t1": 0.43}, {"target": "percik", "kind": "pulse", "speed": 8},
+               {"target": "api", "kind": "appear", "t0": 0.46, "t1": 0.52}, {"target": "api", "kind": "pulse", "speed": 4}]
+        flows = [_flow([[-3.4, 1.0, 0.8], [-1.6, 0.4, 0.8], [0.4, 0.4, 0.8]], "#b3e5fc", 16, 0.1, 0.45, 0.0)]
+        return {"cam": {"dist": 15, "height": 1.6, "orbit": 0.7, "target": [-1.4, 0.6, 0]}, "objects": objs, "motions": mot, "flows": flows}
+
     return None
 
 
 KEYWORDS = metaphors.keyword_table() + (
+    ("pemantik_pegas", ("pegas pemukul", "tombol pemantik", "tombol tekan", "pegas baja", "palu logam")),
+    ("pemantik_kristal", ("kristal kuarsa", "efek piezoelektrik", "piezoelektrik", "benturan kristal", "hantaman palu")),
+    ("pemantik_api", ("gas butana", "penyalaan api", "percikan api", "celah percikan")),
     ("loop_induksi", ("loop induksi", "kawat induksi", "sensor lampu merah", "sensor jalan", "garis aspal", "lampu merah", "kawat tembaga di bawah")),
     ("eskalator", ("eskalator", "escalator", "handrail", "pegangan tangan")),
     ("kunci_silinder", ("anak kunci", "kunci pintu", "silinder kunci", "gembok")),

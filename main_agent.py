@@ -35,6 +35,7 @@ import schema_gate
 import models3d
 import wikiphoto
 import sim_presets
+import topic_lock
 import sim_scenes
 
 try:
@@ -388,6 +389,7 @@ di baliknya ada balok besi seberat mobil." dan penutup "Lalu kenapa lift tidak p
 {STRUCTURE_RULE}
 
 {metaphors.prompt_guide()}
+{topic_lock.prompt_guide(forced_topic)}
 ATURAN PILIH JENIS ADEGAN: "gauge" dan "counter" hanya untuk besaran abstrak (suhu, persen, jumlah, harga), BUKAN
 untuk ukuran fisik kecil (mikron, milimeter) dan bukan untuk gerakan benda (putaran, kecepatan geser). Untuk ukuran
 fisik dan gerakan benda, pakai adegan "mechanism" dengan nama mekanisme yang cocok supaya penonton melihat
@@ -1009,6 +1011,7 @@ def validate_content(data):
         sim = None
         sim_generic = False
         sim_preset = False
+        preset_name = ""
         if scene_type in ("mechanism", "cutaway"):
             labels_for_sim = [str(i.get("label") or "") for i in (items or []) if isinstance(i, dict)]
             sim = sim_presets.clean_sim(raw.get("sim"))
@@ -1019,6 +1022,7 @@ def validate_content(data):
                 spec = sim_presets.preset_sim(guess, labels_for_sim) if guess else None
                 sim = sim_presets.clean_sim(spec) if spec else None
                 sim_preset = sim is not None
+                preset_name = guess if sim_preset else ""
                 if sim is None:
                     sim = sim_presets.clean_sim(sim_presets.generic_sim(labels_for_sim))
                     sim_generic = True
@@ -1031,6 +1035,7 @@ def validate_content(data):
             "sim": sim,
             "sim_generic": sim_generic,
             "sim_preset": sim_preset,
+            "preset_name": preset_name,
             "sfx": sfx_raw if sfx_raw in KEY_SOUNDS else "",
             "art": art,
             "subject": subject,
@@ -1909,7 +1914,7 @@ def main():
         data = research_and_write(args.topik)
         info(f"  -> Topik dipilih: {data['title']} ({len(data['scenes'])} adegan)")
         info("\n[1b/5] AI Director memeriksa rencana visual dan irama adegan...")
-        data = director.review(data, llm_callers(), info)
+        data = director.review(data, llm_callers(), info, args.topik)
         pacing.tag_urgency(data["scenes"])
         info(f"  -> Tema warna: {THEME_NAMES[data['theme_index']]}")
 

@@ -324,7 +324,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
                 key={`${item.start}-${index}`}
                 style={{
                   fontFamily: "Impact, 'Arial Black', sans-serif",
-                  fontSize: emph ? 90 : 72,
+                  fontSize: emph ? 78 : 62,
                   fontWeight: 900,
                   lineHeight: 1.1,
                   letterSpacing: 1,
