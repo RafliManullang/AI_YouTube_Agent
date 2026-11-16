@@ -382,12 +382,11 @@ export const Sim3D: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
   const trig = clamp01(spec.trigger ?? 0);
   const u = trig > 0 ? clamp01((frame / len - trig) / Math.max(0.05, 1 - trig)) : clamp01(frame / len);
   const t = trig > 0 ? Math.max(0, frame / fps - trig * (len / fps)) : frame / fps;
-  // gaya lantai berbeda per adegan supaya latar tidak monoton (kisi, mengkilap, cincin, tanpa lantai)
-  const floorStyle = Array.from(String(scene.title ?? "x")).reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 997, 7) % 4;
   const c = Math.round(len * (trig + (1 - trig) * CLIMAX)); // klimaks dan efek suara jatuh di momen aksi, bukan di awal adegan
   const since = frame - c;
   const shakeAmp = since >= 0 && since < 12 ? (1 - since / 12) * 14 : 0;
-  const flash = since >= 0 && since < 8 ? 0.6 * (1 - since / 8) : 0;
+  // Tanpa kilatan layar: momen klimaks hanya memberi pantulan skala kecil pada benda
+  const pop = since >= 0 && since < 12 ? 0.045 * Math.sin((Math.PI * since) / 12) : 0;
   const clip = useMemo(() => (spec.cutaway ? [new THREE.Plane(new THREE.Vector3(0, 0, -1), 0)] : []), [spec.cutaway]);
 
   const labeled = spec.objects.filter((o) => o.label).slice(0, 4);
@@ -432,7 +431,7 @@ export const Sim3D: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
     <AbsoluteFill>
       <AbsoluteFill
         style={{
-          transform: `translate(${shakeAmp * Math.sin(frame * 3.1)}px, ${shakeAmp * Math.cos(frame * 2.3)}px)`,
+          transform: `translate(${shakeAmp * 0.35 * Math.sin(frame * 3.1)}px, ${shakeAmp * 0.35 * Math.cos(frame * 2.3)}px) scale(${1 + pop})`,
           // pendaran lembut di sekitar benda yang menyala, kontras dengan latar gelap
           filter: "drop-shadow(0 0 12px rgba(255,120,40,0.55)) drop-shadow(0 0 26px rgba(80,170,255,0.25)) saturate(1.18) contrast(1.05)",
         }}
@@ -444,23 +443,6 @@ export const Sim3D: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
           <directionalLight position={[-6, 3, -4]} intensity={2.4} color={palette.accent2} />
           <directionalLight position={[6, 4, -6]} intensity={1.8} color={palette.accent} />
           <pointLight position={[0, 4, 5]} intensity={18} color={palette.accent} distance={30} />
-          {spec.floor !== undefined && floorStyle !== 3 ? (
-            <group position={[0, spec.floor, 0]}>
-              <mesh rotation={[-Math.PI / 2, 0, 0]}>
-                <circleGeometry args={[16, 64]} />
-                <meshStandardMaterial color={floorStyle === 1 ? palette.bg2 : "#0b1224"} metalness={0.6} roughness={floorStyle === 1 ? 0.15 : 0.35} transparent opacity={floorStyle === 1 ? 0.55 : 0.7} />
-              </mesh>
-              {floorStyle === 0 ? <gridHelper args={[30, 30, "#6fb6ff", "#35507a"]} position={[0, 0.01, 0]} /> : null}
-              {floorStyle === 2
-                ? [3, 6, 9, 12].map((r) => (
-                    <mesh key={r} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-                      <ringGeometry args={[r, r + 0.07, 96]} />
-                      <meshBasicMaterial color={palette.accent} transparent opacity={0.45} />
-                    </mesh>
-                  ))
-                : null}
-            </group>
-          ) : null}
           {spec.objects.map((o) => (
             <Mesh key={o.id} o={o} spec={spec} u={u} t={t} clip={clip} />
           ))}
@@ -476,7 +458,6 @@ export const Sim3D: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
       <SceneTitle title={scene.title} palette={palette} />
       <Callouts anchors={anchors} labels={labels} palette={palette} lengthFrames={lengthFrames} />
       <Sfx name={climaxSound(scene)} at={c} volume={0.36} />
-      {flash > 0 ? <AbsoluteFill style={{ backgroundColor: "#fff", opacity: flash }} /> : null}
     </AbsoluteFill>
   );
 };

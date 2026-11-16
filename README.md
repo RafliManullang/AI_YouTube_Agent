@@ -232,3 +232,12 @@ Alur: naskah (penulis + editor) -> Director memeriksa dan memperbaiki -> irama d
 - Gerak mekanis mulai tepat saat kata pemicu diucapkan (`trigger` di naskah, waktu kata dari suara).
 - Latar gradasi radial gelap tanpa garis kotak; subtitle 52 sampai 56 px, 120 px dari bawah; musik latar 0,10; pendaran di benda menyala; cangkang tembus pandang (X-ray) pada pemantik dan headphone.
 - Tahap Editor wajib berhasil (kalau tidak, naskah diulang dengan sumber lain). Bypass hanya dengan `ALLOW_UNEDITED=on`. Prompt Editor diperkecil agar tidak kena 413 di Groq. Batas waktu Gemini 120 detik; `gemini-2.5-flash` dihapus dari daftar.
+
+## Tahap 28: primitif fisika, kanvas bersih, pembuka mekanis
+
+- Lima komponen primitif universal: `ParticleFlow`, `WaveInterference`, `PressureChamber`, `HeatTransfer`, `MechanicalTrigger`. Kalau tidak ada animasi khusus untuk topik, adegan memakai salah satunya (dipilih dari kata di narasi), bukan benda acak.
+- Animasi bawaan (jembatan, pipa listrik, gelombang headphone, dan lainnya) hanya dipakai kalau kata kuncinya ada di judul/topik video. Simulasi 3D bebas buatan AI mati (`SIM_LLM=on` untuk menyalakan).
+- Teks label di dalam animasi hanya dari `items` naskah; tidak ada lagi label tertulis mati. Siluet headphone hanya muncul di topik headphone.
+- Dihapus dari kanvas 3D: lantai jaring-jaring dan semua kilatan layar putih. Momen klimaks hanya memberi pantulan skala kecil dan bayangan cahaya.
+- Pembuka (detik 0 sampai 5) wajib simulasi mekanis berupa potongan melintang, tidak boleh tanda tanya.
+- Jarak antarbaris teks dalam animasi 1,25.

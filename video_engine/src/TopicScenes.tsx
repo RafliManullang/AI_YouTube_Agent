@@ -158,7 +158,7 @@ const GroundCutaway: React.FC<DiagramProps> = ({ scene, palette, lengthFrames })
                 border: `4px solid ${i % 2 ? palette.accent2 : palette.accent}`,
                 fontFamily: BODY_FONT,
                 fontSize: 27,
-                lineHeight: 1.08,
+                lineHeight: 1.25,
                 color: "#fff",
                 textTransform: "uppercase",
               }}
@@ -327,7 +327,7 @@ const DeviceCutaway: React.FC<DiagramProps> = ({ scene, palette, lengthFrames })
               <div style={{ fontFamily: TITLE_FONT, fontSize: 38, color, textTransform: "uppercase", lineHeight: 1 }}>
                 {item.label}
               </div>
-              <div style={{ fontFamily: BODY_FONT, fontSize: 27, lineHeight: 1.1, marginTop: 6, textTransform: "uppercase" }}>
+              <div style={{ fontFamily: BODY_FONT, fontSize: 27, lineHeight: 1.25, marginTop: 6, textTransform: "uppercase" }}>
                 {String(item.value)}
               </div>
             </div>

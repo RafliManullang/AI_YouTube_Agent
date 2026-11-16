@@ -35,8 +35,17 @@ def _flow(path, color, count=18, size=0.1, speed=0.3, t0=0.0, t1=None):
     return f
 
 
-def library_sim(name, labels):
-    L = lambda i, d: (labels[i] if i < len(labels) and labels[i] else d)
+def library_sim(name, labels, defaults=False):
+    """defaults=False (bawaan): label hanya dari naskah, tidak ada teks tertulis mati. defaults=True hanya untuk topik terkunci
+    yang animasinya memang dibuat khusus untuk topik itu."""
+    spec = _library_sim(name, labels, defaults)
+    if spec and not defaults:
+        spec["objects"] = [o for o in spec.get("objects", []) if o.get("shape") != "text"]
+    return spec
+
+
+def _library_sim(name, labels, defaults):
+    L = lambda i, d: (labels[i] if i < len(labels) and labels[i] else (d if defaults else ""))
 
     if name == "eskalator":
         return {"cutaway": True, "cam": {"dist": 29, "height": 3, "orbit": 1.1, "target": [-1.2, -1.0, 0]},
@@ -408,12 +417,12 @@ def library_sim(name, labels):
 
     if name == "gelombang_bising":
         return {"cam": {"dist": 25, "height": 0.8, "orbit": 0.0, "target": [0, 0.3, 0]},
-                "components": [{"id": "SoundWave", "pos": [0, 0, 0], "props": {"mode": "noise", "amp": 0.7}, "labels": [L(0, "Bising dari luar")]}],
+                "components": [{"id": "WaveInterference", "pos": [0, 0, 0], "props": {"mode": "noise", "amp": 0.7, "shell": defaults}, "labels": [L(0, "Bising dari luar")]}],
                 "objects": [], "motions": [], "flows": []}
 
     if name == "gelombang_suara":
         return {"cam": {"dist": 26, "height": 0.6, "orbit": 0.0, "target": [0, 0.1, 0]},
-                "components": [{"id": "SoundWave", "pos": [0, 0, 0], "props": {"mode": "interference", "amp": 0.55},
+                "components": [{"id": "WaveInterference", "pos": [0, 0, 0], "props": {"mode": "interference", "amp": 0.55, "shell": defaults},
                                 "labels": [L(0, "Bising luar"), L(1, "Gelombang lawan"), L(2, "Hasil: hening")]}],
                 "objects": [], "motions": [], "flows": []}
 

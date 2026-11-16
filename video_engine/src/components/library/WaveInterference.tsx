@@ -63,10 +63,10 @@ const HeadphoneShell: React.FC<{ opacity: number }> = ({ opacity }) => (
   </group>
 );
 
-export const SoundWave: React.FC<LibProps> = ({ u, t, props }) => {
+export const WaveInterference: React.FC<LibProps> = ({ u, t, props }) => {
   const mode = str(props, "mode", "interference");
   const amp = num(props, "amp", 0.55);
-  const shell = props.shell !== false;
+  const shell = props.shell === true; // siluet headphone hanya kalau diminta eksplisit (topik headphone)
   const noise = useMemo(() => (x: number) => wave(x, t, amp), [t, amp]);
   const k = ease((u - 0.18) / 0.4); // masuknya gelombang lawan
   const anti = useMemo(() => (x: number) => -wave(x, t, amp) * k, [t, amp, k]);

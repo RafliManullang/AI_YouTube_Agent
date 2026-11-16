@@ -34,6 +34,7 @@ import render_worker
 import schema_gate
 import models3d
 import wikiphoto
+import primitives
 import sim_presets
 import topic_lock
 import sim_scenes
@@ -91,6 +92,8 @@ TTS_STYLE = (
 )
 PRIVACY = os.getenv("YOUTUBE_PRIVACY", "private")  # private / unlisted / public
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+TOPIC_HINT = ""  # topik yang diminta pengguna; dipakai untuk mencocokkan animasi bawaan
+
 SCENE_TYPES = ("flow", "mindmap", "counter", "timeline", "barchart", "compare", "gauge", "footage",
                "cutaway", "microscale", "story", "mechanism", "question")
 MECHANISMS = ("katrol_lift", "roda_gigi", "piston", "tuas", "aliran", "panas", "rangkaian", "tekanan",
@@ -436,13 +439,21 @@ Tidak ada foto, gambar kartun, rekaman stok, atau model unduhan.
    senjata atau monster, melainkan animasi "interferensi destruktif gelombang" (mechanism "gelombang_suara").
    "Bisingnya menggila", "listrik mengamuk", "dingin menusuk" dan kiasan lain digambarkan dengan mekanisme
    fisiknya, bukan dengan benda dari arti harfiahnya.
+4. KOMPONEN FISIKA UMUM: kalau tidak ada animasi khusus untuk bendanya, adegan "mechanism" otomatis memakai salah satu dari lima
+   primitif: ParticleFlow (partikel mengalir: ionisasi, arus, gas, radiasi), WaveInterference (gelombang: suara, sinyal, sirine),
+   PressureChamber (tekanan dalam ruang tertutup), HeatTransfer (panas dan pemuaian), MechanicalTrigger (pegas dan palu pemicu).
+   Tulis kalimat adegan dengan kata-kata yang jelas menyebut salah satunya (mis. "partikel", "gelombang", "tekanan", "panas", "pegas").
+5. LABEL: nama bagian ditulis di "items" ("label" singkat, 1 sampai 3 kata). Semua teks label di layar hanya dari "items" dan
+   benar-benar benda yang ada di kalimat adegan itu.
+6. PEMBUKA (detik 0 sampai 5): DILARANG berupa tanda tanya besar atau kartu kuis. Adegan pertama wajib "mechanism" yang langsung
+   memperlihatkan inti cara kerja benda (potongan melintang bendanya, partikel atau gerakan intinya sudah bergerak).
 Isi "subject" hanya dengan 1 sampai 3 kata Inggris benda yang disebut langsung di kalimat adegan itu (boleh kosong).
 "photo" dan "art" selalu dikosongkan ("").
 Setiap momen klimaks atau kejutan diberi satu kalimat pendek yang menghentak (animasi otomatis memberi getaran
 dan kilat di momen itu).
 
-TIPE "footage" TIDAK DIPAKAI (tidak ada rekaman stok). Adegan pembuka berupa "question" atau "mechanism" yang langsung
-bergerak dan menampilkan benda utama topik.
+TIPE "footage" TIDAK DIPAKAI (tidak ada rekaman stok). Adegan pembuka WAJIB "mechanism" yang langsung
+bergerak dan menampilkan inti topik; "question" tidak boleh menjadi pembuka.
 
 TEMPO PADAT: kalimat pendek, tanpa pengantar bertele-tele, tanpa pengulangan. Setiap kalimat membawa
 informasi baru. Adegan terakhir penutup singkat yang bikin orang ingin menonton ulang. Ucapan hanya berisi
@@ -783,6 +794,8 @@ def upgrade_sims(data, base_prompt):
 
 
 def research_and_write(forced_topic=None):
+    global TOPIC_HINT
+    TOPIC_HINT = forced_topic or ""
     info("\n[1/5] Agen AI sedang meriset topik dan menulis naskah...")
     prompt = build_prompt(forced_topic, load_history())
     sources = build_text_sources(prompt)
@@ -926,12 +939,15 @@ def validate_content(data):
         data["tags"] = [str(data["tags"])]
 
     scenes = []
+    prim_uses = {}
     for raw in data["scenes"][:10]:
         lines = clean_lines(raw)
         narration = " ".join(l["text"] for l in lines)
         if len(narration.split()) < 4:
             continue
         scene_type = raw.get("type") if raw.get("type") in SCENE_TYPES else "flow"
+        if scene_type == "question" and not scenes:
+            scene_type = "mechanism"  # pembuka dilarang berupa tanda tanya besar: langsung simulasi inti mekanisme
         if scene_type == "footage":
             scene_type = "flow" if scenes else "mechanism"  # rekaman stok tidak dipakai: pembuka menjadi simulasi yang langsung bergerak
         points = [clean_text(p, 40) for p in (raw.get("points") or []) if str(p).strip()]
@@ -1011,15 +1027,25 @@ def validate_content(data):
         preset_name = ""
         if scene_type in ("mechanism", "cutaway"):
             labels_for_sim = [str(i.get("label") or "") for i in (items or []) if isinstance(i, dict)]
-            sim = sim_presets.clean_sim(raw.get("sim"))
+            # Simulasi 3D bebas buatan AI dimatikan (sumber jembatan dan pipa nyasar). SIM_LLM=on menyalakannya lagi.
+            sim = sim_presets.clean_sim(raw.get("sim")) if os.getenv("SIM_LLM", "off").strip().lower() == "on" else None
             if sim is None:
+                text_for_sim = " ".join([str(raw.get("title") or "")] + [str(ln.get("text") or "") for ln in (raw.get("lines") or []) if isinstance(ln, dict)] + [str(raw.get("narration") or "")])
                 guess = mechanism if mechanism in MECHANISMS else ""
-                guess = guess or sim_presets.guess_preset(
-                    " ".join([str(raw.get("title") or "")] + [str(ln.get("text") or "") for ln in (raw.get("lines") or []) if isinstance(ln, dict)] + [str(raw.get("narration") or "")]))
-                spec = sim_presets.preset_sim(guess, labels_for_sim) if guess else None
+                guess = guess or sim_presets.guess_preset(text_for_sim)
+                # animasi bawaan hanya untuk topik yang cocok; di luar itu dipakai primitif fisika umum
+                if guess and not sim_presets.domain_ok(guess, f"{data.get('title', '')} {TOPIC_HINT}"):
+                    guess = ""
+                spec = sim_presets.preset_sim(guess, labels_for_sim, defaults=True) if guess else None
                 sim = sim_presets.clean_sim(spec) if spec else None
                 sim_preset = sim is not None
                 preset_name = guess if sim_preset else ""
+                if sim is None:
+                    pid = primitives.choose(text_for_sim, prim_uses, len(scenes))
+                    sim = primitives.sim_for(pid, labels_for_sim, hook=not scenes, text=text_for_sim)
+                    if sim is not None:
+                        prim_uses[pid] = prim_uses.get(pid, 0) + 1
+                        sim_preset, preset_name = True, f"prim:{pid}"
                 if sim is None:
                     sim = sim_presets.clean_sim(sim_presets.generic_sim(labels_for_sim))
                     sim_generic = True

@@ -57,7 +57,7 @@ export const SceneTitle: React.FC<{ title: string; palette: Palette }> = ({
         style={{
           fontFamily: TITLE_FONT,
           fontSize: 80,
-          lineHeight: 1.05,
+          lineHeight: 1.25,
           textTransform: "uppercase",
           color: "#ffffff",
           textShadow: `0 6px 0 ${palette.bg1}, 0 0 40px ${palette.accent}88`,
@@ -154,7 +154,7 @@ export const FlowDiagram: React.FC<DiagramProps> = ({
                 style={{
                   fontFamily: BODY_FONT,
                   fontSize: n >= 4 ? 46 : 52,
-                  lineHeight: 1.1,
+                  lineHeight: 1.25,
                   color: "#ffffff",
                   textTransform: "uppercase",
                 }}
@@ -299,7 +299,7 @@ export const MindMap: React.FC<DiagramProps> = ({
           transform: `scale(${centerP * pulse})`,
           fontFamily: TITLE_FONT,
           fontSize: 58,
-          lineHeight: 1.05,
+          lineHeight: 1.25,
           textTransform: "uppercase",
           color: palette.bg1,
         }}
@@ -336,7 +336,7 @@ export const MindMap: React.FC<DiagramProps> = ({
               boxShadow: `0 0 32px ${node.color}77`,
               fontFamily: BODY_FONT,
               fontSize: 42,
-              lineHeight: 1.1,
+              lineHeight: 1.25,
               color: "#ffffff",
               textTransform: "uppercase",
               transform: `translateY(${float}px) scale(${p})`,
@@ -441,7 +441,7 @@ export const Counter: React.FC<DiagramProps> = ({ scene, palette }) => {
           style={{
             fontFamily: TITLE_FONT,
             fontSize,
-            lineHeight: 1,
+            lineHeight: 1.25,
             color: palette.accent,
             textShadow: `0 8px 0 ${palette.bg1}, 0 0 50px ${palette.accent}99`,
           }}
@@ -456,7 +456,7 @@ export const Counter: React.FC<DiagramProps> = ({ scene, palette }) => {
               textAlign: "center",
               fontFamily: BODY_FONT,
               fontSize: 40,
-              lineHeight: 1.1,
+              lineHeight: 1.25,
               color: "#ffffff",
               textTransform: "uppercase",
             }}

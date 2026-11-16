@@ -151,7 +151,7 @@ export const Timeline: React.FC<DiagramProps> = ({
                 boxShadow: `0 0 30px ${color}66`,
                 fontFamily: BODY_FONT,
                 fontSize: 38,
-                lineHeight: 1.12,
+                lineHeight: 1.25,
                 color: "#ffffff",
                 textTransform: "uppercase",
               }}
@@ -347,7 +347,7 @@ export const BeforeAfter: React.FC<DiagramProps> = ({
           opacity: Math.min(1, p * 1.6),
           fontFamily: BODY_FONT,
           fontSize: 50,
-          lineHeight: 1.12,
+          lineHeight: 1.25,
           color: "#ffffff",
           textTransform: "uppercase",
         }}

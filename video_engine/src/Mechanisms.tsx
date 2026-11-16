@@ -75,7 +75,7 @@ export const Callouts: React.FC<{
                 color: "#fff",
                 fontFamily: TITLE_FONT,
                 fontSize: 40,
-                lineHeight: 1.1,
+                lineHeight: 1.25,
                 textTransform: "uppercase",
                 transform: `scale(${p})`,
                 transformOrigin: a.side === "L" ? "0% 50%" : "100% 50%",
@@ -929,7 +929,7 @@ export const QuestionScene: React.FC<DiagramProps> = ({ scene, palette }) => {
           style={{
             fontFamily: TITLE_FONT,
             fontSize: 620,
-            lineHeight: 1,
+            lineHeight: 1.25,
             color: "#ff4d4d",
             transform: `scale(${pop * beat})`,
             textShadow: "0 0 50px #ff4d4d, 0 12px 0 #000, 6px 6px 0 #000, -6px -6px 0 #000",

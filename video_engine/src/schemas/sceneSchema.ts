@@ -18,7 +18,7 @@ export const SCENE_TYPES = [
 ] as const;
 
 // Daftar ID komponen terverifikasi (src/components/library). LLM hanya boleh memilih dari daftar ini.
-export const COMPONENT_IDS = ["IronBody", "HeatingCoil", "BimetalStrip", "ThermostatSwitch", "SoundWave"] as const;
+export const COMPONENT_IDS = ["IronBody", "HeatingCoil", "BimetalStrip", "ThermostatSwitch", "WaveInterference", "ParticleFlow", "PressureChamber", "HeatTransfer", "MechanicalTrigger"] as const;
 export type ComponentId = (typeof COMPONENT_IDS)[number];
 
 export const URGENCY = ["high", "normal", "low"] as const;

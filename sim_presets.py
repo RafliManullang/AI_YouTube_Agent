@@ -218,9 +218,9 @@ def _rope(id, a, b, off_a, off_b, **kw):
     return d
 
 
-def preset_sim(mechanism, labels):
+def preset_sim(mechanism, labels, defaults=False):
     """Spesifikasi 3D bawaan untuk satu jenis mekanisme. labels = daftar label dari naskah (boleh kurang)."""
-    lab = lambda i, default: (labels[i] if i < len(labels) and labels[i] else default)
+    lab = lambda i, default: (labels[i] if i < len(labels) and labels[i] else (default if defaults else ""))
     if mechanism == "katrol_lift":
         return {
             "cutaway": True, "cam": {"dist": 22, "height": 3.2, "orbit": 1.3, "target": [0, -0.6, 0]},
@@ -372,7 +372,29 @@ def preset_sim(mechanism, labels):
             ],
         }
     import sim_library
-    return sim_library.library_sim(mechanism, labels)
+    return sim_library.library_sim(mechanism, labels, defaults)
+
+
+def _table():
+    import sim_library
+    return sim_library.KEYWORDS + (
+        ("retractor", ("sabuk pengaman", "seat belt", "seatbelt", "gulungan sabuk", "retractor")),
+        ("nozel_bensin", ("nozel", "spbu", "pompa bensin")),
+        ("katrol_lift", ("lift", "elevator", "katrol", "derek")),
+        ("roda_gigi", ("roda gigi", "gir ", "gear")),
+        ("piston", ("piston", "mesin mobil", "silinder")),
+        ("rangkaian", ("rangkaian", "listrik", "baterai", "saklar")),
+        ("panas", ("rice cooker", "penanak", "pemanas", "termostat")),
+        ("aliran", ("venturi", "semprot", "bernoulli", "pipa")),
+    )
+
+
+def domain_ok(name, topic_text):
+    """Animasi bawaan hanya boleh dipakai kalau kata kuncinya muncul di JUDUL/TOPIK video (bukan sekadar satu kalimat adegan).
+    Mencegah jembatan, pipa listrik, atau headphone muncul di topik yang tidak berhubungan."""
+    t = (topic_text or "").lower()
+    words = [w.strip() for n, ws in _table() if n == name for w in ws]
+    return (not words) or any(w in t for w in words)
 
 
 def guess_preset(text):

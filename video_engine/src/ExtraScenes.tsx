@@ -209,7 +209,7 @@ export const Gauge: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
                 textAlign: "center",
                 fontFamily: TITLE_FONT,
                 fontSize: n === 1 ? 150 : 84,
-                lineHeight: 1,
+                lineHeight: 1.25,
                 color: "#ffffff",
                 textShadow: `0 6px 0 ${palette.bg1}, 0 0 40px ${color}`,
                 opacity: Math.max(0, appear),
@@ -277,7 +277,7 @@ export const FootageScene: React.FC<DiagramProps> = ({ scene, palette }) => {
           style={{
             fontFamily: TITLE_FONT,
             fontSize: 110,
-            lineHeight: 1.02,
+            lineHeight: 1.25,
             textTransform: "uppercase",
             color: "#ffffff",
             textShadow: `0 8px 0 ${palette.bg1}, 0 0 50px ${palette.accent}`,
