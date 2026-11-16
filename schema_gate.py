@@ -141,7 +141,7 @@ def llm_repair(props, errors, callers, log=print):
         "Kamu pemeriksa data video. JSON adegan di bawah DITOLAK oleh skema ketat dengan kesalahan ini:\n"
         + "\n".join("- " + e for e in errors[:15])
         + "\n\nPerbaiki HANYA adegan yang salah. Pakai nilai yang sah: type salah satu dari flow, mindmap, counter, timeline, barchart, "
-        "compare, gauge, footage, cutaway, microscale, story, question, mechanism; warna berbentuk #rrggbb; angka berupa angka, bukan teks; "
+        "compare, gauge, footage, cutaway, microscale, story, mechanism; warna berbentuk #rrggbb; angka berupa angka, bukan teks; "
         "end harus lebih besar dari start. Jawab HANYA dengan JSON berbentuk {\"scenes\": {\"<nomor adegan>\": {...adegan lengkap yang sudah benar...}}}.\n\n"
         + json.dumps({str(i): props["scenes"][i] for i in bad if i < len(props["scenes"])}, ensure_ascii=False)[:9000]
     )

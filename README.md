@@ -241,3 +241,10 @@ Alur: naskah (penulis + editor) -> Director memeriksa dan memperbaiki -> irama d
 - Dihapus dari kanvas 3D: lantai jaring-jaring dan semua kilatan layar putih. Momen klimaks hanya memberi pantulan skala kecil dan bayangan cahaya.
 - Pembuka (detik 0 sampai 5) wajib simulasi mekanis berupa potongan melintang, tidak boleh tanda tanya.
 - Jarak antarbaris teks dalam animasi 1,25.
+
+## Tahap 29: mekanika benda padat, tanpa tanda tanya, grafik dibatasi
+
+- Komponen dipilih sesuai BIDANG topik. Mekanika (mobil, poros, sendi, bantalan): `RotatingShaftAndJoint`, `BallBearingCage`, `RigidVsFlexibleRod`, ditambah pemicu pegas dan panas. Fluida, gas, listrik, gelombang: partikel, gelombang, ruang bertekanan. Komponen satu bidang tidak dipakai di bidang lain kecuali kalimat adegannya sendiri jelas membahasnya.
+- Kata pemicu hanya untuk simulasi mekanis. Benda tampil utuh dan bergerak pelan sejak frame 0; aksi klimaks (menekuk, patah, miring) baru jalan saat kata pemicu. Adegan grafik/angka tidak pernah menunggu.
+- Adegan tanda tanya dihapus total (skema, prompt, kode, komponen). Grafik paling banyak satu per video; sisanya diganti simulasi bergerak. Derajat di narasi (mis. "45 derajat") jadi sudut miring benda.
+- Semua kilatan putih tersisa dihapus. Cangkang bulat dibuat sangat tipis. Batang grafik dan satuan dibatasi agar tidak menabrak judul.

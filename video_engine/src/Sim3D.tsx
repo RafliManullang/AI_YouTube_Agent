@@ -381,7 +381,7 @@ export const Sim3D: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) 
   // Gerak mekanis baru dimulai saat kata pemicu diucapkan (trigger = bagian adegan 0..1); sebelum itu benda diam di keadaan awal.
   const trig = clamp01(spec.trigger ?? 0);
   const u = trig > 0 ? clamp01((frame / len - trig) / Math.max(0.05, 1 - trig)) : clamp01(frame / len);
-  const t = trig > 0 ? Math.max(0, frame / fps - trig * (len / fps)) : frame / fps;
+  const t = frame / fps; // waktu nyata: benda bergerak pelan (keadaan awal) sebelum kata pemicu, tidak pernah diam atau kosong
   const c = Math.round(len * (trig + (1 - trig) * CLIMAX)); // klimaks dan efek suara jatuh di momen aksi, bukan di awal adegan
   const since = frame - c;
   const shakeAmp = since >= 0 && since < 12 ? (1 - since / 12) * 14 : 0;

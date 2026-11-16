@@ -88,7 +88,7 @@ def bar_sim(sc):
     objs, mot = [], []
     for i, it in enumerate(items):
         x = (i - (n - 1) / 2) * gap
-        hgt = max(0.5, vals[i] / mx * 4.4)
+        hgt = max(0.5, vals[i] / mx * 3.4)  # batang dibatasi agar angka dan satuan tidak menabrak judul
         top = vals[i] == mx
         objs.append({"id": f"b{i}", "shape": "box", "pos": [x, -2 + hgt / 2, 0], "size": [1.25, round(hgt, 2), 1.25],
                      "color": "#ffd23f" if top else PAL[i % 4], "material": "plastic"})
@@ -103,7 +103,7 @@ def bar_sim(sc):
             mot.append(_appear(f"l{i}_{j}", t0))
     unit = str(sc.get("unit") or "").strip().upper()
     if unit:
-        objs.append(_txt("unit", unit, [0, 5.4, 0], _fit_h(unit, 8, 0.7), "#ffffff"))
+        objs.append(_txt("unit", unit, [0, 3.7, 0], _fit_h(unit, 8, 0.7), "#ffffff"))
         mot.append(_appear("unit", 0.05))
     return _base(objs, mot, floor=-2.0, cam={"dist": 29, "height": 3.2, "orbit": 0.7, "target": [0, -0.4, 0]})
 
@@ -292,21 +292,9 @@ def micro_sim(sc):
     return _base(objs, mot, flows, cam={"dist": 29, "height": 1.5, "orbit": 1.2, "target": [0, -1.2, 0]})
 
 
-def question_sim(sc):
-    objs = [_txt("q", "?", [0, 0.8, 0], 5.6, "#ff4d4d", "glow", size=[5.6, 1.4, 0]),
-            {"id": "ring", "shape": "torus", "pos": [0, 0.8, -0.8], "size": [3.9, 0.1, 0], "color": "#ff4d4d", "material": "glow"}]
-    mot = [{"target": "q", "kind": "pulse", "speed": 1.3}, {"target": "ring", "kind": "pulse", "speed": 0.8}, _appear("q", 0.0, 0.1)]
-    txt = (sc.get("points") or [""])[0]
-    for j, ln in enumerate(_wrap(txt, 16, 2)):
-        objs.append(_txt(f"t{j}", ln.upper(), [0, -3.2 - 0.9 * j, 0], _fit_h(ln, 8.4, 0.75), "#ffffff"))
-        mot.append(_appear(f"t{j}", 0.12))
-    return _base(objs, mot, [{"path": _circle(3.9, 16, 0.8), "color": "#ff7a7a", "count": 16, "size": 0.12, "speed": 0.25}],
-                 floor=-4.2, cam={"dist": 29, "height": 1.5, "orbit": 0.5, "target": [0, -1.0, 0]})
-
-
 GENERATORS = {
     "counter": counter_sim, "barchart": bar_sim, "timeline": timeline_sim, "gauge": gauge_sim, "flow": flow_sim,
-    "mindmap": mindmap_sim, "compare": compare_sim, "story": story_sim, "microscale": micro_sim, "question": question_sim,
+    "mindmap": mindmap_sim, "compare": compare_sim, "story": story_sim, "microscale": micro_sim,
 }
 
 

@@ -22,7 +22,7 @@ export const HookPunch: React.FC<{ text: string }> = ({ text }) => {
           textAlign: "center",
           padding: "0 70px",
           fontFamily: "Impact, 'Arial Black', sans-serif",
-          fontSize: words.length > 3 ? 130 : 170,
+          fontSize: Math.min(words.length > 3 ? 130 : 170, Math.floor(900 / (Math.max(...words.map((w) => w.length)) * 0.62))), // kata terpanjang selalu muat lebar layar
           lineHeight: 1.02,
           color: "#fff",
           textShadow: "0 8px 0 rgba(0,0,0,0.55), 0 0 40px rgba(255,200,40,0.55)",

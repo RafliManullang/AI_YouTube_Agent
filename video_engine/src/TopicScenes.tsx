@@ -695,7 +695,6 @@ const Weather: React.FC<{ kind: string; t: number; frame: number }> = ({ kind, t
             return <line key={i} x1={x} y1={y} x2={x - 18} y2={y + 54} stroke="#cfe8ff" strokeWidth={4} opacity={0.6} />;
           })}
         </svg>
-        {flash > 0 ? <div style={{ position: "absolute", inset: 0, backgroundColor: "#fff", opacity: flash }} /> : null}
       </>
     );
   }
