@@ -15,8 +15,8 @@ import sim_presets
 import topic_lock
 
 VALID_TYPES = ("flow", "mindmap", "counter", "timeline", "barchart", "compare", "gauge", "footage",
-               "cutaway", "microscale", "story", "question", "mechanism")
-FIXABLE_TYPES = ("flow", "mindmap", "question", "cutaway", "microscale")  # adegan teks datar yang boleh diganti animasi
+               "cutaway", "microscale", "story", "mechanism")
+FIXABLE_TYPES = ("flow", "mindmap", "cutaway", "microscale")  # adegan teks datar yang boleh diganti animasi
 MAX_NUMBERS = 3
 
 
@@ -155,6 +155,7 @@ def review(data, call_sources=None, log=print, forced_topic=""):
     if lock:
         fixed += topic_lock.enforce(data, lock, call_sources, log)
     fixed += topic_lock.domain_gate(data, forced_topic, lock, log)
+    fixed += topic_lock.limit_charts(data, lock, log)
     fixed += topic_lock.dedupe(data, lock, log)
     if lock:
         fixed += topic_lock.continuity(data, lock, log)

@@ -227,11 +227,14 @@ def continuity(data, lock, log=print):
     return fixed
 
 
-def _prim_scene(sc, i, n, uses, hook):
+TOPIC_FOR_DOMAIN = [""]
+
+
+def _prim_scene(sc, i, n, uses, hook, data):
     import primitives
     text = f"{sc.get('title', '')} {sc.get('narration', '')}"
     labels = [str(x.get("label") or "") for x in (sc.get("items") or []) if isinstance(x, dict)]
-    pid = primitives.choose(text, uses, i)
+    pid = primitives.choose(text, uses, i, primitives.domain_of(" ".join([str(data.get("title", ""))] + [f"{s.get('title','')} {s.get('narration','')}" for s in data["scenes"]]) + " " + (TOPIC_FOR_DOMAIN[0] or "")))
     sim = primitives.sim_for(pid, labels, hook=hook, text=text)
     if not sim:
         return False
@@ -249,6 +252,7 @@ def domain_gate(data, forced_topic="", lock=None, log=print):
     bukan tanda tanya atau kartu teks."""
     import sim_presets
     topic = f"{data.get('title', '')} {forced_topic or ''}"
+    TOPIC_FOR_DOMAIN[0] = forced_topic or ""
     uses = {}
     for sc in data["scenes"]:
         if str(sc.get("preset_name", "")).startswith("prim:"):
@@ -259,13 +263,41 @@ def domain_gate(data, forced_topic="", lock=None, log=print):
     first = data["scenes"][0] if data["scenes"] else None
     if first and not (first.get("sim_preset") and first.get("type") in ("mechanism", "cutaway")) and first.get("type") not in ("counter", "gauge", "barchart"):
         if not (lock and first.get("preset_name") in lock["chain"]):
-            if _prim_scene(first, 0, n, uses, hook=True):
+            if _prim_scene(first, 0, n, uses, True, data):
                 fixed += 1
                 log("     Pembuka: adegan 0 diganti simulasi mekanis (tanpa tanda tanya atau kartu teks).")
     for i, sc in enumerate(data["scenes"]):
         pre = sc.get("preset_name") or ""
         if pre and sc.get("sim_preset") and not pre.startswith("prim:") and not (lock and pre in lock["chain"]) and not sim_presets.domain_ok(pre, topic):
-            if _prim_scene(sc, i, n, uses, hook=(i == 0)):
+            if _prim_scene(sc, i, n, uses, (i == 0), data):
                 fixed += 1
                 log(f"     Topik: adegan {i}: animasi '{pre}' tidak cocok dengan topik, diganti primitif fisika.")
+    return fixed
+
+
+CHART_TYPES = ("barchart", "gauge", "timeline", "compare")
+
+
+def limit_charts(data, lock=None, log=print):
+    """Paling banyak SATU adegan grafik per video (utamakan barchart atau compare yang membandingkan angka). Sisanya diganti
+    simulasi mekanis yang bendanya bergerak (derajat jadi benda miring, tahapan jadi aliran gerak), bukan speedometer atau bola 1-2-3."""
+    idx = [i for i, s in enumerate(data["scenes"]) if s.get("type") in CHART_TYPES]
+    if len(idx) <= 1:
+        return 0
+    keep = next((i for i in idx if data["scenes"][i]["type"] in ("barchart", "compare")), idx[0])
+    uses = {}
+    fixed = 0
+    n = len(data["scenes"])
+    for i in idx:
+        if i == keep:
+            continue
+        sc = data["scenes"][i]
+        if lock:
+            pick = _stage_by_position(lock, i, n, {})
+            ok = bool(pick) and _set_preset(sc, pick, 1)
+        else:
+            ok = _prim_scene(sc, i, n, uses, False, data)
+        if ok:
+            fixed += 1
+            log(f"     Grafik dibatasi: adegan {i}: grafik '{sc.get('title')}' diganti simulasi mekanis.")
     return fixed

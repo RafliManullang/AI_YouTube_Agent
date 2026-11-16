@@ -14,7 +14,7 @@ import { BACKGROUND_VARIANTS, Background } from "./Background";
 import { Counter, FlowDiagram, HideChrome, MindMap } from "./Diagrams";
 import { FootageScene, Gauge } from "./ExtraScenes";
 import { Cutaway, MicroScale, Story } from "./TopicScenes";
-import { Mechanism, QuestionScene } from "./Mechanisms";
+import { Mechanism } from "./Mechanisms";
 import { ArtScene } from "./Art";
 import { Sim3D } from "./Sim3D";
 import { ModelScene } from "./ModelScene";
@@ -124,7 +124,7 @@ const SceneView: React.FC<SceneViewProps> = ({
         clips={scene.clips}
         variant={(bgSeed + index * 5) % BACKGROUND_VARIANTS}
         seed={bgSeed + index}
-        footageStrength={scene.type === "footage" ? 1 : scene.type === "mechanism" || scene.type === "question" || !!scene.sim || !!scene.model || (scene.artUrls && scene.artUrls.length > 0) ? 0 : 0.62}
+        footageStrength={scene.type === "footage" ? 1 : scene.type === "mechanism" || !!scene.sim || !!scene.model || (scene.artUrls && scene.artUrls.length > 0) ? 0 : 0.62}
       />
       
       {isFirst ? <HookPunch text={scene.title} /> : null}
@@ -148,8 +148,6 @@ const SceneView: React.FC<SceneViewProps> = ({
           <BarChart {...diagramProps} />
         ) : scene.type === "compare" ? (
           <BeforeAfter {...diagramProps} />
-        ) : scene.type === "question" ? (
-          <QuestionScene {...diagramProps} />
         ) : scene.type === "mechanism" ? (
           <Mechanism {...diagramProps} />
         ) : scene.type === "cutaway" ? (
@@ -273,14 +271,6 @@ export const ShortsComp: React.FC<ShortsProps> = ({
       {/* Efek suara hanya di momen besar: dentuman hook, pergantian adegan, dan puncak animasi. Tidak ada bunyi per kata. */}
       <Sfx name="whoosh" at={0} volume={0.34} />
       <Sfx name="impact" at={10} volume={0.5} />
-      {!clean ? (
-        <AbsoluteFill
-          style={{
-            backgroundColor: "#ffffff",
-            opacity: interpolate(frame, [8, 12, 22], [0, 0.55, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
-          }}
-        />
-      ) : null}
 
       {/* Suara narasi dan musik latar */}
       {audioUrl ? <Audio src={staticFile(audioUrl)} /> : null}

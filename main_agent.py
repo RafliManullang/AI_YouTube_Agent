@@ -95,7 +95,7 @@ SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 TOPIC_HINT = ""  # topik yang diminta pengguna; dipakai untuk mencocokkan animasi bawaan
 
 SCENE_TYPES = ("flow", "mindmap", "counter", "timeline", "barchart", "compare", "gauge", "footage",
-               "cutaway", "microscale", "story", "mechanism", "question")
+               "cutaway", "microscale", "story", "mechanism")
 MECHANISMS = ("katrol_lift", "roda_gigi", "piston", "tuas", "aliran", "panas", "rangkaian", "tekanan",
               "nozel_bensin", "roda_kerucut", "eskalator", "kunci_silinder", "sprinkler", "venturi",
               "eddy_current", "jembatan", "airbag", "mesin_ice", "ball_socket", "capillary", "pressure_leak", "jangkar_rantai", "sosrobahu",
@@ -401,12 +401,12 @@ LARANGAN KLISE (supaya video tidak terasa seperti cetakan yang sama): jangan mem
 video perlu analogi; pakai hanya kalau benar-benar membantu. Judul adegan harus spesifik pada isi (contoh:
 "Pin pegas", bukan "Penjelasan"). Variasikan jenis adegan, jangan selalu counter lalu gauge lalu barchart.
 STORYBOARD PER KATEGORI (contoh urutan adegan, boleh disesuaikan dengan kerangka cerita di atas):
-- CARA KERJA: (1) hook: benda konkret + "question" (kenapa begini?); (2) taruhan: apa bahayanya kalau
+- CARA KERJA: (1) hook: simulasi "mechanism" potongan bendanya yang sudah bergerak; (2) taruhan: apa bahayanya kalau
   tidak ada bagian rahasia ini; (3) "mechanism" atau "cutaway" yang menyorot bagian rahasia dengan label; (4) proses
   alirannya (panah dan aliran bercahaya) dalam "mechanism"; (5) klimaks: momen bagian itu bekerja memutus atau
   menahan, diucapkan dengan kalimat paling dramatis; (6) fakta mencengangkan berupa angka besar ("counter" atau
   "gauge"), lalu kalimat penutup yang menyambung ke pembuka.
-- FAKTA SAINS: (1) hook "question" yang melawan akal sehat; (2) bongkar mitos ("compare"); (3) "microscale" atau
+- FAKTA SAINS: (1) hook "mechanism" yang langsung memperlihatkan kejadian anehnya; (2) bongkar mitos ("compare"); (3) "microscale" atau
   "mechanism" yang memperlihatkan rahasianya; (4) proses saat kejadian, diucapkan pelan dan jelas agar paham;
   (5) kesimpulan jenius satu kalimat yang mudah diingat; (6) penutup melingkar.
 - KISAH INOVASI (penemuan atau teknologi yang dipakai dunia, contoh: Sosrobahu Indonesia, jembatan berjalan Swiss):
@@ -439,13 +439,16 @@ Tidak ada foto, gambar kartun, rekaman stok, atau model unduhan.
    senjata atau monster, melainkan animasi "interferensi destruktif gelombang" (mechanism "gelombang_suara").
    "Bisingnya menggila", "listrik mengamuk", "dingin menusuk" dan kiasan lain digambarkan dengan mekanisme
    fisiknya, bukan dengan benda dari arti harfiahnya.
-4. KOMPONEN FISIKA UMUM: kalau tidak ada animasi khusus untuk bendanya, adegan "mechanism" otomatis memakai salah satu dari lima
+4. GRAFIK DIBATASI: paling banyak SATU adegan grafik per video ("barchart", "gauge", "timeline", atau "compare"), dan hanya kalau
+   benar-benar membandingkan angka ekstrem. Untuk derajat kemiringan, tahapan proses, atau aliran tenaga, pakai "mechanism"
+   yang bendanya bergerak miring atau bergeser, bukan jarum speedometer atau bola bernomor 1-2-3.
+5. KOMPONEN FISIKA UMUM: kalau tidak ada animasi khusus untuk bendanya, adegan "mechanism" otomatis memakai salah satu dari lima
    primitif: ParticleFlow (partikel mengalir: ionisasi, arus, gas, radiasi), WaveInterference (gelombang: suara, sinyal, sirine),
    PressureChamber (tekanan dalam ruang tertutup), HeatTransfer (panas dan pemuaian), MechanicalTrigger (pegas dan palu pemicu).
    Tulis kalimat adegan dengan kata-kata yang jelas menyebut salah satunya (mis. "partikel", "gelombang", "tekanan", "panas", "pegas").
-5. LABEL: nama bagian ditulis di "items" ("label" singkat, 1 sampai 3 kata). Semua teks label di layar hanya dari "items" dan
+6. LABEL: nama bagian ditulis di "items" ("label" singkat, 1 sampai 3 kata). Semua teks label di layar hanya dari "items" dan
    benar-benar benda yang ada di kalimat adegan itu.
-6. PEMBUKA (detik 0 sampai 5): DILARANG berupa tanda tanya besar atau kartu kuis. Adegan pertama wajib "mechanism" yang langsung
+7. PEMBUKA (detik 0 sampai 5): DILARANG berupa tanda tanya besar atau kartu kuis. Adegan pertama wajib "mechanism" yang langsung
    memperlihatkan inti cara kerja benda (potongan melintang bendanya, partikel atau gerakan intinya sudah bergerak).
 Isi "subject" hanya dengan 1 sampai 3 kata Inggris benda yang disebut langsung di kalimat adegan itu (boleh kosong).
 "photo" dan "art" selalu dikosongkan ("").
@@ -453,7 +456,7 @@ Setiap momen klimaks atau kejutan diberi satu kalimat pendek yang menghentak (an
 dan kilat di momen itu).
 
 TIPE "footage" TIDAK DIPAKAI (tidak ada rekaman stok). Adegan pembuka WAJIB "mechanism" yang langsung
-bergerak dan menampilkan inti topik; "question" tidak boleh menjadi pembuka.
+bergerak dan menampilkan inti topik. Tanda tanya besar atau kartu kuis TIDAK PERNAH dipakai, di pembuka maupun di tengah dan penutup.
 
 TEMPO PADAT: kalimat pendek, tanpa pengantar bertele-tele, tanpa pengulangan. Setiap kalimat membawa
 informasi baru. Adegan terakhir penutup singkat yang bikin orang ingin menonton ulang. Ucapan hanya berisi
@@ -519,9 +522,6 @@ Aturan visual tiap adegan (field "type"):
                  "mobil_dongkrak" (mobil diangkat dongkrak di atas oli, kisah ide penemuan di garasi): 1 mobil, 2 dongkrak, 3 tumpahan oli
                  "loop_induksi" (sensor lampu merah: kawat tembaga di bawah aspal, medan magnet, mobil, kotak pengendali, lampu): 1 aspal, 2 kawat, 3 mobil, 4 lampu
                  "jembatan_geser" (jembatan berjalan di atas perbaikan jalan, tanjakan 6% jadi 1%): 1 jalan, 2 alat berat, 3 jembatan, 4 tanjakan
-- "question" : tanda tanya merah besar yang berdenyut, untuk adegan hook atau pembongkar mitos yang melawan akal
-               sehat (contoh: "REL KAKU, KOK NGGAK ANJLOK?"). "title" berisi kalimat tanya singkat dan "points"
-               berisi 1 teks pendek di bawah tanda tanya (maksimal 5 kata).
 - "compare"  : sebelum dan sesudah, atau dua hal yang dibandingkan. Isi "items" dengan TEPAT 2 item
                berbentuk {{"label": "judul sisi maksimal 2 kata, misalnya Sebelum / Sesudah / Dulu / Kini",
                "value": "penjelasan maksimal 8 kata"}}.
@@ -940,14 +940,14 @@ def validate_content(data):
 
     scenes = []
     prim_uses = {}
+    vdomain = primitives.domain_of(" ".join([str(data.get("title", "")), TOPIC_HINT] + [str(x) for x in data["scenes"]]))
     for raw in data["scenes"][:10]:
         lines = clean_lines(raw)
         narration = " ".join(l["text"] for l in lines)
         if len(narration.split()) < 4:
             continue
-        scene_type = raw.get("type") if raw.get("type") in SCENE_TYPES else "flow"
-        if scene_type == "question" and not scenes:
-            scene_type = "mechanism"  # pembuka dilarang berupa tanda tanya besar: langsung simulasi inti mekanisme
+        raw_type = "mechanism" if raw.get("type") == "question" else raw.get("type")  # tanda tanya dihapus total: jadi simulasi mekanis
+        scene_type = raw_type if raw_type in SCENE_TYPES else "flow"
         if scene_type == "footage":
             scene_type = "flow" if scenes else "mechanism"  # rekaman stok tidak dipakai: pembuka menjadi simulasi yang langsung bergerak
         points = [clean_text(p, 40) for p in (raw.get("points") or []) if str(p).strip()]
@@ -981,8 +981,6 @@ def validate_content(data):
             ][:4]
             if len(items) < 2:
                 scene_type, items = "flow", []
-        elif scene_type == "question" and not points:
-            scene_type = "flow"
         elif scene_type == "cutaway":
             items = clean_items(raw.get("items"), False)[:4]
             if len(items) < 2:
@@ -1041,7 +1039,7 @@ def validate_content(data):
                 sim_preset = sim is not None
                 preset_name = guess if sim_preset else ""
                 if sim is None:
-                    pid = primitives.choose(text_for_sim, prim_uses, len(scenes))
+                    pid = primitives.choose(text_for_sim, prim_uses, len(scenes), vdomain)
                     sim = primitives.sim_for(pid, labels_for_sim, hook=not scenes, text=text_for_sim)
                     if sim is not None:
                         prim_uses[pid] = prim_uses.get(pid, 0) + 1
@@ -1693,7 +1691,9 @@ def apply_triggers(scenes, words):
     Pemicu: kata 'trigger' dari naskah; kalau tidak ketemu, kata penting pertama; kalau tidak ada, 12% awal adegan."""
     for s in scenes:
         sim = s.get("sim")
-        if not sim or s.get("type") == "footage":
+        if not sim or s.get("type") not in ("mechanism", "cutaway") or not s.get("preset_name"):
+            if sim and "trigger" in sim:
+                sim.pop("trigger", None)  # adegan diagram (grafik, angka, perbandingan) tidak memakai pemicu: harus tampil utuh sejak awal
             continue
         start, end = float(s["start"]), float(s["end"])
         span = max(0.5, end - start)

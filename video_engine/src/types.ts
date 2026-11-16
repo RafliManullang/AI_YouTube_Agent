@@ -18,7 +18,6 @@ export type SceneType =
   | "cutaway" // potongan melintang / tembus pandang
   | "microscale" // zoom dari benda utuh ke tingkat mikro
   | "story" // ilustrasi buku cerita dengan karakter berekspresi
-  | "question" // tanda tanya besar berdenyut (hook yang melawan akal sehat)
   | "mechanism"; // animasi cara kerja benda (lift, roda gigi, piston, ...)
 
 export type MechanismName =

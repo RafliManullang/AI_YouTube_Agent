@@ -3,6 +3,7 @@ import { COMPONENT_IDS, ComponentId, ComponentUse as ComponentSpec } from "../..
 import { BimetalStrip } from "./BimetalStrip";
 import { HeatingCoil } from "./HeatingCoil";
 import { IronBody } from "./IronBody";
+import { BallBearingCage, RigidVsFlexibleRod, RotatingShaftAndJoint } from "./SolidMechanics";
 import { WaveInterference } from "./WaveInterference";
 import { HeatTransfer, MechanicalTrigger, ParticleFlow, PressureChamber } from "./Primitives";
 import { ThermostatSwitch } from "./ThermostatSwitch";
@@ -21,6 +22,9 @@ export const REGISTRY: Record<ComponentId, Entry> = {
   HeatingCoil: { Comp: HeatingCoil, desc: "elemen pemanas berbentuk pegas, memerah saat panas", props: ["heat", "speed", "turns"], anchors: [[0, 0, 0]] },
   BimetalStrip: { Comp: BimetalStrip, desc: "keping bimetal dua lapis (kuningan bawah, besi atas) yang melengkung ke atas saat panas", props: ["heat", "speed", "bend", "width"], anchors: [[-2.4, 0.3, 0], [2.4, 0.9, 0], [-3.3, 0.3, 0]] },
   WaveInterference: { Comp: WaveInterference, desc: "primitif: gelombang sinus dihitung tiap frame, bising + gelombang lawan = garis lurus (suara, sinyal, radio, sirine)", props: ["mode", "amp", "shell"], anchors: [[0, 3.1, 0], [0, 1.0, 0], [0, -1.3, 0]] },
+  RotatingShaftAndJoint: { Comp: RotatingShaftAndJoint, desc: "primitif mekanika: dua poros berputar dengan bola sendi, menekuk sampai sudut tertentu (poros roda, sendi CV, kardan)", props: ["tilt"], anchors: [[-2.4, 1.5, 0], [0, 1.5, 0], [2.6, 1.8, 0]] },
+  BallBearingCage: { Comp: BallBearingCage, desc: "primitif mekanika: cincin luar, cincin dalam, bola baja berputar dan bergeser saat cincin dalam dimiringkan (bantalan, sendi CV)", props: ["tilt", "balls"], anchors: [[0, 4.1, 0], [0, 0, 0.5], [3.0, -2.2, 0]] },
+  RigidVsFlexibleRod: { Comp: RigidVsFlexibleRod, desc: "primitif mekanika: batang kaku retak dan patah, batang bersendi menekuk mulus (kaku vs fleksibel)", props: ["tilt"], anchors: [[-3.2, 3.1, 0], [0, -0.0, 0], [-3.2, -3.1, 0]] },
   ParticleFlow: { Comp: ParticleFlow, desc: "primitif: partikel mengalir antara dua pelat (ionisasi, arus, gas, cairan, radiasi)", props: ["count", "shell", "colorA", "colorB", "speed"], anchors: [[-4.4, 2.4, 0], [0, 2.8, 0], [4.4, 2.4, 0]] },
   PressureChamber: { Comp: PressureChamber, desc: "primitif: ruang tertutup, partikel memantul makin cepat (tekanan, detektor, kompresi)", props: ["count", "squeeze"], anchors: [[0, 3.4, 0], [-3.4, 0, 0], [3.4, 0, 0]] },
   HeatTransfer: { Comp: HeatTransfer, desc: "primitif: dua bidang bersuhu beda, panas merambat, keping dua lapis melengkung", props: ["heat"], anchors: [[-5, 2.8, 0], [0, 1.8, 0], [5, 2.8, 0]] },

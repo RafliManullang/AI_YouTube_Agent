@@ -905,63 +905,6 @@ const RodaKerucut: React.FC<DiagramProps> = ({ scene, palette, lengthFrames }) =
   );
 };
 
-// ============================================================
-// Tanda tanya besar yang berdenyut (hook yang melawan akal sehat)
-// ============================================================
-export const QuestionScene: React.FC<DiagramProps> = ({ scene, palette }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const t = frame / fps;
-  const pop = spring({ frame, fps, config: { damping: 9, stiffness: 140, mass: 0.7 } });
-  const beat = 1 + 0.07 * Math.sin(t * 7);
-  const text = scene.points?.[0] ?? "";
-  return (
-    <>
-      <SceneTitle title={scene.title} palette={palette} />
-      <svg width={1080} height={1920} viewBox="0 0 1080 1920" style={{ position: "absolute", left: 0, top: 0 }}>
-        {[0, 1, 2].map((i) => {
-          const ph = (t * 0.8 + i / 3) % 1;
-          return <circle key={i} cx={540} cy={800} r={150 + ph * 330} fill="none" stroke="#ff4d4d" strokeWidth={10 * (1 - ph) + 2} opacity={(1 - ph) * 0.7} />;
-        })}
-      </svg>
-      <AbsoluteFill style={{ alignItems: "center", justifyContent: "flex-start", paddingTop: 480 }}>
-        <div
-          style={{
-            fontFamily: TITLE_FONT,
-            fontSize: 620,
-            lineHeight: 1.25,
-            color: "#ff4d4d",
-            transform: `scale(${pop * beat})`,
-            textShadow: "0 0 50px #ff4d4d, 0 12px 0 #000, 6px 6px 0 #000, -6px -6px 0 #000",
-          }}
-        >
-          ?
-        </div>
-        {text ? (
-          <div
-            style={{
-              marginTop: 10,
-              padding: "6px 30px",
-              borderRadius: 30,
-              backgroundColor: "rgba(8,12,28,0.9)",
-              border: `5px solid ${palette.accent}`,
-              color: "#fff",
-              fontFamily: TITLE_FONT,
-              fontSize: 58,
-              textTransform: "uppercase",
-              transform: `scale(${pop})`,
-              maxWidth: 940,
-              textAlign: "center",
-            }}
-          >
-            {text}
-          </div>
-        ) : null}
-      </AbsoluteFill>
-    </>
-  );
-};
-
 // ------------------------------------------------------------
 // Pembungkus: slow motion di klimaks, kamera bergeser, getar, kilat putih
 // ------------------------------------------------------------
@@ -1036,7 +979,6 @@ export const Mechanism: React.FC<DiagramProps> = (props) => {
         {body}
       </AbsoluteFill>
       <Sfx name={climaxSound(props.scene)} at={c} volume={0.36} />
-      {flash > 0 ? <AbsoluteFill style={{ backgroundColor: "#fff", opacity: flash }} /> : null}
     </MechClock.Provider>
   );
 };

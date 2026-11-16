@@ -160,7 +160,6 @@ export const ArtScene: React.FC<DiagramProps> = ({ scene, palette, lengthFrames 
       </div>
 
       {dramatic ? <Sfx name={climaxSound(scene)} at={c} volume={0.36} /> : null}
-      {flash > 0 ? <AbsoluteFill style={{ backgroundColor: "#fff", opacity: flash }} /> : null}
     </AbsoluteFill>
   );
 };

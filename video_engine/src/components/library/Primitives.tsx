@@ -17,12 +17,12 @@ const Ghost: React.FC<{ kind: string; w: number; h: number; d?: number; color?: 
   return kind === "disc" ? (
     <mesh position={[0, 0, -d]} rotation={[Math.PI / 2, 0, 0]}>
       <cylinderGeometry args={[w / 2, w / 2, 1.0, 48]} />
-      <meshStandardMaterial color={color} transparent opacity={0.25} metalness={0.3} roughness={0.6} depthWrite={false} />
+      <meshStandardMaterial color={color} transparent opacity={0.06} metalness={0.3} roughness={0.6} depthWrite={false} />
     </mesh>
   ) : (
     <mesh position={[0, 0, -d]}>
       <boxGeometry args={[w, h, 0.5]} />
-      <meshStandardMaterial color={color} transparent opacity={0.25} metalness={0.3} roughness={0.6} depthWrite={false} />
+      <meshStandardMaterial color={color} transparent opacity={0.1} metalness={0.3} roughness={0.6} depthWrite={false} />
     </mesh>
   );
 };
@@ -52,7 +52,7 @@ export const ParticleFlow: React.FC<LibProps> = ({ u, t, props }) => {
         const y = (hash(i, 3) - 0.5) * 3.4 + Math.sin(ph * 9 + i) * 0.18;
         const z = (hash(i, 4) - 0.5) * 0.9;
         const col = new THREE.Color(ca).lerp(new THREE.Color(cb), ph).getStyle();
-        const vis = ease(u * 6) * (ph < 0.04 ? ph / 0.04 : ph > 0.96 ? (1 - ph) / 0.04 : 1);
+        const vis = (ph < 0.04 ? ph / 0.04 : ph > 0.96 ? (1 - ph) / 0.04 : 1);
         return <mesh key={i} position={[x, y, z]} scale={0.14 + 0.1 * vis}><sphereGeometry args={[1, 10, 10]} /><meshStandardMaterial color={col} emissive={col} emissiveIntensity={1.5} transparent opacity={vis} /></mesh>;
       })}
     </group>
@@ -111,7 +111,7 @@ export const HeatTransfer: React.FC<LibProps> = ({ u, t, props }) => {
         const ph = (t * 0.4 + hash(i)) % 1;
         const x = -4.2 + 3.0 * ph;
         const y = (hash(i, 2) - 0.5) * 3.4 + Math.sin(ph * 12 + i) * 0.15;
-        return <mesh key={i} position={[x, y, 0.5]} scale={0.11 * ease(u * 5)}><sphereGeometry args={[1, 8, 8]} /><meshBasicMaterial color="#ff9d3c" transparent opacity={0.8 * (1 - ph)} /></mesh>;
+        return <mesh key={i} position={[x, y, 0.5]} scale={0.11 * (0.35 + 0.65 * ease(u * 5))}><sphereGeometry args={[1, 8, 8]} /><meshBasicMaterial color="#ff9d3c" transparent opacity={0.8 * (1 - ph)} /></mesh>;
       })}
     </group>
   );

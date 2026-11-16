@@ -118,7 +118,6 @@ export const ModelScene: React.FC<DiagramProps> = ({ scene, palette, lengthFrame
         })}
       </div>
       <Sfx name={climaxSound(scene)} at={c} volume={0.36} />
-      {flash > 0 ? <AbsoluteFill style={{ backgroundColor: "#fff", opacity: flash }} /> : null}
     </AbsoluteFill>
   );
 };
