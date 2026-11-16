@@ -144,7 +144,7 @@ export const ArtScene: React.FC<DiagramProps> = ({ scene, palette, lengthFrames 
                   color: "#fff",
                   fontFamily: TITLE_FONT,
                   fontSize: 40,
-                  lineHeight: 1.1,
+                  lineHeight: 1.25,
                   textTransform: "uppercase",
                   transform: `scale(${p})`,
                   transformOrigin: "0% 50%",

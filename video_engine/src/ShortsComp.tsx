@@ -103,13 +103,6 @@ const SceneView: React.FC<SceneViewProps> = ({
     else transform = `translateX(${(1 - eased) * (index % 2 ? 140 : -140)}px)`;
   }
 
-  // Kilatan cahaya singkat tiap pergantian adegan
-  const flash = isFirst
-    ? 0
-    : interpolate(frame, [0, 7], [0.3, 0], {
-        extrapolateLeft: "clamp",
-        extrapolateRight: "clamp",
-      });
 
   const diagramProps = { scene, palette, lengthFrames };
 
@@ -189,9 +182,6 @@ const SceneView: React.FC<SceneViewProps> = ({
             transform: `translateX(${-glitchShift * 1.6}px)`,
           }}
         />
-      ) : null}
-      {flash > 0 ? (
-        <AbsoluteFill style={{ backgroundColor: palette.accent, opacity: flash }} />
       ) : null}
     </AbsoluteFill>
   );

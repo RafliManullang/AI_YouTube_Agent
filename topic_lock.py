@@ -122,7 +122,7 @@ def _llm_pick(lock, sc, call_sources, log):
 
 def _set_preset(sc, name, variant=0):
     labels = [str(x.get("label") or "") for x in (sc.get("items") or []) if isinstance(x, dict)]
-    spec = sim_presets.preset_sim(name, labels)
+    spec = sim_presets.preset_sim(name, labels, defaults=True)  # topik terkunci: animasi memang khusus topiknya
     sim = sim_presets.clean_sim(spec) if spec else None
     if not sim:
         return False
@@ -187,6 +187,12 @@ def dedupe(data, lock=None, log=print):
         pre = sc.get("preset_name")
         if not pre or not sc.get("sim_preset"):
             continue
+        if pre.startswith("prim:"):  # primitif fisika boleh dipakai ulang (maks 2x), dengan sudut kamera berbeda
+            n = seen.get(pre, 0)
+            if n and not sc.get("variant_k"):
+                _variant_cam(sc, n)
+            seen[pre] = n + 1
+            continue
         n = seen.get(pre, 0)
         if n == 0:
             seen[pre] = 1
@@ -218,4 +224,48 @@ def continuity(data, lock, log=print):
             fixed += 1
         else:
             last = idx
+    return fixed
+
+
+def _prim_scene(sc, i, n, uses, hook):
+    import primitives
+    text = f"{sc.get('title', '')} {sc.get('narration', '')}"
+    labels = [str(x.get("label") or "") for x in (sc.get("items") or []) if isinstance(x, dict)]
+    pid = primitives.choose(text, uses, i)
+    sim = primitives.sim_for(pid, labels, hook=hook, text=text)
+    if not sim:
+        return False
+    uses[pid] = uses.get(pid, 0) + 1
+    sc["sim"], sc["sim_preset"], sc["sim_generic"], sc["type"] = sim, True, False, "mechanism"
+    sc["preset_name"] = f"prim:{pid}"
+    sc["subject"] = ""
+    for k in ("model", "art_urls", "video", "clips", "art"):
+        sc.pop(k, None)
+    return True
+
+
+def domain_gate(data, forced_topic="", lock=None, log=print):
+    """Animasi bawaan di luar topiknya diganti primitif fisika umum; pembuka (detik 0 sampai 5) wajib simulasi mekanis,
+    bukan tanda tanya atau kartu teks."""
+    import sim_presets
+    topic = f"{data.get('title', '')} {forced_topic or ''}"
+    uses = {}
+    for sc in data["scenes"]:
+        if str(sc.get("preset_name", "")).startswith("prim:"):
+            k = sc["preset_name"][5:]
+            uses[k] = uses.get(k, 0) + 1
+    fixed = 0
+    n = len(data["scenes"])
+    first = data["scenes"][0] if data["scenes"] else None
+    if first and not (first.get("sim_preset") and first.get("type") in ("mechanism", "cutaway")) and first.get("type") not in ("counter", "gauge", "barchart"):
+        if not (lock and first.get("preset_name") in lock["chain"]):
+            if _prim_scene(first, 0, n, uses, hook=True):
+                fixed += 1
+                log("     Pembuka: adegan 0 diganti simulasi mekanis (tanpa tanda tanya atau kartu teks).")
+    for i, sc in enumerate(data["scenes"]):
+        pre = sc.get("preset_name") or ""
+        if pre and sc.get("sim_preset") and not pre.startswith("prim:") and not (lock and pre in lock["chain"]) and not sim_presets.domain_ok(pre, topic):
+            if _prim_scene(sc, i, n, uses, hook=(i == 0)):
+                fixed += 1
+                log(f"     Topik: adegan {i}: animasi '{pre}' tidak cocok dengan topik, diganti primitif fisika.")
     return fixed

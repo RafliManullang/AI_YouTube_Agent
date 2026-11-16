@@ -3,7 +3,8 @@ import { COMPONENT_IDS, ComponentId, ComponentUse as ComponentSpec } from "../..
 import { BimetalStrip } from "./BimetalStrip";
 import { HeatingCoil } from "./HeatingCoil";
 import { IronBody } from "./IronBody";
-import { SoundWave } from "./SoundWave";
+import { WaveInterference } from "./WaveInterference";
+import { HeatTransfer, MechanicalTrigger, ParticleFlow, PressureChamber } from "./Primitives";
 import { ThermostatSwitch } from "./ThermostatSwitch";
 import { LibProps } from "./common";
 
@@ -19,7 +20,11 @@ export const REGISTRY: Record<ComponentId, Entry> = {
   IronBody: { Comp: IronBody, desc: "setrika rumahan: tapak aluminium, bodi tembus pandang, gagang, tombol suhu", props: ["heat", "speed", "ghost", "handleColor"], anchors: [[0, 0.2, 1.5], [0, 1.4, 0], [-1.6, 3.5, 0]] },
   HeatingCoil: { Comp: HeatingCoil, desc: "elemen pemanas berbentuk pegas, memerah saat panas", props: ["heat", "speed", "turns"], anchors: [[0, 0, 0]] },
   BimetalStrip: { Comp: BimetalStrip, desc: "keping bimetal dua lapis (kuningan bawah, besi atas) yang melengkung ke atas saat panas", props: ["heat", "speed", "bend", "width"], anchors: [[-2.4, 0.3, 0], [2.4, 0.9, 0], [-3.3, 0.3, 0]] },
-  SoundWave: { Comp: SoundWave, desc: "gelombang suara dihitung tiap frame: bising, gelombang lawan, hasil lurus (interferensi destruktif), dengan siluet headphone tembus pandang", props: ["mode", "amp", "shell"], anchors: [[0, 3.1, 0], [0, 1.0, 0], [0, -1.3, 0]] },
+  WaveInterference: { Comp: WaveInterference, desc: "primitif: gelombang sinus dihitung tiap frame, bising + gelombang lawan = garis lurus (suara, sinyal, radio, sirine)", props: ["mode", "amp", "shell"], anchors: [[0, 3.1, 0], [0, 1.0, 0], [0, -1.3, 0]] },
+  ParticleFlow: { Comp: ParticleFlow, desc: "primitif: partikel mengalir antara dua pelat (ionisasi, arus, gas, cairan, radiasi)", props: ["count", "shell", "colorA", "colorB", "speed"], anchors: [[-4.4, 2.4, 0], [0, 2.8, 0], [4.4, 2.4, 0]] },
+  PressureChamber: { Comp: PressureChamber, desc: "primitif: ruang tertutup, partikel memantul makin cepat (tekanan, detektor, kompresi)", props: ["count", "squeeze"], anchors: [[0, 3.4, 0], [-3.4, 0, 0], [3.4, 0, 0]] },
+  HeatTransfer: { Comp: HeatTransfer, desc: "primitif: dua bidang bersuhu beda, panas merambat, keping dua lapis melengkung", props: ["heat"], anchors: [[-5, 2.8, 0], [0, 1.8, 0], [5, 2.8, 0]] },
+  MechanicalTrigger: { Comp: MechanicalTrigger, desc: "primitif: pegas menekan, palu memukul sasaran, percikan menyebar (pemicu mekanis)", props: ["shell"], anchors: [[0, 4.0, 0], [0, 2.0, 0], [0, -2.9, 0]] },
   ThermostatSwitch: { Comp: ThermostatSwitch, desc: "saklar pemutus: kontak terangkat dan lampu padam saat panas", props: ["heat", "speed"], anchors: [[0, 0.7, 0], [1.4, 0.9, 0]] },
 };
 

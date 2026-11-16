@@ -11,7 +11,6 @@ export const HookPunch: React.FC<{ text: string }> = ({ text }) => {
   if (t > 2.6 || !text) return null;
   const pop = springIn(frame, fps, 0, "snappy");
   const out = interpolate(t, [2.0, 2.6], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const flash = interpolate(t, [0, 0.18], [0.85, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const words = text.toUpperCase().split(" ");
   return (
     <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", pointerEvents: "none" }}>
@@ -35,7 +34,6 @@ export const HookPunch: React.FC<{ text: string }> = ({ text }) => {
           <span key={i} style={{ display: "inline-block", marginRight: 22, color: i % 2 ? "#ffd23c" : "#fff" }}>{w}</span>
         ))}
       </div>
-      <div style={{ position: "absolute", inset: 0, background: "#fff", opacity: flash }} />
     </AbsoluteFill>
   );
 };

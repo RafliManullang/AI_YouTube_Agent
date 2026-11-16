@@ -154,6 +154,7 @@ def review(data, call_sources=None, log=print, forced_topic=""):
             log(f"     Director: adegan {issue['scene'] if issue.get('scene') is not None else '-'}: {issue['problem']}")
     if lock:
         fixed += topic_lock.enforce(data, lock, call_sources, log)
+    fixed += topic_lock.domain_gate(data, forced_topic, lock, log)
     fixed += topic_lock.dedupe(data, lock, log)
     if lock:
         fixed += topic_lock.continuity(data, lock, log)
