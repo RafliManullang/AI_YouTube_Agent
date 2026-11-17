@@ -127,7 +127,17 @@ export type SceneData = {
   transition?: { kind: "fade" | "slide" | "zoom" | "whip"; seconds: number }; // gaya dan lama perpindahan masuk
 };
 
+export type MechTiming = {
+  sceneIndex: number;
+  startFrame: number;
+  endFrame: number;
+  triggerFrame: number;
+  focusTarget: string;
+  labels: string[];
+};
+
 export type ShortsProps = {
+  mechScenes?: MechTiming[]; // jadwal adegan untuk kanvas tunggal buatan AI (generated/GeneratedMechanism.tsx)
   clean?: boolean; // tanpa judul, label, dan subtitle (untuk latar thumbnail)
   thumbBg?: string;
   audioUrl: string;

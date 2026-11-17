@@ -248,3 +248,15 @@ Alur: naskah (penulis + editor) -> Director memeriksa dan memperbaiki -> irama d
 - Kata pemicu hanya untuk simulasi mekanis. Benda tampil utuh dan bergerak pelan sejak frame 0; aksi klimaks (menekuk, patah, miring) baru jalan saat kata pemicu. Adegan grafik/angka tidak pernah menunggu.
 - Adegan tanda tanya dihapus total (skema, prompt, kode, komponen). Grafik paling banyak satu per video; sisanya diganti simulasi bergerak. Derajat di narasi (mis. "45 derajat") jadi sudut miring benda.
 - Semua kilatan putih tersisa dihapus. Cangkang bulat dibuat sangat tipis. Batang grafik dan satuan dibatasi agar tidak menabrak judul.
+
+## Tahap 30: satu kanvas yang digambar AI untuk setiap topik (tanpa preset)
+
+Cara lama (memilih salah satu dari sekitar 10 gambar preset lalu mengganti tulisannya) dihapus total. Sekarang:
+
+- Seluruh video adalah SATU benda utuh dalam tampak potongan melintang, dari detik 0 sampai akhir. Benda tidak berganti tiap adegan; yang berganti hanya posisi kamera (zoom ke bagian yang dibahas) dan bagian yang bergerak.
+- AI menulis sendiri kode gambarnya untuk topik itu (`svg_composer.py`, hasilnya di `video_engine/src/generated/GeneratedMechanism.tsx`, file ini dibuat ulang di setiap video dan tidak ikut git). Pertama AI membuat rancangan bagian benda, lalu kodenya.
+- Kode dari AI melewati pemeriksaan sebelum dipakai: (1) hanya boleh memakai `react` dan `remotion`, tanpa acak atau internet; (2) pemeriksaan tipe TypeScript; (3) render beberapa bingkai sungguhan untuk menangkap galat saat dijalankan; (4) bingkai pertama tidak boleh kosong. Kalau gagal, pesan galat dikirim kembali ke AI untuk diperbaiki (paling banyak 2 kali). Kalau tetap gagal, video dibatalkan, bukan memakai gambar cadangan.
+- Gerak klimaks tiap adegan mulai tepat di kata pemicu (waktu kata dari suara).
+- Dihapus: komponen bola 1-2, tabung VS, lift, bearing, grafik, tanda tanya, judul bab di atas layar, hook besar yang menutupi benda, dan semua kode pemilih preset (`director`, `topic_lock`, `primitives`, `sim_*`, `metaphors`, rekaman stok, gambar kartun, model 3D).
+- Prompt naskah diganti: satu benda utama, tiap adegan menyorot satu bagian, `trigger` wajib.
+- Catatan: pembuatan kanvas butuh model yang kuat menulis kode (Gemini lebih baik daripada model cadangan kecil), dan memakan sekitar 1 sampai 3 menit tambahan.

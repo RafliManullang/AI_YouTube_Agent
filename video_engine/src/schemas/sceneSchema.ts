@@ -142,7 +142,17 @@ export const sceneSchema = z.object({
 }).refine((s) => s.end > s.start, { message: "end adegan harus lebih besar dari start" })
   .refine((s) => s.type !== "mechanism" || !s.mechanism || s.mechanism.length > 0, { message: "mechanism kosong" });
 
+export const mechTimingSchema = z.object({
+  sceneIndex: finite.int().min(0).max(60),
+  startFrame: finite.int().min(0),
+  endFrame: finite.int().min(1),
+  triggerFrame: finite.int().min(0),
+  focusTarget: text(80),
+  labels: z.array(text(40)).max(4),
+});
+
 export const shortsPropsSchema = z.object({
+  mechScenes: z.array(mechTimingSchema).max(40).optional(),
   clean: z.boolean().optional(),
   thumbBg: text(120).optional(),
   audioUrl: text(200),

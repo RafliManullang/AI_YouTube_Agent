@@ -10,21 +10,12 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { BACKGROUND_VARIANTS, Background } from "./Background";
-import { Counter, FlowDiagram, HideChrome, MindMap } from "./Diagrams";
-import { FootageScene, Gauge } from "./ExtraScenes";
-import { Cutaway, MicroScale, Story } from "./TopicScenes";
-import { Mechanism } from "./Mechanisms";
-import { ArtScene } from "./Art";
-import { Sim3D } from "./Sim3D";
-import { ModelScene } from "./ModelScene";
-import { BarChart, BeforeAfter, Timeline } from "./MoreDiagrams";
-import { Ambience, Sfx, SfxEnabled, SfxMap, SfxSeed } from "./Sfx";
-import { CameraRig } from "./components/CameraRig";
-import { HookPunch } from "./components/HookPunch";
-import { CaptionZone, SafeVisual } from "./layout/SafeLayout";
+import { Background } from "./Background";
+import { Ambience, Sfx, SfxEnabled, SfxMap, SfxSeed, climaxSound } from "./Sfx";
+import { CaptionZone } from "./layout/SafeLayout";
 import { springIn } from "./utils/animation";
-import { Palette, SceneData, ShortsProps, WordItem, paletteFor } from "./types";
+import { Palette, ShortsProps, WordItem, paletteFor } from "./types";
+import { TopicMechanism } from "./generated/GeneratedMechanism";
 
 export type { ShortsProps, WordItem } from "./types";
 
@@ -67,123 +58,15 @@ const buildPhrases = (words: WordItem[], sceneStarts: number[]): WordItem[][] =>
   return phrases.filter((p) => p.length > 0);
 };
 
-type SceneViewProps = {
-  scene: SceneData;
-  palette: Palette;
-  lengthFrames: number;
-  index: number;
-  bgSeed: number;
-};
-
-const SceneView: React.FC<SceneViewProps> = ({
-  scene,
-  palette,
-  lengthFrames,
-  index,
-  bgSeed,
-}) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const isFirst = index === 0;
-
-  const fadeSeconds = scene.transition?.seconds ?? FADE_SECONDS; // hook cepat, penutup lembut (lihat pacing.py)
-  const t = interpolate(frame, [0, fadeSeconds * fps], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const eased = Easing.out(Easing.cubic)(t);
-  const fade = isFirst ? 1 : eased;
-
-  // Tiga gaya masuk yang bergantian supaya pergantian adegan tidak terasa sama terus
-  const mode = index % 3;
-  let transform = "none";
-  if (!isFirst) {
-    if (mode === 0) transform = `translateY(${(1 - eased) * 90}px)`;
-    else if (mode === 1) transform = `scale(${1.2 - 0.2 * eased})`;
-    else transform = `translateX(${(1 - eased) * (index % 2 ? 140 : -140)}px)`;
-  }
-
-
-  const diagramProps = { scene, palette, lengthFrames };
-
-  // Adegan cerita: transisi kilas balik (glitch), pinggiran gelap (vignette), dan detak jam
-  const isStory = scene.type === "story";
-  const glitchOn = isStory && !isFirst && frame < 9;
-  const glitchShift = glitchOn ? (frame % 2 ? 1 : -1) * (9 - frame) * 5 : 0;
-  if (glitchOn) transform = `translateX(${glitchShift}px) skewX(${glitchShift * 0.25}deg)`;
-  if (isStory) transform = `${transform === "none" ? "" : transform + " "}scale(${1 + 0.07 * Math.min(1, frame / Math.max(1, lengthFrames))})`;
-
-  return (
-    <AbsoluteFill style={{ opacity: fade }}>
-      {!isFirst ? <Sfx name="whoosh" at={0} /> : null}
-      <Ambience sound={scene.sound} lengthFrames={lengthFrames} fps={fps} />
-      <Background
-        palette={palette}
-        video={scene.video}
-        videoSeconds={scene.videoSeconds}
-        clips={scene.clips}
-        variant={(bgSeed + index * 5) % BACKGROUND_VARIANTS}
-        seed={bgSeed + index}
-        footageStrength={scene.type === "footage" ? 1 : scene.type === "mechanism" || !!scene.sim || !!scene.model || (scene.artUrls && scene.artUrls.length > 0) ? 0 : 0.62}
-      />
-      
-      {isFirst ? <HookPunch text={scene.title} /> : null}
-      <AbsoluteFill style={{ transform }}>
-        <SafeVisual fullBleed={scene.type === "footage" || (!!scene.artUrls?.length && !scene.model && !scene.sim)}>
-        {scene.model ? (
-          <ModelScene {...diagramProps} />
-        ) : scene.artUrls && scene.artUrls.length > 0 && !["counter", "barchart", "timeline", "compare", "gauge"].includes(scene.type) ? (
-          <ArtScene {...diagramProps} />
-        ) : scene.sim ? (
-          <Sim3D {...diagramProps} />
-        ) : scene.artUrls && scene.artUrls.length > 0 ? (
-          <ArtScene {...diagramProps} />
-        ) : scene.type === "mindmap" ? (
-          <MindMap {...diagramProps} />
-        ) : scene.type === "counter" ? (
-          <Counter {...diagramProps} />
-        ) : scene.type === "timeline" ? (
-          <Timeline {...diagramProps} />
-        ) : scene.type === "barchart" ? (
-          <BarChart {...diagramProps} />
-        ) : scene.type === "compare" ? (
-          <BeforeAfter {...diagramProps} />
-        ) : scene.type === "mechanism" ? (
-          <Mechanism {...diagramProps} />
-        ) : scene.type === "cutaway" ? (
-          <Cutaway {...diagramProps} />
-        ) : scene.type === "microscale" ? (
-          <MicroScale {...diagramProps} />
-        ) : scene.type === "story" ? (
-          <Story {...diagramProps} />
-        ) : scene.type === "gauge" ? (
-          <Gauge {...diagramProps} />
-        ) : scene.type === "footage" ? (
-          <FootageScene {...diagramProps} />
-        ) : (
-          <FlowDiagram {...diagramProps} />
-        )}
-        </SafeVisual>
-      </AbsoluteFill>
-      {isStory ? (
-        <AbsoluteFill
-          style={{
-            background: "radial-gradient(ellipse at 50% 42%, rgba(0,0,0,0) 46%, rgba(0,0,0,0.62) 100%)",
-          }}
-        />
-      ) : null}
-      {glitchOn ? (
-        <AbsoluteFill
-          style={{
-            background: `linear-gradient(0deg, rgba(255,0,80,0.18), rgba(0,230,255,0.18))`,
-            mixBlendMode: "screen",
-            transform: `translateX(${-glitchShift * 1.6}px)`,
-          }}
-        />
-      ) : null}
-    </AbsoluteFill>
-  );
-};
+// Bunyi hanya di momen penting: suara latar tiap adegan dan satu bunyi tepat di kata pemicu.
+const SceneAudio: React.FC<{ scene: ShortsProps["scenes"][number]; startFrame: number; endFrame: number; triggerFrame: number; fps: number }> = ({
+  scene, startFrame, endFrame, triggerFrame, fps,
+}) => (
+  <Sequence from={startFrame} durationInFrames={Math.max(1, endFrame - startFrame)}>
+    <Ambience sound={scene.sound} lengthFrames={Math.max(1, endFrame - startFrame)} fps={fps} />
+    <Sfx name={climaxSound(scene)} at={Math.max(0, triggerFrame - startFrame)} />
+  </Sequence>
+);
 
 export const ShortsComp: React.FC<ShortsProps> = ({
   audioUrl,
@@ -196,6 +79,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   bgSeed = 0,
   sfxMap = {},
   clean = false,
+  mechScenes = [],
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -233,33 +117,18 @@ export const ShortsComp: React.FC<ShortsProps> = ({
     <SfxEnabled.Provider value={sfx}>
     <SfxSeed.Provider value={bgSeed}>
     <SfxMap.Provider value={sfxMap}>
-    <HideChrome.Provider value={clean}>
     <AbsoluteFill style={{ backgroundColor: "#0b0f19" }}>
-    <CameraRig sceneStarts={safeScenes.map((sc) => sc.start)} total={total} enabled={!clean}>
-      {safeScenes.length === 0 ? (
+      {/* Satu kanvas berkelanjutan dari detik 0 sampai akhir: benda yang sama, hanya kamera dan geraknya yang berubah */}
+      {mechScenes.length > 0 ? (
+        <TopicMechanism scenes={mechScenes} />
+      ) : (
         <Background palette={paletteFor(0, themeIndex)} />
-      ) : null}
-
-      {safeScenes.map((scene, i) => {
-        const from = Math.round(scene.start * fps);
-        const next = safeScenes[i + 1];
-        const to = Math.round((next ? next.start : total) * fps);
-        const extra = next ? Math.round((next.transition?.seconds ?? FADE_SECONDS) * fps) : 0;
-        const length = Math.max(1, to - from + extra);
-        return (
-          <Sequence key={i} from={from} durationInFrames={length}>
-            <SceneView
-              scene={scene}
-              palette={paletteFor(i, themeIndex)}
-              lengthFrames={Math.max(1, to - from)}
-              index={i}
-              bgSeed={bgSeed}
-            />
-          </Sequence>
-        );
-      })}
-
-    </CameraRig>
+      )}
+      {mechScenes.map((m, i) =>
+        safeScenes[m.sceneIndex] ? (
+          <SceneAudio key={i} scene={safeScenes[m.sceneIndex]} startFrame={m.startFrame} endFrame={m.endFrame} triggerFrame={m.triggerFrame} fps={fps} />
+        ) : null,
+      )}
       {/* Lapisan gelap tipis di bawah supaya teks mudah dibaca */}
       <AbsoluteFill
         style={{
@@ -335,7 +204,6 @@ export const ShortsComp: React.FC<ShortsProps> = ({
         }}
       />}
     </AbsoluteFill>
-    </HideChrome.Provider>
     </SfxMap.Provider>
     </SfxSeed.Provider>
     </SfxEnabled.Provider>
