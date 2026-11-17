@@ -87,6 +87,12 @@ ATURAN MUTLAK:
    - Setiap batang, selongsong, pin, pipa, dan silinder memakai `<linearGradient>` dengan MINIMAL 3 titik warna `<stop>`: tepi gelap, pantulan terang di tengah (specular highlight), tepi bayangan. Contoh logam: #475569 (0%), #e2e8f0 (45%), #334155 (100%). Kaca/cairan memakai biru transparan dengan highlight putih. Dilarang mengisi komponen dengan satu warna solid.
    - Tiap komponen yang bergerak diberi garis highlight tipis di sisi atas/kiri (`stroke="#ffffff" strokeOpacity={0.35} strokeWidth={2}`) dan bayangan gelap di belakangnya (`<filter id="shadow">` dengan `<feDropShadow dx="6" dy="8" stdDeviation="6" floodColor="#000" floodOpacity="0.55"/>`) supaya bagian dalam mesin tampak bertumpuk dan punya kedalaman ruang. Komponen yang lebih dalam digambar lebih dulu dan sedikit lebih gelap.
    - Fluida, gas, atau listrik yang berubah kondisi (tekanan rendah ke tinggi, dingin ke panas) mengubah WARNA secara halus lewat `interpolateColors(progress, [0, 1], ["#38bdf8", "#f97316"])` (impor dari 'remotion'), bukan berganti warna mendadak. Kondisi rendah = biru, kondisi tinggi = oranye menyala.
+13. TATA LETAK PENUH LAYAR (DILARANG MENGUMPUL DI ATAS):
+   - Di kamera `whole` (skala 1), seluruh sistem benda harus mengisi area X 120..960 dan Y 300..1380: lebar sistem minimal 75% dari 840, tinggi minimal 60% dari 1080, titik tengahnya sekitar (540, 840). Dilarang menaruh benda hanya di setengah atas layar sementara setengah bawah kosong, dan dilarang membuat komponen kecil-kecil seperti ikon (komponen inti minimal 160 px pada skala 1).
+   - Saat kamera zoom-in, komponen yang dibahas harus utuh terlihat (tidak terpotong tepi layar) dan berukuran sedikitnya 40% lebar layar. Pilih skala zoom supaya komponen beserta tetangganya yang bersentuhan masih muat di X 60..1020.
+   - Sistem yang rumit (rem kereta, mesin, jaringan pipa) disederhanakan menjadi SATU rantai utama dari kiri ke kanan atau atas ke bawah yang terdiri dari 4 sampai 6 komponen besar. Dilarang menaruh komponen yang tidak pernah dibahas narasi.
+   - Setiap komponen yang disebut di narasi harus punya bentuk yang bisa dikenali (silinder, piston, pegas, katup, roda, pipa berongga), bukan kotak polos atau ikon.
+14. PENEMPATAN LABEL: kotak label tidak boleh menutupi komponen yang ditunjuk atau komponen lain. Letakkan kotak label di ruang kosong, minimal 70 px dari tepi gambar komponen itu, dengan garis penunjuk pendek. Dua label dalam satu adegan tidak boleh saling berpotongan atau berjarak kurang dari 80 px.
 12. SIAP DIPAKAI: komponen WAJIB diekspor tepat seperti ini, dan interface WAJIB ada persis:
 ```tsx
 export interface SceneTiming {
@@ -320,6 +326,8 @@ Periksa HANYA cacat yang jelas terlihat:
  a. teks label terpotong di tepi layar atau keluar layar,
  b. bagian benda saling bertumpuk parah sehingga tidak terbaca, atau menimpa label,
  c. layar terlalu kosong atau benda terlalu kecil (kurang dari separuh lebar layar) pada tangkapan yang seharusnya menampilkan benda,
+ d0. benda hanya memenuhi bagian atas layar sementara bagian bawah kosong, atau komponen tampak sangat kecil seperti ikon,
+ d1. kotak label menutupi komponen yang ditunjuk,
  d. bagian benda keluar dari batas layar yang seharusnya utuh terlihat, atau posisinya miring tidak wajar,
  e. warna terlalu gelap sehingga bagian penting nyaris tak terlihat.
 Kalau tidak ada cacat jelas, jawab ok. Jangan mengada-ada demi terlihat teliti.
