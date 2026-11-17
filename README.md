@@ -275,3 +275,8 @@ Cara lama (memilih salah satu dari sekitar 10 gambar preset lalu mengganti tulis
 - Lapisan tetap milik sistem (bukan gambar AI): kalimat tanya pembuka 12 detik, kotak klaim beserta sumber, dan subtitle di 68% layar dengan kata aktif dalam kotak oranye.
 - Komponen HUD siap pakai di `components/hud`: `CitationBadge`, `SegmentedForceArrow`, `LoadWeightBadge`, `MisconceptionCross`. Angka HUD dan klaim hanya dipakai kalau angkanya memang diucapkan di naskah.
 - Prompt gambar: gaya cel-shaded (garis tepi `#0f172a`, warna fungsional), fisika mikro (lengkung elastis, partikel benturan), dan svg wajib transparan.
+
+## Tahap 37: alur sinematik 4 babak
+
+- Babak 1 (adegan pertama): benda utuh di tempat aslinya. Babak 2: kamera menembus cangkang (mode `xray`, cangkang 0.25). Babak 3: mekanisme inti (mode `blueprint`, panah gaya HUD dan lingkaran pembesar). Babak 4 (adegan terakhir): zoom-out, cangkang menutup, benda utuh menyelesaikan tugasnya.
+- Mode `analogi` dari Tahap 36 dihapus; perumpamaan cukup satu kalimat di naskah babak 3.
