@@ -30,7 +30,7 @@ export interface SceneTiming {
   triggerFrame: number;
   focusTarget: string;
   labels: string[];
-  mode?: "konteks" | "analogi" | "blueprint";
+  mode?: "konteks" | "xray" | "blueprint";
   negationFrame?: number;
   hud?: { load?: string; force?: string };
 }
@@ -56,7 +56,7 @@ ATURAN MUTLAK:
 2. BENTUK HARUS BENAR SECARA FISIKA: gambar bendanya seperti aslinya (roda gigi harus punya gigi yang saling bertaut, pegas berbentuk pegas, pipa berongga, aliran dengan panah). Dilarang memakai bola/lingkaran polos untuk mewakili benda yang bukan bola. Kalau ada perbandingan (misalnya lintasan panjang vs pendek), gambarkan dengan panjang garis yang BENAR: yang lebih panjang harus tampak lebih panjang.
 3. TIGA LAPIS:
    - Lapis 1 (cangkang luar): siluet bodi asli benda, `fill="rgba(30,41,59,0.35)"`, `stroke="#475569"`, `strokeWidth={3}`, supaya penonton langsung mengenali bendanya sejak frame pertama.
-   - Lapis 1B (FrontCoverShell, penutup depan bodi luar): bodi luar benda yang utuh dan tertutup (logam, karet, tekstur ulir luar, leher). Pada adegan `mode === "konteks"` penutup ini solid (opacity 1.0) dan menutupi isi dalam. Saat masuk adegan `mode === "blueprint"` yang pertama, penutup membuka dengan `spring` dimulai tepat di `startFrame` adegan itu (turun ke opacity 0.2 seperti dinding depan yang terbelah). Pada adegan `konteks` penutup (setelah blueprint), penutup menutup kembali ke opacity 1. Bagian dalam sudah ada dan bergerak pelan di belakang penutup sejak frame 0.
+   - Lapis 1B (FrontCoverShell, penutup depan bodi luar): bodi luar benda yang utuh dan tertutup (logam, karet, tekstur ulir luar, leher). Pada `mode === "konteks"` penutup solid (opacity 1.0) dan menutupi isi dalam. Saat `mode` menjadi `"xray"` penutup memudar dengan `spring` dimulai tepat di `startFrame` adegan itu sampai opacity 0.25 (transparan, isi dalam terlihat), dan tetap 0.25 selama `"blueprint"`. Saat `mode` kembali `"konteks"` (penutup akhir) penutup menutup lagi sampai opacity 1. Bagian dalam sudah ada dan bergerak pelan di belakang penutup sejak frame 0.
    - Lapis 2 (bagian dalam yang bergerak): minimal 5 komponen mekanis yang relevan dengan naskah. SETIAP komponen bergerak secara matematis dari `frame` (`rotate(frame*k)`, `Math.sin(frame/...)`, `interpolate`, `spring`, strokeDashoffset untuk aliran). Gerak idle berjalan terus dari frame 0.
    - Lapis 3 (label penunjuk): lihat aturan 7 dan 12. Maksimal 2 label per adegan.
 4. SATU KANVAS, KAMERA BERKELANJUTAN DENGAN JANGKAR:
@@ -114,10 +114,11 @@ ATURAN MUTLAK:
 17. GAYA CEL-SHADED TECHNICAL ILLUSTRATION (STANDAR STUDIO ANIMASI EDUKASI):
    - SETIAP komponen benda memakai garis tepi gelap tegas: `stroke="#0f172a" strokeWidth={3.5} strokeLinejoin="round" strokeLinecap="round"`. Garis tepi ini yang membuat gambar kode terlihat seperti ilustrasi studio, bukan kotak mentah. Tulis konstanta `const INK = "#0f172a";` dan pakai di mana-mana.
    - Warna fungsional (tetap, jangan diganti): bodi atau cangkang pasif netral (#cbd5e1, #94a3b8, #475569); komponen penggerak utama (pegas, pin, katup, roda gigi) hangat kontras (#f59e0b kuning emas atau #ef4444 merah); aliran energi, fluida, gaya: biru sian #38bdf8 untuk kondisi normal, dingin, atau masuk, oranye menyala #f97316 untuk tekanan tinggi, panas, atau bahaya, hijau #22c55e untuk kondisi terkunci, aman, atau gaya angkat.
-18. TIGA TAMPILAN DALAM SATU KANVAS (ikuti `mode` tiap adegan; benda yang sama tetap ada, hanya penyajiannya berubah):
-   - `"konteks"` (pembuka dan penutup): benda UTUH di tempat aslinya, digambar lengkap dengan konteks kerjanya di atas latar lingkungan milik sistem (contoh: nosel menempel di lubang tangki, setrika di atas kain, rem di balik velg, katup di dalam pipa dinding). Penutup depan solid. Kamera `whole`.
-   - `"analogi"`: benda utama meredup (opacity 0.15) dan benda sehari-hari yang diperumpamakan narasi (sedotan ditutup jari, selang taman dipencet, tangan di jendela mobil, dan sebagainya) digambar jelas di tengah, besar, lengkap dengan panah gaya yang bekerja padanya dan bergerak sejak awal adegan. Gambar analogi mengikuti isi narasi adegan itu, bukan karanganmu.
-   - `"blueprint"` (inti bedah mekanisme): penutup depan terbuka (opacity 0.2), semua komponen dalam terlihat, dan Lingkaran Pembesar (Magnifier Inset) muncul dengan `spring` di pojok kanan bawah: pusat X=800, Y=1150, radius 140, bingkai putih `stroke="#ffffff" strokeWidth={6}` plus garis tepi INK, isinya DIPOTONG dengan `<clipPath>` bulat dan menampilkan zoom 3x pada bagian terkecil yang sedang beraksi (celah 1 mm, bola gotri, membran, ujung pin). Cara: tulis bagian kecil itu sebagai komponen fungsi sendiri (mis. `SmallPart`) dan panggil dua kali, sekali di gambar utama dan sekali di dalam lingkaran dengan `transform="translate(800 1150) scale(3) translate(-px -py)"` (px, py = jangkar bagian itu). Lingkaran pembesar digambar di grup HUD, di luar grup kamera.
+18. ALUR SINEMATIK 4 BABAK (WAJIB UNTUK SEMUA TOPIK; ikuti `mode` tiap adegan; benda yang sama tetap ada, hanya penyajiannya berubah):
+   - Babak 1, adegan 0 (`"konteks"`, EXTERIOR HOOK): dari frame pertama render bodi luar benda secara UTUH dan SOLID di tengah layar, jelas bentuk aslinya, lengkap dengan konteks tempat benda bekerja di atas latar lingkungan milik sistem (nosel menempel di lubang tangki, setrika di atas kain, pompa di rumah pompa, bodi mesin cuci dengan tabung kaca bundar). Penutup depan solid, kamera `whole` skala 1. DILARANG langsung menampilkan diagram dalam tanpa memperlihatkan wujud utuh benda di adegan pertama.
+   - Babak 2, adegan dengan `"xray"` (X-RAY DIVE-IN): kamera melakukan zoom-in tajam (skala 1.8 sampai 2.4) menembus bodi luar ke arah komponen internal utama, dengan spring halus dari `startFrame`; bodi luar memudar sampai opacity 0.25 dan komponen internal utama mulai bergerak jelas. Ini menjawab rasa penasaran "apa isi di dalam benda ini". Latar sistem berganti ke cetak biru.
+   - Babak 3, adegan dengan `"blueprint"` (CORE MECHANICS): kamera berpindah bergantian ke komponen internal yang sedang dibahas narasi (pakai jangkar `COMPONENT_ANCHORS` yang spesifik), penutup tetap 0.25. Panah gaya HUD (aturan 19) muncul sesuai data adegan, dan Lingkaran Pembesar (Magnifier Inset) muncul dengan `spring` di pojok kanan bawah: pusat X=800, Y=1150, radius 140, bingkai putih `stroke="#ffffff" strokeWidth={6}` plus garis tepi INK, isinya DIPOTONG `<clipPath>` bulat dan menampilkan zoom 3x pada bagian terkecil yang sedang beraksi (celah 1 mm, bola gotri, membran, ujung pin). Cara: tulis bagian kecil itu sebagai komponen fungsi sendiri (mis. `SmallPart`), panggil dua kali: sekali di gambar utama dan sekali di dalam lingkaran dengan `transform="translate(800 1150) scale(3) translate(-px -py)"` (px, py = jangkar bagian itu). Lingkaran pembesar digambar di grup HUD, di luar grup kamera.
+   - Babak 4, adegan terakhir (`"konteks"`, RESOLUTION AND ZOOM-OUT): kamera zoom-out ke skala 1 jangkar `whole` melewati cangkang transparan, bodi luar menutup kembali sampai opacity 1, dan benda ditampilkan utuh sedang menyelesaikan tugasnya (gerak idle yang puas, aliran normal kembali), sebagai penutup yang tuntas.
    - Latar layar penuh disediakan sistem (lihat aturan 21). Jangan menggambar latar sendiri.
 19. HUD FISIKA (komponen siap pakai; JANGAN menggambar panah angka atau ikon beban sendiri). Impor persis: `import { SegmentedForceArrow, LoadWeightBadge, MisconceptionCross } from "../components/hud";` dan gambar di grup HUD SESUDAH grup kamera (koordinat layar, hitung dengan rumus aturan 7):
    - `<SegmentedForceArrow x={} y={} direction="up" | "down" | "left" | "right" label={scene.hud.force} level={triggerProgress} />`: panah gaya 4 balok yang menyala bertahap; panggil HANYA di adegan yang `hud.force`-nya terisi. `level` = `triggerProgress` (0 sampai 1). Letakkan di dekat komponen yang gayanya naik, arah sesuai arah gaya. Label panah berada 44 px di bawah pangkalnya, jadi untuk panah `up` pangkal (y) harus di Y 1190 atau lebih kecil supaya label tidak menabrak subtitle di Y 1306.
@@ -139,7 +140,7 @@ export interface SceneTiming {
   triggerFrame: number; // frame absolut saat kata pemicu diucapkan
   focusTarget: string;
   labels: string[];
-  mode?: "konteks" | "analogi" | "blueprint"; // tampilan adegan (aturan 18)
+  mode?: "konteks" | "xray" | "blueprint"; // tampilan adegan (aturan 18)
   negationFrame?: number; // frame kata penyangkal, -1 kalau tidak ada
   hud?: { load?: string; force?: string }; // data HUD adegan (aturan 19)
 }
@@ -229,8 +230,8 @@ def lint(code):
         errs.append("dilarang menggambar latar layar penuh (rect 1080x1920 atau CSS background); latar disediakan sistem, svg harus transparan")
     if "clipPath" not in code:
         errs.append("wajib ada Lingkaran Pembesar (magnifier) dengan <clipPath> bulat untuk mode blueprint")
-    if '"blueprint"' not in code or '"analogi"' not in code:
-        errs.append("wajib menangani tiga tampilan: mode \"konteks\", \"analogi\", dan \"blueprint\" (aturan 18)")
+    if '"blueprint"' not in code or '"xray"' not in code:
+        errs.append("wajib menangani alur 4 babak: mode \"konteks\", \"xray\", dan \"blueprint\" (aturan 18)")
     if "COMPONENT_ANCHORS" not in code:
         errs.append("wajib ada kamus COMPONENT_ANCHORS (koordinat pasti tiap komponen) dan kamera yang mengunci jangkar di pusat layar")
     grads = re.findall(r"<linearGradient\b.*?</linearGradient>", code, re.S)
@@ -268,7 +269,7 @@ export interface SceneTiming {
   triggerFrame: number;
   focusTarget: string;
   labels: string[];
-  mode?: "konteks" | "analogi" | "blueprint";
+  mode?: "konteks" | "xray" | "blueprint";
   negationFrame?: number;
   hud?: { load?: string; force?: string };
 }
@@ -509,13 +510,13 @@ def describe_scenes(scenes, timings):
 NEGATION_WORDS = ("bukan", "bukanlah", "tanpa", "jangan")
 
 
-def view_mode(start_fraction):
-    """Tiga tampilan menurut posisi adegan: benda di tempat aslinya, analogi sehari-hari, cetak biru / sinar-X."""
-    if start_fraction < 0.14:
+def view_mode(index, count, start_fraction):
+    """Empat babak: adegan 0 benda utuh (konteks), 12-30% menembus cangkang (xray), 30-90% mekanisme inti (blueprint), penutup kembali ke benda utuh."""
+    if index == 0 or (index == count - 1 and count >= 5):
         return "konteks"
     if start_fraction < 0.30:
-        return "analogi"
-    if start_fraction < 0.86:
+        return "xray"
+    if start_fraction < 0.90:
         return "blueprint"
     return "konteks"
 
@@ -559,7 +560,7 @@ def build_timings(scenes, words, fps=30):
         if s.get("force"):
             hud["force"] = str(s["force"])[:26]
         out.append({
-            "mode": "konteks" if (i == 0 or (i == n - 1 and n >= 5)) else view_mode(float(s["start"]) / total_end),
+            "mode": view_mode(i, n, float(s["start"]) / total_end),
             "negationFrame": int(round(float(neg["start"]) * fps)) if neg is not None else -1,
             "hud": hud,
             "sceneIndex": i,

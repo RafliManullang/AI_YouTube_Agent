@@ -226,19 +226,19 @@ STRUCTURES = (
     ("ORANG DI BALIKNYA", "mulai dari seseorang atau kejadian nyata yang melahirkan benda ini, lalu hubungkan ke cara kerjanya sekarang"),
 )
 MICRO_CAUSAL_RULE = (
-    "KERANGKA WAJIB, RANTAI SEBAB-AKIBAT MIKRO (5 babak, urut, tanpa selipan sejarah, nama penemu, tahun, "
-    "atau fakta umum yang memutus gambar; semua kalimat membahas benda yang sedang tampil). Rentang di bawah adalah persen dari total durasi ucapan; "
-    "tampilan layar berganti otomatis mengikuti urutan adegan:\n"
-    "  BABAK 1 (0-14%, 1 sampai 2 adegan, tampilan: benda utuh di tempat aslinya): hook dan anomali, langsung ajukan paradoks fisika "
-    "(contoh: \"Benda sekecil kelingking ini menahan tekanan 2 ton tanpa baut pengunci.\"). Sebut di mana benda itu bekerja.\n"
-    "  BABAK 2 (14-30%, 1 sampai 2 adegan, tampilan: analogi benda sehari-hari): SATU perumpamaan dengan benda akrab yang cara kerjanya mirip "
-    "(sedotan yang ujungnya ditutup jari, selang taman yang dipencet ujungnya, tangan di luar jendela mobil). Sebut benda analogi itu dengan jelas dan gaya yang bekerja padanya.\n"
-    "  BABAK 3 (30-50%, tampilan: cetak biru dan sinar-X): bedah anatomi, cangkang luar dibelah, perkenalkan MAKSIMAL 3 komponen inti yang saling bersentuhan, "
-    "lalu jelaskan bagaimana gaya fisika (tekanan, pegas, arus) menahan komponen di posisinya saat diam.\n"
-    "  BABAK 4 (50-86%, tampilan: cetak biru dan sinar-X): gangguan dan rantai reaksi, satu pemicu dari luar, lalu A mendorong B, B membuka celah C, "
-    "fluida atau arus D mengalir. SETIAP kalimat wajib punya subjek berupa komponen fisik yang menggerakkan komponen lain.\n"
-    "  BABAK 5 (86-100%, tampilan: kembali ke benda utuh di tempat aslinya): resolusi, komponen kembali ke posisi semula, lalu kalimat pancingan penutup.\n"
-    "Bagi 8 sampai 10 adegan ke dalam kelima babak itu sesuai urutan dan persentasenya. Dilarang membahas sejarah atau statistik di tengah penjelasan mekanis. "
+    "KERANGKA WAJIB, ALUR SINEMATIK 4 BABAK (urut, tanpa selipan sejarah, nama penemu, tahun, atau fakta umum yang memutus gambar; "
+    "semua kalimat membahas benda yang sedang tampil). Persen di bawah adalah bagian dari total durasi ucapan; tampilan layar berganti otomatis mengikuti urutan adegan:\n"
+    "  BABAK 1, CONTEXT HOOK (adegan pertama saja, sekitar 0-12%, tampilan: wujud luar benda utuh di tempat aslinya): sebut benda apa ini dan di mana ia bekerja, "
+    "lalu ajukan paradoks fisika (contoh: \"Benda sekecil kelingking ini menahan tekanan 2 ton tanpa baut pengunci.\"). Penonton langsung tahu bendanya.\n"
+    "  BABAK 2, X-RAY DIVE-IN (1 sampai 2 adegan, sekitar 12-30%, tampilan: kamera menembus cangkang luar): jawab rasa penasaran \"apa isi di dalam benda ini\", "
+    "perkenalkan MAKSIMAL 3 komponen inti yang saling bersentuhan, sebut satu per satu.\n"
+    "  BABAK 3, CORE MECHANISM DAN TRIGGER (sekitar 30-90%, tampilan: bagian demi bagian di dalam mesin): jelaskan runtut, mulai dari kondisi normal "
+    "(gaya tekanan, pegas, atau arus menahan komponen di posisinya), lalu satu pemicu dari luar dan rantai reaksinya: A mendorong B, B membuka celah C, "
+    "fluida atau arus D mengalir. SETIAP kalimat wajib punya subjek berupa komponen fisik yang menggerakkan komponen lain. "
+    "Boleh satu perumpamaan benda sehari-hari dalam satu kalimat pendek, tanpa adegan sendiri.\n"
+    "  BABAK 4, RESOLUTION DAN ZOOM-OUT (adegan terakhir saja, sekitar 90-100%, tampilan: kembali ke benda utuh): komponen kembali ke posisi semula, "
+    "benda utuh menyelesaikan tugasnya, lalu kalimat pancingan penutup.\n"
+    "Bagi 8 sampai 10 adegan ke dalam keempat babak itu sesuai urutan dan persentasenya. Dilarang membahas sejarah atau statistik di tengah penjelasan mekanis. "
     "Tulis semua angka dengan angka (290, 2 ton), bukan dengan huruf."
 )
 STRUCTURE_HISTORY_PATH = os.path.join(BASE_DIR, "riwayat_alur.json")
@@ -383,7 +383,7 @@ makanya, soalnya, sebab): harus kalimat utuh yang bisa berdiri sendiri. Visual a
 memperlihatkan inti masalahnya, bukan pemandangan umum.
 ALUR CERITA: ikuti KERANGKA WAJIB di bawah (rantai sebab-akibat mikro). Angka cukup satu atau dua yang paling mengejutkan, dan hanya
 kalau angka itu menjelaskan gaya atau ukuran komponen yang sedang tampil, dengan perbandingan benda akrab ("seberat mobil").
-Analogi hanya satu, di babak 2. Jangan menyelipkan sejarah atau titik balik "Tapi tunggu".
+Perumpamaan paling banyak satu kalimat, di babak 3. Jangan menyelipkan sejarah atau titik balik "Tapi tunggu".
 PENUTUP MELINGKAR (seamless loop): kalimat terakhir adalah PERTANYAAN PANCINGAN pendek (maksimal 10 kata)
 yang dijawab langsung oleh kalimat pembuka saat video berulang. JANGAN mengulang kata-kata pembuka di penutup
 (pengulangan kata terdengar seperti gagap). Contoh: pembuka "Tiga pesawat hancur di udara gara-gara jendela

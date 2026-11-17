@@ -129,7 +129,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   mechScenes.forEach((m, i) => {
     if (frame >= m.startFrame) mi = i;
   });
-  const bpOf = (m?: (typeof mechScenes)[number]) => (m && m.mode === "blueprint" ? 1 : 0);
+  const bpOf = (m?: (typeof mechScenes)[number]) => (m && (m.mode === "blueprint" || m.mode === "xray") ? 1 : 0);
   const curM = mi >= 0 ? mechScenes[mi] : undefined;
   const prevM = mi > 0 ? mechScenes[mi - 1] : curM;
   const blueprint = curM
