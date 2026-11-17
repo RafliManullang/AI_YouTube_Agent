@@ -226,16 +226,20 @@ STRUCTURES = (
     ("ORANG DI BALIKNYA", "mulai dari seseorang atau kejadian nyata yang melahirkan benda ini, lalu hubungkan ke cara kerjanya sekarang"),
 )
 MICRO_CAUSAL_RULE = (
-    "KERANGKA WAJIB, RANTAI SEBAB-AKIBAT MIKRO (5 babak untuk video 60 detik, urut, tanpa selipan sejarah, nama penemu, tahun, "
-    "atau fakta umum yang memutus gambar; semua kalimat membahas benda yang sedang tampil):\n"
-    "  BABAK 1, detik 0-6, hook dan anomali: benda utuh tampil, langsung ajukan paradoks fisika "
-    "(contoh: \"Benda sekecil kelingking ini menahan tekanan dua ton tanpa baut pengunci.\").\n"
-    "  BABAK 2, detik 6-15, bedah anatomi: cangkang luar dibelah, perkenalkan MAKSIMAL 3 komponen inti yang saling bersentuhan, sebut satu per satu.\n"
-    "  BABAK 3, detik 15-30, kondisi normal: jelaskan bagaimana gaya fisika (tekanan, pegas, arus) menahan komponen di posisinya saat diam.\n"
-    "  BABAK 4, detik 30-48, gangguan dan rantai reaksi: satu pemicu dari luar, lalu A mendorong B, B membuka celah C, "
+    "KERANGKA WAJIB, RANTAI SEBAB-AKIBAT MIKRO (5 babak, urut, tanpa selipan sejarah, nama penemu, tahun, "
+    "atau fakta umum yang memutus gambar; semua kalimat membahas benda yang sedang tampil). Rentang di bawah adalah persen dari total durasi ucapan; "
+    "tampilan layar berganti otomatis mengikuti urutan adegan:\n"
+    "  BABAK 1 (0-14%, 1 sampai 2 adegan, tampilan: benda utuh di tempat aslinya): hook dan anomali, langsung ajukan paradoks fisika "
+    "(contoh: \"Benda sekecil kelingking ini menahan tekanan 2 ton tanpa baut pengunci.\"). Sebut di mana benda itu bekerja.\n"
+    "  BABAK 2 (14-30%, 1 sampai 2 adegan, tampilan: analogi benda sehari-hari): SATU perumpamaan dengan benda akrab yang cara kerjanya mirip "
+    "(sedotan yang ujungnya ditutup jari, selang taman yang dipencet ujungnya, tangan di luar jendela mobil). Sebut benda analogi itu dengan jelas dan gaya yang bekerja padanya.\n"
+    "  BABAK 3 (30-50%, tampilan: cetak biru dan sinar-X): bedah anatomi, cangkang luar dibelah, perkenalkan MAKSIMAL 3 komponen inti yang saling bersentuhan, "
+    "lalu jelaskan bagaimana gaya fisika (tekanan, pegas, arus) menahan komponen di posisinya saat diam.\n"
+    "  BABAK 4 (50-86%, tampilan: cetak biru dan sinar-X): gangguan dan rantai reaksi, satu pemicu dari luar, lalu A mendorong B, B membuka celah C, "
     "fluida atau arus D mengalir. SETIAP kalimat wajib punya subjek berupa komponen fisik yang menggerakkan komponen lain.\n"
-    "  BABAK 5, detik 48-60, resolusi: komponen kembali ke posisi semula, kamera menjauh ke wujud utuh, lalu kalimat pancingan penutup.\n"
-    "Bagi 8 sampai 10 adegan ke dalam kelima babak itu sesuai urutan dan rentang detiknya. Dilarang membahas sejarah atau statistik di tengah penjelasan mekanis."
+    "  BABAK 5 (86-100%, tampilan: kembali ke benda utuh di tempat aslinya): resolusi, komponen kembali ke posisi semula, lalu kalimat pancingan penutup.\n"
+    "Bagi 8 sampai 10 adegan ke dalam kelima babak itu sesuai urutan dan persentasenya. Dilarang membahas sejarah atau statistik di tengah penjelasan mekanis. "
+    "Tulis semua angka dengan angka (290, 2 ton), bukan dengan huruf."
 )
 STRUCTURE_HISTORY_PATH = os.path.join(BASE_DIR, "riwayat_alur.json")
 
@@ -379,7 +383,7 @@ makanya, soalnya, sebab): harus kalimat utuh yang bisa berdiri sendiri. Visual a
 memperlihatkan inti masalahnya, bukan pemandangan umum.
 ALUR CERITA: ikuti KERANGKA WAJIB di bawah (rantai sebab-akibat mikro). Angka cukup satu atau dua yang paling mengejutkan, dan hanya
 kalau angka itu menjelaskan gaya atau ukuran komponen yang sedang tampil, dengan perbandingan benda akrab ("seberat mobil").
-Jangan menyelipkan analogi di luar benda, sejarah, atau titik balik "Tapi tunggu".
+Analogi hanya satu, di babak 2. Jangan menyelipkan sejarah atau titik balik "Tapi tunggu".
 PENUTUP MELINGKAR (seamless loop): kalimat terakhir adalah PERTANYAAN PANCINGAN pendek (maksimal 10 kata)
 yang dijawab langsung oleh kalimat pembuka saat video berulang. JANGAN mengulang kata-kata pembuka di penutup
 (pengulangan kata terdengar seperti gagap). Contoh: pembuka "Tiga pesawat hancur di udara gara-gara jendela
@@ -417,6 +421,20 @@ pada isi (contoh: "Gigi spider", bukan "Penjelasan"), maksimal 4 kata.
 "category" salah satu dari: "CARA KERJA", "FAKTA SAINS", "KISAH NYATA".
 "thumbnail_text" adalah 2 sampai 4 kata huruf besar yang memancing penasaran, boleh diakhiri tanda tanya, tanpa emoji.
 
+LATAR DAN LAPISAN LAYAR:
+"environment" pilih SATU sesuai tempat benda bekerja: "outdoor_motion" (kendaraan, transportasi, aerodinamika), "domestic_room" (alat rumah
+tangga, elektronik rumah, korek, setrika, AC, regulator, detektor), "industrial_pipe" (pompa, katup air, konstruksi, bendungan, listrik),
+"micro_circuit" (chip, sensor, baterai, sinyal, gelombang), "anatomical_fluid" (medis, tubuh manusia, biologi, kimia), "deep_pressure"
+(kapal selam, hidrolik berat, antariksa).
+"hook_question" adalah kalimat tanya pendek 3 sampai 6 kata yang tampil besar di layar selama 12 detik pertama (contoh "Kok bisa mati sendiri?",
+"Apa yang menahan?"), senada dengan kalimat pembuka. "hook_highlight" berisi 1 sampai 2 kata dari kalimat tanya itu yang diberi warna.
+"claim" adalah SATU klaim fisik berangka yang DIUCAPKAN di naskah beserta lembaga sumbernya, contoh {{"source": "SAE", "text": "±290 km/jam"}}.
+Isi hanya kalau kamu YAKIN angka dan sumbernya benar (lembaga nyata seperti SAE, IEEE, BSN, FAA, NASA, WHO). Kalau ragu, kosongkan
+keduanya. Dilarang mengarang sumber.
+Per adegan (boleh kosong): "load" adalah beban atau tekanan yang ditahan komponen dan diucapkan di adegan itu (contoh "2 TON"); "force" adalah
+label panah gaya (contoh "4x tekanan") kalau adegan itu membahas kenaikan tekanan, suhu, kecepatan, atau tegangan. Kosongkan kalau
+angkanya tidak diucapkan di adegan itu.
+
 Keluarkan HANYA JSON murni dengan format persis ini:
 {{
   "title": "Judul menarik maksimal 60 karakter",
@@ -425,6 +443,10 @@ Keluarkan HANYA JSON murni dengan format persis ini:
   "category": "CARA KERJA",
   "thumbnail_text": "KOK BISA JATUH?",
   "music": "misterius",
+  "environment": "industrial_pipe",
+  "hook_question": "Kok bisa mati sendiri?",
+  "hook_highlight": "mati sendiri",
+  "claim": {{"source": "", "text": ""}},
   "scenes": [
     {{
       "lines": [{{"speaker": "flay", "text": "Kalimat yang diucapkan."}}],
@@ -435,7 +457,9 @@ Keluarkan HANYA JSON murni dengan format persis ini:
       "keywords": ["kata kunci"],
       "trigger": "kata",
       "sound": "mesin",
-      "sfx": "clank"
+      "sfx": "clank",
+      "load": "",
+      "force": ""
     }}
   ]
 }}
@@ -547,7 +571,7 @@ def build_text_sources(prompt, raw=False):
 
 GREETINGS = ("halo", "hai", "hay", "selamat datang", "kali ini", "hari ini kita", "apa kabar", "teman-teman")
 DRAFT_SCENE_KEYS = ("lines", "title", "type", "tone", "points", "items", "number", "unit", "footage_query",
-                    "keywords", "variant", "mood", "weather", "sound", "mechanism", "sfx", "sim", "art", "subject", "photo", "trigger")
+                    "keywords", "variant", "mood", "weather", "sound", "mechanism", "sfx", "sim", "art", "subject", "photo", "trigger", "load", "force")
 
 
 def polish_script(data, base_prompt):
@@ -556,7 +580,7 @@ def polish_script(data, base_prompt):
     if os.getenv("EDITOR", "on").strip().lower() == "off":
         return data
     info("  -> Editor sedang menyempurnakan naskah (hook, titik balik, angka, cek fakta)...")
-    draft = {k: data[k] for k in ("title", "description", "tags", "category", "thumbnail_text", "music") if k in data}
+    draft = {k: data[k] for k in ("title", "description", "tags", "category", "thumbnail_text", "music", "environment", "hook_question", "hook_highlight", "claim") if k in data}
     draft["scenes"] = [{k: sc[k] for k in DRAFT_SCENE_KEYS if k in sc} for sc in data["scenes"]]
     editor_prompt = (
         "===== TUGAS KAMU: EDITOR NASKAH VIDEO SHORTS BAHASA INDONESIA =====\n"
@@ -744,6 +768,59 @@ def enforce_loop(scenes):
         pass
 
 
+ENV_TYPES = ("outdoor_motion", "domestic_room", "industrial_pipe", "micro_circuit", "anatomical_fluid", "deep_pressure")
+ENV_HINTS = {
+    "outdoor_motion": ("mobil", "motor", "kendaraan", "pesawat", "roda", "rem ", "jalan", "kereta", "ban ", "aerodinamika", "sayap", "kapal", "sepeda", "jembatan"),
+    "domestic_room": ("setrika", "korek", "regulator", "gas", "ac ", "kulkas", "kompor", "detektor", "rumah", "dapur", "pentil", "kunci", "lampu", "toilet", "kipas", "mesin cuci"),
+    "industrial_pipe": ("pompa", "katup", "pipa", "bendungan", "konstruksi", "turbin", "listrik", "pabrik", "crane", "lift", "bor", "gergaji", "rumput", "pemotong", "kabel"),
+    "micro_circuit": ("chip", "sensor", "baterai", "sinyal", "gelombang", "prosesor", "transistor", "wifi", "layar", "kamera", "ponsel", "laser", "magnet"),
+    "anatomical_fluid": ("tubuh", "jantung", "darah", "otot", "medis", "sel ", "paru", "mata", "otak", "tulang", "kimia", "vaksin", "obat"),
+    "deep_pressure": ("kapal selam", "hidrolik", "antariksa", "roket", "vakum", "laut", "selam", "tekanan tinggi", "satelit", "dalam air"),
+}
+
+
+def _numbers_in(label, narration):
+    """Angka pada label HUD harus benar-benar diucapkan di naskah; kalau ada angka yang tidak muncul, label dibuang."""
+    nums = re.findall(r"\d+(?:[.,]\d+)?", label or "")
+    return all(n in narration for n in nums) if nums else True
+
+
+def pick_environment(raw, text):
+    raw = str(raw or "").strip().lower()
+    if raw in ENV_TYPES:
+        return raw
+    low = " " + text.lower() + " "
+    scores = {k: sum(low.count(w) for w in ws) for k, ws in ENV_HINTS.items()}
+    best = max(scores, key=scores.get)
+    return best if scores[best] > 0 else "industrial_pipe"
+
+
+def finish_screen_fields(data):
+    """Rapikan environment, kalimat tanya pembuka, dan klaim berangka. Klaim hanya dipakai kalau angkanya memang diucapkan di naskah."""
+    script = data["full_script"]
+    data["environment"] = pick_environment(data.get("environment"), data["title"] + " " + script)
+    q = clean_text(data.get("hook_question"), 60)
+    if len(q.split()) > 7:  # terlalu panjang untuk judul besar di layar: pakai teks thumbnail
+        q = ""
+    if not q:
+        t = str(data.get("thumbnail_text") or "").strip()
+        q = t.capitalize() if t.endswith("?") else ""
+    if q:
+        q = " ".join(q.split()[:7]).rstrip(" .!")
+        if not q.endswith("?"):
+            q += "?"
+    data["hook_question"] = q
+    qwords = {re.sub(r"[^a-z0-9]", "", w.lower()) for w in q.split()}
+    hl = [w for w in clean_text(data.get("hook_highlight"), 40).split() if re.sub(r"[^a-z0-9]", "", w.lower()) in qwords]
+    data["hook_highlight"] = " ".join(hl[:2])
+    cl = data.get("claim") if isinstance(data.get("claim"), dict) else {}
+    source, text = clean_text(cl.get("source"), 30), clean_text(cl.get("text"), 24)
+    spoken = script.replace(",", ".")
+    nums = re.findall(r"\d+(?:[.,]\d+)?", text)
+    ok = bool(source and text and nums and all(n.replace(",", ".") in spoken for n in nums))
+    data["claim"] = {"source": source, "text": text} if ok else {"source": "", "text": ""}
+
+
 def validate_content(data):
     for key in ("title", "description", "tags", "scenes"):
         if key not in data:
@@ -776,7 +853,15 @@ def validate_content(data):
         sound = str(raw.get("sound") or "").strip().lower()
         keywords = [clean_text(k, 30) for k in (raw.get("keywords") or []) if str(k).strip()][:3]
         sfx_raw = str(raw.get("sfx") or "").strip().lower()
+        load = clean_text(raw.get("load"), 18).upper()
+        force = clean_text(raw.get("force"), 24)
+        if not _numbers_in(load, narration):
+            load = ""
+        if not _numbers_in(force, narration):
+            force = ""
         scenes.append({
+            "load": load,
+            "force": force,
             "sfx": sfx_raw if sfx_raw in KEY_SOUNDS else "",
             "trigger": clean_text(raw.get("trigger"), 30).lower(),
             "keywords": keywords,
@@ -819,6 +904,7 @@ def validate_content(data):
     if len(data["full_script"].split()) < 20:
         raise ValueError("Naskah terlalu pendek.")
     data["title"] = clean_text(data["title"], 80)
+    finish_screen_fields(data)
 
     # Kategori, lalu tema warna dipilih agen sendiri (selalu berganti dan sesuai kategori)
     category = str(data.get("category") or "").strip().upper()
@@ -1137,7 +1223,7 @@ def _norm_word(w):
     return re.sub(r"[^a-z0-9]", "", str(w or "").lower())
 
 
-def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", data_title=""):
+def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", data_title="", screen=None):
     info("[4/5] Menjalankan Remotion (membuat video beranimasi)...")
     npm = shutil.which("npm")
     npx = shutil.which("npx")
@@ -1171,6 +1257,10 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
         "durationInSeconds": duration,
         "themeIndex": theme_index,
         "bgSeed": bg_seed,
+        "environmentType": (screen or {}).get("environment") or "industrial_pipe",
+        "hookQuestion": (screen or {}).get("hook_question") or "",
+        "hookHighlight": (screen or {}).get("hook_highlight") or "",
+        **({"claim": screen["claim"]} if (screen or {}).get("claim", {}).get("text") else {}),
         "sfxMap": pick_sfx_map(),
         # Efek suara bisa dimatikan dengan menulis SFX=off di file .env
         "sfx": os.getenv("SFX", "on").strip().lower() != "off",
@@ -1401,7 +1491,8 @@ def main():
         info(f"  -> Durasi video: {duration} detik, {len(words)} kata")
 
         final_video = render_remotion_video(
-            words, data["scenes"], duration, data["theme_index"], data.get("music"), data.get("bg_seed", 0), audio_file, data["title"]
+            words, data["scenes"], duration, data["theme_index"], data.get("music"), data.get("bg_seed", 0), audio_file, data["title"],
+            {k: data.get(k) for k in ("environment", "hook_question", "hook_highlight", "claim")}
         )
         info(f"  -> Video selesai: {final_video}")
         render_thumbnail(data, data["scenes"])

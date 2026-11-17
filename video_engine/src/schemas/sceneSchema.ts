@@ -149,9 +149,17 @@ export const mechTimingSchema = z.object({
   triggerFrame: finite.int().min(0),
   focusTarget: text(80),
   labels: z.array(text(40)).max(4),
+  mode: z.enum(["konteks", "analogi", "blueprint"]).optional(),
+  negationFrame: finite.int().min(-1).optional(),
+  hud: z.object({ load: text(24).optional(), force: text(30).optional() }).optional(),
 });
 
 export const shortsPropsSchema = z.object({
+  plainBg: z.boolean().optional(),
+  environmentType: text(30).optional(),
+  hookQuestion: text(90).optional(),
+  hookHighlight: text(50).optional(),
+  claim: z.object({ source: text(40), text: text(30) }).optional(),
   mechScenes: z.array(mechTimingSchema).max(40).optional(),
   clean: z.boolean().optional(),
   thumbBg: text(120).optional(),

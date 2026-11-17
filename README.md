@@ -267,3 +267,11 @@ Cara lama (memilih salah satu dari sekitar 10 gambar preset lalu mengganti tulis
 - Prompt gambar mewajibkan gradasi logam 3 titik warna, bayangan, dan warna fluida yang berubah halus (`interpolateColors`). Pemeriksa kode menolak gambar yang hanya memakai warna datar.
 - Kode gambar wajib punya `COMPONENT_ANCHORS`; kamera mengunci jangkar komponen yang dibahas tepat di pusat layar.
 - Sebelum render penuh, 3 bingkai kunci dirender dan dilihat Gemini (butuh `GEMINI_API_KEY`). Kalau ada cacat jelas, kode direvisi sekali dan revisi hanya dipakai kalau lolos semua pemeriksaan. Tanpa kunci Gemini, langkah ini dilewati.
+
+## Tahap 36: tampilan studio universal
+
+- Tiga tampilan dalam satu kanvas, diatur otomatis menurut urutan adegan: benda utuh di tempat aslinya (pembuka dan penutup), analogi sehari-hari, lalu cetak biru / sinar-X dengan lingkaran pembesar.
+- Naskah memilih `environment` dari enam latar bergerak (`video_engine/src/components/env`). Latar cetak biru berganti halus saat masuk adegan bedah.
+- Lapisan tetap milik sistem (bukan gambar AI): kalimat tanya pembuka 12 detik, kotak klaim beserta sumber, dan subtitle di 68% layar dengan kata aktif dalam kotak oranye.
+- Komponen HUD siap pakai di `components/hud`: `CitationBadge`, `SegmentedForceArrow`, `LoadWeightBadge`, `MisconceptionCross`. Angka HUD dan klaim hanya dipakai kalau angkanya memang diucapkan di naskah.
+- Prompt gambar: gaya cel-shaded (garis tepi `#0f172a`, warna fungsional), fisika mikro (lengkung elastis, partikel benturan), dan svg wajib transparan.

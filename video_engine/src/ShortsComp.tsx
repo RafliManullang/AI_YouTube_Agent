@@ -11,8 +11,9 @@ import {
   useVideoConfig,
 } from "remotion";
 import { Background } from "./Background";
+import { EnvBackground } from "./components/env/EnvBackground";
+import { CitationBadge } from "./components/hud";
 import { Ambience, Sfx, SfxEnabled, SfxMap, SfxSeed, climaxSound } from "./Sfx";
-import { CaptionZone } from "./layout/SafeLayout";
 import { springIn } from "./utils/animation";
 import { Palette, ShortsProps, WordItem, paletteFor } from "./types";
 import { TopicMechanism } from "./generated/GeneratedMechanism";
@@ -20,7 +21,8 @@ import { TopicMechanism } from "./generated/GeneratedMechanism";
 export type { ShortsProps, WordItem } from "./types";
 
 const FADE_SECONDS = 0.25; // lama transisi antar adegan
-const MAX_PHRASE_WORDS = 3; // jumlah kata maksimal dalam satu frasa subtitle
+const MAX_PHRASE_WORDS = 4; // jumlah kata maksimal dalam satu frasa subtitle
+const HOOK_SECONDS = 12; // lama kalimat tanya di kiri atas tampil
 const SUBTITLE_LEAD = 0.04; // kata muncul sedikit lebih awal supaya terasa pas dengan suara
 
 const SPEAKER_STYLE: Record<string, { name: string; color: string }> = {
@@ -47,7 +49,7 @@ const buildPhrases = (words: WordItem[], sceneStarts: number[]): WordItem[][] =>
         sceneOf(prev.start) !== sceneOf(w.start) ||
         current.length >= MAX_PHRASE_WORDS ||
         /[.,!?;:]$/.test(prev.word) ||
-        (current.length >= 2 && current.map((x) => x.word).join("").length > 18))
+        (current.length >= 2 && current.map((x) => x.word).join("").length > 22))
     ) {
       phrases.push(current);
       current = [];
@@ -80,6 +82,11 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   sfxMap = {},
   clean = false,
   mechScenes = [],
+  environmentType,
+  plainBg = false,
+  hookQuestion = "",
+  hookHighlight = "",
+  claim,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -111,7 +118,33 @@ export const ShortsComp: React.FC<ShortsProps> = ({
     const lastEnd = activePhrase[activePhrase.length - 1].end;
     if (time > lastEnd + 0.3) activePhrase = undefined; // jeda panjang: subtitle hilang, tidak menggantung
   }
-  const speaker = activePhrase ? SPEAKER_STYLE[activePhrase[0].who ?? ""] : undefined;
+  // kata yang sedang diucapkan = kata terakhir yang sudah mulai; dibungkus kotak oranye
+  let activeWord = -1;
+  activePhrase?.forEach((w, i) => {
+    if (time >= w.start - SUBTITLE_LEAD) activeWord = i;
+  });
+
+  // Mode tampilan adegan aktif: cetak biru / sinar-X berganti halus dari latar lingkungan
+  let mi = -1;
+  mechScenes.forEach((m, i) => {
+    if (frame >= m.startFrame) mi = i;
+  });
+  const bpOf = (m?: (typeof mechScenes)[number]) => (m && m.mode === "blueprint" ? 1 : 0);
+  const curM = mi >= 0 ? mechScenes[mi] : undefined;
+  const prevM = mi > 0 ? mechScenes[mi - 1] : curM;
+  const blueprint = curM
+    ? interpolate(frame - curM.startFrame, [0, 18], [bpOf(prevM), bpOf(curM)], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
+    : 0;
+
+  // Kalimat tanya di kiri atas (detik 0 sampai 12) dengan kata kunci berwarna
+  const hookWords = hookQuestion.split(/\s+/).filter(Boolean);
+  const hl = hookHighlight.toLowerCase().split(/\s+/).filter(Boolean).map((x) => x.replace(/[^a-z0-9]/g, ""));
+  const isHl = (w: string, i: number) => {
+    const n = w.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return hl.length ? hl.includes(n) : i >= hookWords.length - 2 && i < hookWords.length;
+  };
+  const hookIn = spring({ frame, fps, config: { damping: 14, stiffness: 110 } });
+  const hookOpacity = interpolate(frame, [HOOK_SECONDS * fps - 12, HOOK_SECONDS * fps], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
     <SfxEnabled.Provider value={sfx}>
@@ -120,7 +153,10 @@ export const ShortsComp: React.FC<ShortsProps> = ({
     <AbsoluteFill style={{ backgroundColor: "#0b0f19" }}>
       {/* Satu kanvas berkelanjutan dari detik 0 sampai akhir: benda yang sama, hanya kamera dan geraknya yang berubah */}
       {mechScenes.length > 0 ? (
-        <TopicMechanism scenes={mechScenes} />
+        <>
+          {plainBg ? null : <EnvBackground type={environmentType} blueprint={blueprint} />}
+          <TopicMechanism scenes={mechScenes} />
+        </>
       ) : (
         <Background palette={paletteFor(0, themeIndex)} />
       )}
@@ -133,7 +169,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
       <AbsoluteFill
         style={{
           background:
-            "linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 38%)",
+            "linear-gradient(to top, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 28%)",
         }}
       />
 
@@ -156,42 +192,81 @@ export const ShortsComp: React.FC<ShortsProps> = ({
         />
       ) : null}
 
-      {/* Teks kinetik: di atas area tombol Shorts */}
-      {clean ? null : (
-      <CaptionZone show={!!activePhrase}>
-          {activePhrase?.map((item, index) => {
-            // hanya kata yang sudah diucapkan yang tampil, jadi penonton tidak membaca mendahului suara
-            if (time < item.start - SUBTITLE_LEAD) return null;
-            const isActive = time <= item.end;
+      {/* Kalimat tanya pembuka (kiri atas, 12 detik pertama) */}
+      {clean || !hookWords.length || time >= HOOK_SECONDS ? null : (
+        <div
+          style={{
+            position: "absolute",
+            left: 60,
+            top: 170,
+            maxWidth: 760,
+            opacity: hookOpacity * Math.min(1, hookIn * 2),
+            transform: `translateX(${(1 - Math.min(1, hookIn)) * -60}px)`,
+            fontFamily: "Impact, 'Arial Black', sans-serif",
+            fontSize: 84,
+            lineHeight: 1.02,
+            letterSpacing: 1,
+            color: "#ffffff",
+            textTransform: "uppercase",
+            textShadow: "0 6px 0 #000, 4px 4px 0 #000, -4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000",
+          }}
+        >
+          {hookWords.map((w, i) => (
+            <React.Fragment key={i}>
+              <span style={{ color: isHl(w, i) ? "#f97316" : "#ffffff" }}>{w}</span>{" "}
+            </React.Fragment>
+          ))}
+        </div>
+      )}
 
+      {/* Kotak klaim fisik beserta sumbernya, muncul setelah kalimat tanya */}
+      {clean || !claim || !claim.text ? null : (
+        <CitationBadge source={claim.source} text={claim.text} from={HOOK_SECONDS * fps} to={Math.floor(total * fps) - 20} />
+      )}
+
+      {/* Subtitle: 68% dari atas layar, maksimal 4 kata, kata aktif dalam kotak oranye */}
+      {clean || !activePhrase ? null : (
+        <div
+          style={{
+            position: "absolute",
+            top: "68%",
+            left: 50,
+            right: 50,
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            gap: "10px 14px",
+          }}
+        >
+          {activePhrase.map((item, index) => {
+            if (time < item.start - SUBTITLE_LEAD) return null; // hanya kata yang sudah diucapkan yang tampil
             const pop = springIn(frame, fps, item.start, "snappy");
+            const isActive = index === activeWord;
             const emph = !!item.emphasis;
-            const scale = emph ? 0.7 + 0.45 * pop : 0.85 + 0.2 * pop;
-
             return (
               <span
                 key={`${item.start}-${index}`}
                 style={{
                   fontFamily: "Impact, 'Arial Black', sans-serif",
-                  fontSize: emph ? 56 : 52,
+                  fontSize: emph ? 62 : 56,
                   fontWeight: 900,
                   lineHeight: 1.1,
                   letterSpacing: 1,
-                  color: emph ? "#FFE14D" : isActive ? (speaker?.color ?? activePalette.accent) : "#FFFFFF",
+                  color: !isActive && emph ? "#FFE14D" : "#FFFFFF",
                   textTransform: "uppercase",
-                  margin: emph ? "0 16px" : 0,
-                  transform: `scale(${scale})`,
-                  textShadow:
-                    "0 6px 0 #000, 4px 4px 0 #000, -4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000",
+                  padding: "4px 12px",
+                  borderRadius: 10,
+                  background: isActive ? "#ea580c" : "transparent",
+                  transform: `scale(${0.88 + 0.12 * pop})`,
+                  textShadow: "0 5px 0 #000, 3px 3px 0 #000, -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000",
                 }}
               >
                 {item.word}
               </span>
             );
           })}
-      </CaptionZone>
+        </div>
       )}
-
     </AbsoluteFill>
     </SfxMap.Provider>
     </SfxSeed.Provider>

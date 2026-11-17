@@ -134,9 +134,17 @@ export type MechTiming = {
   triggerFrame: number;
   focusTarget: string;
   labels: string[];
+  mode?: "konteks" | "analogi" | "blueprint"; // tampilan adegan: benda di tempat aslinya, analogi sehari-hari, atau cetak biru / sinar-X
+  negationFrame?: number; // bingkai kata penyangkal ("bukan", "tanpa"); -1 kalau tidak ada
+  hud?: { load?: string; force?: string }; // beban yang ditahan dan label panah gaya untuk adegan ini
 };
 
 export type ShortsProps = {
+  plainBg?: boolean; // hanya untuk uji otomatis: tanpa latar lingkungan supaya gambar AI bisa diukur sendiri
+  environmentType?: string; // salah satu dari ENV_TYPES: latar bergerak sesuai topik
+  hookQuestion?: string; // kalimat tanya di kiri atas selama 12 detik pertama
+  hookHighlight?: string; // kata kunci pada kalimat tanya yang diberi warna
+  claim?: { source: string; text: string }; // angka klaim fisik beserta sumbernya
   mechScenes?: MechTiming[]; // jadwal adegan untuk kanvas tunggal buatan AI (generated/GeneratedMechanism.tsx)
   clean?: boolean; // tanpa judul, label, dan subtitle (untuk latar thumbnail)
   thumbBg?: string;
