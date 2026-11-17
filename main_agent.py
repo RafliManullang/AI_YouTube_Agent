@@ -57,6 +57,7 @@ META_PATH = os.path.join(OUT_DIR, "catatan_video.json")  # judul, deskripsi, tag
 if load_dotenv:
     load_dotenv(os.path.join(BASE_DIR, ".env"))
 
+END_PAD = 1.5  # detik jeda setelah suara selesai (45 bingkai pada 30 fps)
 GEMINI_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
 PEXELS_KEY = os.getenv("PEXELS_API_KEY") or ""  # opsional: video latar gratis dari Pexels
 PIXABAY_KEY = os.getenv("PIXABAY_API_KEY") or ""  # opsional: video latar gratis dari Pixabay
@@ -364,7 +365,8 @@ Kamu adalah scriptwriter YouTube Shorts edukasi berbahasa Indonesia, gaya Kok Bi
 {avoid}
 
 Pecah video menjadi 8 sampai 10 ADEGAN berurutan. Setiap adegan punya ucapan dan visual beranimasi.
-Total seluruh ucapan sekitar 150-175 kata (durasi sekitar 60 detik), padat, langsung ke inti, dan alurnya
+PANJANG NASKAH WAJIB antara 105 sampai 118 kata (maksimal mutlak 120 kata) agar durasi bicara tidak melebihi 55 detik dan kalimat
+penutup tuntas sebelum video berakhir. Naskah padat, langsung ke inti, dan alurnya
 runtut dari awal sampai akhir.
 {style_rule}
 HOOK 3 DETIK PERTAMA (paling penting): kalimat pertama WAJIB langsung menghentak, maksimal 12 kata, berupa
@@ -551,14 +553,14 @@ def polish_script(data, base_prompt):
         "kiasan jangan diterjemahkan harfiah; tipe \"footage\" tidak dipakai; kosongkan \"art\" dan \"photo\".\n"
         "Di bawah ini ada DRAF naskah. Kamu editor video viral yang sangat kritis. Tulis ulang "
         "draf itu menjadi versi yang jauh lebih menarik, dengan TOPIK YANG SAMA dan FORMAT JSON YANG SAMA PERSIS "
-        "seperti DRAF (semua kolom tiap adegan tetap ada; jumlah adegan 8 sampai 10, total ucapan 150 sampai 175 kata).\n"
+        "seperti DRAF (semua kolom tiap adegan tetap ada; jumlah adegan 8 sampai 10, total ucapan 105 sampai 118 kata, maksimal mutlak 120).\n"
         "Periksa dan perbaiki satu per satu:\n"
         "1. Hook: apakah 3 detik pertama membuat orang berhenti scroll? Kalau datar, ganti dengan fakta "
         "mengejutkan atau peringatan yang lebih tajam. Tanpa sapaan.\n"
         "2. Rasa penasaran: apakah ada pertanyaan yang baru terjawab di akhir? Pastikan jawaban tidak bocor di awal.\n"
         "3. Titik balik di tengah video yang berlawanan dengan dugaan penonton.\n"
         "4. Paling banyak 3 angka di seluruh ucapan (satu angka per kalimat, tidak berdekatan). Kalau lebih, buang yang kurang penting dan ganti dengan perbandingan benda akrab. Jangan menumpuk istilah teknik.\n"
-        "5. Hapus kalimat pengisi; setiap kalimat harus membawa informasi baru. Total ucapan 150 sampai 175 kata, tanpa dialog dua orang.\n"
+        "5. Hapus kalimat pengisi; setiap kalimat harus membawa informasi baru. Total ucapan 105 sampai 118 kata (maksimal mutlak 120), tanpa dialog dua orang.\n"
         "6. CEK FAKTA: perbaiki atau hapus klaim yang tidak pasti benar. Jangan mengarang angka; kalau ragu "
         "pakai \"sekitar\" atau buang klaimnya.\n"
         "7. Obrolan Shela dan Flay terdengar natural dan lucu-ringan, bukan membaca teks.\n"
@@ -578,7 +580,7 @@ def polish_script(data, base_prompt):
             validate_content(better)
             words = sum(len(sc["narration"].split()) for sc in better["scenes"])
             first = better["scenes"][0]["narration"].lower()
-            if not (6 <= len(better["scenes"]) <= 10 and 110 <= words <= 215):
+            if not (6 <= len(better["scenes"]) <= 10 and 90 <= words <= 135):
                 raise ValueError(f"hasil editor tidak wajar ({len(better['scenes'])} adegan, {words} kata)")
             if any(first.startswith(g) for g in GREETINGS):
                 raise ValueError("hasil editor masih dibuka dengan sapaan")
@@ -739,6 +741,13 @@ def validate_content(data):
         raise ValueError("Jumlah adegan terlalu sedikit.")
     if not isinstance(data["tags"], list):
         data["tags"] = [str(data["tags"])]
+
+    spoken = 0
+    for raw in data["scenes"][:10]:
+        for ln in (raw.get("lines") or []) if isinstance(raw, dict) else []:
+            spoken += len(str((ln or {}).get("text", "")).split()) if isinstance(ln, dict) else 0
+    if spoken > 135:
+        raise ValueError(f"Naskah terlalu panjang ({spoken} kata); batas 120 kata supaya kalimat terakhir tidak terpotong.")
 
     scenes = []
     for raw in data["scenes"][:10]:
@@ -989,7 +998,7 @@ async def generate_scene_voices(scenes, output_audio_path):
     if os.path.getsize(output_audio_path) < 1000:
         raise RuntimeError("File suara kosong.")
 
-    duration = round(offset + 0.6, 2)
+    duration = round(offset + END_PAD, 2)  # jeda di akhir supaya kalimat terakhir tidak terpotong
     for i, scene in enumerate(scenes):
         scene["end"] = scenes[i + 1]["start"] if i + 1 < len(scenes) else duration
     return all_words, duration
@@ -1051,7 +1060,7 @@ def generate_voice_gemini(scenes, wav_path):
             words += align_words(raw, line["text"], who, sc.get("keywords") or ())
             pos += n
 
-    duration = round(audio_seconds + 0.3, 2)  # akhir dibuat rapat supaya video berulang terasa menyambung
+    duration = round(audio_seconds + END_PAD, 2)  # jeda di akhir supaya kalimat terakhir tidak terpotong
     for i, sc in enumerate(scenes):
         first = sc["lines"][0]["start"]
         sc["start"] = 0.0 if i == 0 else round(max(scenes[i - 1]["lines"][-1]["end"], first - 0.08), 2)
