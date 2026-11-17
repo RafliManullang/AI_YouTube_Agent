@@ -13,7 +13,9 @@ import os
 import re
 import shlex
 import subprocess
+import time
 
+RETRY_PAUSE = 6  # detik jeda sebelum mengulang penulisan kanvas
 GEN_REL = os.path.join("src", "generated", "GeneratedMechanism.tsx")
 
 STUB = '''// Berkas ini DITULIS ULANG oleh agen di setiap video (svg_composer.py). Isi di bawah hanya cadangan kosong
@@ -102,7 +104,13 @@ ATURAN MUTLAK:
 15. LARANGAN IKON MIKRO DI PINGGIR LAYAR (FOKUS MAKRO):
    - Dilarang menggambar objek pemicu (robekan selang, percikan api, benturan) berukuran kecil (kurang dari 60 px) di tepi layar.
    - Kalau adegan membahas kerusakan atau reaksi di bagian pinggir alat, masukkan koordinat bagian itu ke `COMPONENT_ANCHORS` lalu arahkan kamera zoom-in (`scale` 1.5 atau lebih) tepat ke titik itu supaya terlihat jelas dan dramatis.
-16. SIAP DIPAKAI: komponen WAJIB diekspor tepat seperti ini, dan interface WAJIB ada persis:
+16. PENGAMAN RUNTIME BINGKAI 0 (ANTI-CRASH REACT DAN REMOTION):
+   - Elemen `<svg>` utama WAJIB persis `viewBox="0 0 1080 1920"`.
+   - Jangkar kamera diambil dari nama pada tabel `CAMERA`, selalu dengan cadangan: `const A = (name: string) => COMPONENT_ANCHORS[name] ?? COMPONENT_ANCHORS.whole ?? { x: 540, y: 820 };`. Dilarang membaca `.x` atau `.y` dari hasil pencarian kamus tanpa cadangan, dan dilarang memakai `focusTarget` (itu judul adegan, bukan nama jangkar) sebagai kunci kamus.
+   - Definisikan satu pembantu di atas dan pakai di mana-mana: `const clampOpt = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const; const lerp = (v: number, a: number, b: number, c: number, d: number) => interpolate(v, [a, Math.max(a + 1, b)], [c, d], clampOpt);`. Dilarang memanggil `interpolate` dengan inputRange yang `a >= b` (misalnya `[0, 0]` saat startFrame sama dengan triggerFrame).
+   - `scenes` bisa kosong atau memuat frame di luar semua adegan: pakai `const active = scenes.find(...) ?? scenes[scenes.length - 1]`, lalu cadangan `active?.labels ?? []`, `active?.sceneIndex ?? 0`. Indeks tabel `CAMERA` selalu dijepit `Math.min(Math.max(i, 0), CAMERA.length - 1)`.
+   - Ekspor `export const TopicMechanism` sekaligus `export default TopicMechanism;`.
+17. SIAP DIPAKAI: komponen WAJIB diekspor tepat seperti ini, dan interface WAJIB ada persis:
 ```tsx
 export interface SceneTiming {
   sceneIndex: number;
@@ -187,6 +195,10 @@ def lint(code):
         errs.append("pegas dan pipa wajib memakai strokeLinejoin=\"round\" dan strokeLinecap=\"round\"")
     if not re.search(r"FrontCover", code):
         errs.append("wajib ada komponen FrontCoverShell (penutup depan yang memudar saat masuk adegan pembedahan)")
+    for m in re.finditer(r"interpolate\(\s*[^,\[\]]+,\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)", code):
+        if float(m.group(1)) >= float(m.group(2)):
+            errs.append(f"interpolate dengan inputRange [{m.group(1)}, {m.group(2)}] tidak naik ketat dan akan membuat render crash")
+            break
     if "COMPONENT_ANCHORS" not in code:
         errs.append("wajib ada kamus COMPONENT_ANCHORS (koordinat pasti tiap komponen) dan kamera yang mengunci jangkar di pusat layar")
     grads = re.findall(r"<linearGradient\b.*?</linearGradient>", code, re.S)
@@ -197,8 +209,22 @@ def lint(code):
     return errs
 
 
+def fix_viewbox(code):
+    """Paksa <svg> utama memakai viewBox 0 0 1080 1920 (hanya tag <svg pertama), tanpa membuang satu panggilan AI hanya karena ukurannya beda."""
+    m = re.search(r"<svg\b[^>]*>", code, re.S)
+    if not m:
+        return code
+    tag = m.group(0)
+    new = re.sub(r"\sviewBox\s*=\s*(\"[^\"]*\"|'[^']*'|\{[^}]*\})", "", tag)
+    new = new.replace("<svg", '<svg viewBox="0 0 1080 1920"', 1)
+    return code[:m.start()] + new + code[m.end():]
+
+
 def normalize(code):
-    """Pastikan interface wajib ada dan impor react ada."""
+    """Pembersih otomatis: viewBox, export default, impor react, dan interface wajib."""
+    code = fix_viewbox(code)
+    if "TopicMechanism" in code and not re.search(r"export\s+default\s+TopicMechanism", code):
+        code = code.rstrip() + "\nexport default TopicMechanism;\n"
     if not re.search(r"import\s+React\b|import\s+\*\s+as\s+React", code):
         code = 'import React from "react";\n' + code
     if not re.search(r"interface\s+SceneTiming\b|type\s+SceneTiming\b", code):
@@ -270,6 +296,23 @@ def _filled_fraction(png_path):
     return sum(1 for v in px if abs(v - mean) > 28) / len(px)
 
 
+_ERR_KEY = re.compile(r"(TypeError|ReferenceError|RangeError|SyntaxError|Error:|inputRange|is not defined|Cannot read|undefined)", re.I)
+
+
+def clean_render_error(text):
+    """Ambil pesan galat inti dari keluaran Remotion: buang baris tumpukan (`at ...`, node_modules) supaya AI tahu apa yang salah."""
+    lines = [l.strip() for l in (text or "").splitlines() if l.strip()]
+    useful = [l for l in lines if not l.startswith("at ") and "node_modules/" not in l and "node_modules\\" not in l]
+    key = [l for l in useful if _ERR_KEY.search(l)]
+    pick = key[:4] if key else (useful[-4:] or lines[-3:])
+    seen, out = set(), []
+    for l in pick:
+        if l not in seen:
+            seen.add(l)
+            out.append(l[:260])
+    return " | ".join(out)[:700]
+
+
 def render_still(remotion_dir, props_name, frame, png, timeout=300):
     """Render satu bingkai ke png. Mengembalikan None kalau berhasil, atau teks galat."""
     import shutil
@@ -281,8 +324,7 @@ def render_still(remotion_dir, props_name, frame, png, timeout=300):
     cmd += shlex.split(os.getenv("REMOTION_EXTRA", ""))  # opsi tambahan (mis. jalur browser), lazimnya kosong
     res = subprocess.run(cmd, cwd=remotion_dir, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     if res.returncode != 0 or not os.path.exists(png):
-        tail = ((res.stderr or "") + (res.stdout or "")).strip().splitlines()
-        return " | ".join([l for l in tail if l.strip()][-6:])[:600]
+        return clean_render_error((res.stderr or "") + "\n" + (res.stdout or "")) or "render gagal tanpa pesan galat"
     return None
 
 
@@ -540,5 +582,7 @@ def compose(topic, scenes, timings, callers, remotion_dir, props_for_smoke, log=
             if vision is not None:
                 code = _vision_gate(code, callers, remotion_dir, props_for_smoke, vision, log, dead)
             return True
-        log(f"  -> Kanvas percobaan {attempt}/{attempts} belum lolos: {errors[0][:140]}")
+        log(f"  -> Kanvas percobaan {attempt}/{attempts} belum lolos: {errors[0][:260]}")
+        if attempt < attempts:
+            time.sleep(RETRY_PAUSE)  # beri jeda supaya batas token per menit (429) pulih
     raise RuntimeError("Kanvas mekanis buatan AI tidak lolos pemeriksaan setelah perbaikan otomatis: " + "; ".join(errors[:3]))

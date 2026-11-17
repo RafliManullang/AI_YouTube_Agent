@@ -66,7 +66,7 @@ GEMINI_MODELS = [
     m for m in [
         os.getenv("GEMINI_MODEL", "gemini-3.8-flash"),
         "gemini-3.6-flash",
-        "gemini-2.5-flash-lite",
+        "gemini-2.5-flash",
     ] if m
 ]
 
@@ -447,8 +447,7 @@ CEREBRAS_KEY = os.getenv("CEREBRAS_API_KEY") or ""
 # Penyedia cadangan (gratis) yang memakai format OpenAI: (nama, alamat, key, daftar model)
 BACKUP_PROVIDERS = [
     ("Groq", "https://api.groq.com/openai/v1/chat/completions", GROQ_KEY,
-     [m for m in [os.getenv("GROQ_MODEL"), "openai/gpt-oss-120b", "llama-3.3-70b-versatile",
-                  "meta-llama/llama-4-scout-17b-16e-instruct", "qwen/qwen3-32b", "openai/gpt-oss-20b"] if m]),
+     [m for m in [os.getenv("GROQ_MODEL"), "openai/gpt-oss-120b", "openai/gpt-oss-20b"] if m]),
     ("Cerebras", "https://api.cerebras.ai/v1/chat/completions", CEREBRAS_KEY,
      [m for m in [os.getenv("CEREBRAS_MODEL"), "gpt-oss-120b", "llama-3.3-70b", "qwen-3-32b", "llama3.1-8b"] if m]),
 ]
@@ -482,8 +481,19 @@ def call_openai_style(url, key, model, prompt, raw=False):
     return res.json()["choices"][0]["message"]["content"]
 
 
+_MODEL_CACHE = {}
+_SKIP_LOGGED = set()
+
+
 def available_models(url, key):
-    """Daftar model yang benar-benar bisa dipakai key ini (kosong kalau gagal ditanyakan)."""
+    """Daftar model yang benar-benar bisa dipakai key ini (kosong kalau gagal ditanyakan). Hasil disimpan supaya tidak ditanyakan berulang."""
+    if (url, key) in _MODEL_CACHE:
+        return _MODEL_CACHE[(url, key)]
+    _MODEL_CACHE[(url, key)] = got = _fetch_models(url, key)
+    return got
+
+
+def _fetch_models(url, key):
     try:
         res = requests.get(url.rsplit("/chat/completions", 1)[0] + "/models",
                            headers={"Authorization": f"Bearer {key}"}, timeout=10)
@@ -523,7 +533,8 @@ def build_text_sources(prompt, raw=False):
                 usable = [x for x in sorted(have) if any(w in x for w in ("gpt-oss", "llama", "qwen"))
                           and not any(w in x for w in ("guard", "whisper", "tts", "embed", "prompt"))][:3]
             skipped = [x for x in models if x not in usable]
-            if skipped:
+            if skipped and (name, tuple(skipped)) not in _SKIP_LOGGED:
+                _SKIP_LOGGED.add((name, tuple(skipped)))
                 info(f"  -> {name}: model {', '.join(skipped)} tidak tersedia untuk key ini, dilewati.")
             models = usable
         for model_name in models:
