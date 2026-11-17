@@ -55,7 +55,7 @@ ATURAN MUTLAK:
    - Lapis 1 (cangkang luar): siluet bodi asli benda, `fill="rgba(30,41,59,0.35)"`, `stroke="#475569"`, `strokeWidth={3}`, supaya penonton langsung mengenali bendanya sejak frame pertama.
    - Lapis 1B (FrontCoverShell, penutup depan bodi luar): bodi luar benda yang utuh dan tertutup (logam, karet, tekstur ulir luar, leher). Di adegan 0 penutup ini solid (opacity 1.0) dan menutupi isi dalam. Saat masuk adegan pembedahan komponen dalam (sceneIndex >= 1) penutup memudar ke opacity 0 dengan `spring` dimulai tepat di frame awal adegan itu (atau frame kata "memotong/membedah/dalamnya"), seperti dinding depan yang terbelah. Bagian dalam sudah ada dan bergerak pelan di belakang penutup sejak frame 0, hanya tertutup.
    - Lapis 2 (bagian dalam yang bergerak): minimal 5 komponen mekanis yang relevan dengan naskah. SETIAP komponen bergerak secara matematis dari `frame` (`rotate(frame*k)`, `Math.sin(frame/...)`, `interpolate`, `spring`, strokeDashoffset untuk aliran). Gerak idle berjalan terus dari frame 0.
-   - Lapis 3 (label penunjuk): lihat aturan 8. Maksimal 2 label per adegan.
+   - Lapis 3 (label penunjuk): lihat aturan 7 dan 12. Maksimal 2 label per adegan.
 4. SATU KANVAS, KAMERA BERKELANJUTAN DENGAN JANGKAR:
    - Benda tidak pernah dihapus atau diganti saat `sceneIndex` berganti. Bagian yang tidak dibahas boleh meredup (opacity 0.45) tapi tetap tergambar.
    - Di awal file (di luar komponen) WAJIB ada kamus `COMPONENT_ANCHORS` berisi titik pusat pasti (x, y) setiap komponen yang kamu gambar, misalnya `const COMPONENT_ANCHORS = { whole: {x:540,y:820}, pin: {x:540,y:520}, spring: {x:540,y:780} }`. Gambar tiap komponen persis di koordinat jangkarnya (satu sumber kebenaran, jangan menulis angka koordinat yang berbeda di tempat lain). Wajib ada jangkar `whole` untuk tampilan benda utuh.
@@ -70,30 +70,39 @@ ATURAN MUTLAK:
    - Semua id `<linearGradient>`, `<radialGradient>`, `<filter id="glow">` didefinisikan di `<defs>`. Pastikan semua tag SVG tertutup dan semua variabel yang dipakai sudah dideklarasikan.
    - viewBox utama `0 0 1080 1920`. Area aman gambar utama: X 100..980, Y 220..1450. Area Y 1500..1920 harus bersih (tempat subtitle). Latar: gradien gelap radial; tanpa lantai, tanpa grid, tanpa kilatan putih.
    - Warna kontras tinggi di atas latar gelap (biru #38bdf8, oranye #f59e0b, merah #ef4444, hijau #22c55e, abu logam #94a3b8), bagian aktif diberi `filter="url(#glow)"`.
-8. LABEL ANTI-TERPOTONG (HUD LAYAR, DI LUAR KAMERA):
+7. LABEL ANTI-TERPOTONG (HUD LAYAR, DI LUAR KAMERA):
    - Callout label DILARANG berada di dalam `<g>` yang terkena `transform` kamera (translate/scale). Gambar benda di dalam satu `<g transform=...>` kamera. Lalu gambar SEMUA label di grup terpisah SESUDAH grup kamera, tanpa transform kamera, sehingga ukuran dan posisi kotak tidak ikut membesar dan tidak keluar layar saat zoom.
-   - Posisi titik target di layar dihitung dengan nilai kamera yang sama dengan grup kamera: `sx = 540 + (cx - ax) * s`, `sy = 820 + (cy - ay) * s`, dengan (cx, cy) koordinat komponen, (ax, ay) jangkar kamera hasil interpolasi, dan s skala kamera. Garis penunjuk berakhir di (sx, sy), kotak label diletakkan di sisi kiri atau kanan titik itu, lalu posisinya DIJEPIT dengan `Math.min(Math.max(x, 180), 900 - lebarKotak)`. Kotak harus selalu penuh terlihat, X 180..900, Y 240..1420.
+   - Posisi titik target di layar dihitung dengan nilai kamera yang sama dengan grup kamera: `sx = 540 + (cx - ax) * s`, `sy = 820 + (cy - ay) * s`, dengan (cx, cy) koordinat komponen, (ax, ay) jangkar kamera hasil interpolasi, dan s skala kamera. Beri nama hasilnya `screenTargetX = sx` dan `screenTargetY = sy`. Garis penunjuk WAJIB berujung tepat di titik itu (`<line x1={screenTargetX} y1={screenTargetY} .../>`) dan taruh titik bulat kecil `<circle cx={screenTargetX} cy={screenTargetY} r={6} />` di titik tersebut, supaya garis selalu menempel pada komponen walau kamera zoom-in atau bergeser (garis yang menunjuk ruang kosong dianggap salah). Kotak label diletakkan di sisi kiri atau kanan titik itu, lalu posisinya DIJEPIT dengan `Math.min(Math.max(x, 180), 900 - lebarKotak)`. Kotak harus selalu penuh terlihat, X 180..900, Y 240..1420.
    - Lebar kotak = jumlah karakter * 15 + 40. Teks label HANYA nama komponen dari `labels`, huruf kapital, maksimal 3 kata dan 22 karakter (contoh "PIN TENGAH", "PEGAS ULIR", "SEGEL KARET"). DILARANG memotong atau menyalin potongan kalimat narasi. Kalau `labels` kosong, jangan tulis label apa pun.
-9. URUTAN SEBAB-AKIBAT:
+8. URUTAN SEBAB-AKIBAT:
    - Alat pemicu dari luar (kepala pompa, jari, pelatuk, tangan, piston) digambar DI DALAM layar (Y 200..420, tidak pernah di Y < 150) dan bergerak turun atau maju sampai menempel pada komponen SEBELUM komponen itu bergerak. Urutannya: alat bergerak (triggerProgress 0 sampai 0.35), komponen terdorong (0.2 sampai 0.7), baru aliran muncul.
    - Aliran udara/cairan/listrik melewati celah HANYA tampil (opacity > 0) sesudah katup atau pin benar-benar membuka celah (`triggerProgress > 0.35`). Opacity aliran = `interpolate(triggerProgress, [0.35, 0.6], [0, 1], clamp)`. Sebelum itu celah tertutup rapat dan aliran tidak boleh terlihat menembus penutup.
    - Adegan pengandaian negatif ("tanpa komponen ini", "seandainya tidak ada"): komponen yang dibahas menjadi transparan tipis (opacity 0.15) dan tampilkan panah oranye (#f59e0b) yang melesat keluar lewat ujung lubang. Adegan seperti ini harus punya gerak yang terlihat sejak awal adegan, tidak boleh diam.
-10. BENTUK LUWES, BUKAN KAKU:
+9. BENTUK LUWES, BUKAN KAKU:
    - Pegas: `<path>` kurva Bezier (perintah C atau S) membentuk lilitan bulat, atau tumpukan elips setengah, dengan `strokeLinejoin="round"` dan `strokeLinecap="round"`, `strokeWidth` 6, gradasi metalik (linearGradient abu terang ke abu gelap). Dilarang `<polyline>` zig-zag bersudut lancip. Saat pegas tertekan, jarak lilitan dirapatkan, bukan garis dipotong.
    - Dinding selongsong punya bibir dudukan katup (valve seat) yang menyempit di bagian yang menahan katup, bukan dua balok lurus. Ulir luar digambar sebagai garis melingkar sejajar (bukan duri miring). Semua pipa, pegas, dan garis aliran memakai `strokeLinejoin="round"` dan `strokeLinecap="round"`.
    - Ruang bertekanan berisi 12 sampai 15 partikel bulat kecil (`<circle>`, r 3..6) yang bergerak naik-turun lewat `Math.sin(frame * 0.1 + i)`, memantul tepat di bawah permukaan segel/penutup (tidak menembusnya). Panah gaya menyentuh permukaan yang ditekan, bukan melayang di ruang kosong.
    - Saat adegan klimaks, partikel di ruang bertekanan bergerak ke arah celah yang terbuka.
-11. KEDALAMAN 2.5D DAN MATERIAL (DILARANG TERLIHAT DATAR):
+10. KEDALAMAN 2.5D DAN MATERIAL (DILARANG TERLIHAT DATAR):
    - Setiap batang, selongsong, pin, pipa, dan silinder memakai `<linearGradient>` dengan MINIMAL 3 titik warna `<stop>`: tepi gelap, pantulan terang di tengah (specular highlight), tepi bayangan. Contoh logam: #475569 (0%), #e2e8f0 (45%), #334155 (100%). Kaca/cairan memakai biru transparan dengan highlight putih. Dilarang mengisi komponen dengan satu warna solid.
    - Tiap komponen yang bergerak diberi garis highlight tipis di sisi atas/kiri (`stroke="#ffffff" strokeOpacity={0.35} strokeWidth={2}`) dan bayangan gelap di belakangnya (`<filter id="shadow">` dengan `<feDropShadow dx="6" dy="8" stdDeviation="6" floodColor="#000" floodOpacity="0.55"/>`) supaya bagian dalam mesin tampak bertumpuk dan punya kedalaman ruang. Komponen yang lebih dalam digambar lebih dulu dan sedikit lebih gelap.
    - Fluida, gas, atau listrik yang berubah kondisi (tekanan rendah ke tinggi, dingin ke panas) mengubah WARNA secara halus lewat `interpolateColors(progress, [0, 1], ["#38bdf8", "#f97316"])` (impor dari 'remotion'), bukan berganti warna mendadak. Kondisi rendah = biru, kondisi tinggi = oranye menyala.
-13. TATA LETAK PENUH LAYAR (DILARANG MENGUMPUL DI ATAS):
+11. TATA LETAK PENUH LAYAR (DILARANG MENGUMPUL DI ATAS):
    - Di kamera `whole` (skala 1), seluruh sistem benda harus mengisi area X 120..960 dan Y 300..1380: lebar sistem minimal 75% dari 840, tinggi minimal 60% dari 1080, titik tengahnya sekitar (540, 840). Dilarang menaruh benda hanya di setengah atas layar sementara setengah bawah kosong, dan dilarang membuat komponen kecil-kecil seperti ikon (komponen inti minimal 160 px pada skala 1).
    - Saat kamera zoom-in, komponen yang dibahas harus utuh terlihat (tidak terpotong tepi layar) dan berukuran sedikitnya 40% lebar layar. Pilih skala zoom supaya komponen beserta tetangganya yang bersentuhan masih muat di X 60..1020.
    - Sistem yang rumit (rem kereta, mesin, jaringan pipa) disederhanakan menjadi SATU rantai utama dari kiri ke kanan atau atas ke bawah yang terdiri dari 4 sampai 6 komponen besar. Dilarang menaruh komponen yang tidak pernah dibahas narasi.
    - Setiap komponen yang disebut di narasi harus punya bentuk yang bisa dikenali (silinder, piston, pegas, katup, roda, pipa berongga), bukan kotak polos atau ikon.
-14. PENEMPATAN LABEL: kotak label tidak boleh menutupi komponen yang ditunjuk atau komponen lain. Letakkan kotak label di ruang kosong, minimal 70 px dari tepi gambar komponen itu, dengan garis penunjuk pendek. Dua label dalam satu adegan tidak boleh saling berpotongan atau berjarak kurang dari 80 px.
-12. SIAP DIPAKAI: komponen WAJIB diekspor tepat seperti ini, dan interface WAJIB ada persis:
+12. PENEMPATAN LABEL: kotak label tidak boleh menutupi komponen yang ditunjuk atau komponen lain. Letakkan kotak label di ruang kosong, minimal 70 px dari tepi gambar komponen itu, dengan garis penunjuk pendek. Dua label dalam satu adegan tidak boleh saling berpotongan atau berjarak kurang dari 80 px.
+13. JALUR ALIRAN KONTINU DAN LOGIKA KATUP:
+   - Kalau ada aliran (gas, cairan, udara, arus listrik, atau gaya), `<path>` aliran WAJIB kontinu dari titik masuk (inlet), melewati ruang tengah, sampai berbelok masuk ke pipa atau jalur keluar (outlet). Dilarang garis aliran yang berhenti menabrak dinding buntu.
+   - Saat katup, bola, atau saklar menutup jalur (shutoff/terkunci), aliran di sisi keluar (downstream) WAJIB berhenti total (opacity 0), dan partikel atau aliran hanya boleh menumpuk di sisi sebelum penutup (upstream).
+14. NOL KOMPONEN DIAM (ZERO STATIC PARTS):
+   - Dilarang menggambar komponen internal (pegas kedua, membran diafragma, roda gigi pendamping, jarum indikator) yang membeku sepanjang video.
+   - Setiap komponen internal diberi gerak mikro (secondary motion) dengan `Math.sin(frame * 0.08)` atau bereaksi terhadap perubahan tekanan atau gerak komponen utama.
+15. LARANGAN IKON MIKRO DI PINGGIR LAYAR (FOKUS MAKRO):
+   - Dilarang menggambar objek pemicu (robekan selang, percikan api, benturan) berukuran kecil (kurang dari 60 px) di tepi layar.
+   - Kalau adegan membahas kerusakan atau reaksi di bagian pinggir alat, masukkan koordinat bagian itu ke `COMPONENT_ANCHORS` lalu arahkan kamera zoom-in (`scale` 1.5 atau lebih) tepat ke titik itu supaya terlihat jelas dan dramatis.
+16. SIAP DIPAKAI: komponen WAJIB diekspor tepat seperti ini, dan interface WAJIB ada persis:
 ```tsx
 export interface SceneTiming {
   sceneIndex: number;
@@ -322,15 +331,13 @@ def smoke_render(remotion_dir, props, log=print):
 
 VISION_PROMPT = """Kamu pemeriksa kualitas animasi infografis mekanis untuk video pendek vertikal (1080x1920). Di bawah ada {n} tangkapan layar dari video yang sama, berurutan: {desc}.
 Abaikan subtitle putih besar di bagian bawah layar dan bayangan gelap di bawahnya; itu memang ada.
-Periksa HANYA cacat yang jelas terlihat:
- a. teks label terpotong di tepi layar atau keluar layar,
- b. bagian benda saling bertumpuk parah sehingga tidak terbaca, atau menimpa label,
- c. layar terlalu kosong atau benda terlalu kecil (kurang dari separuh lebar layar) pada tangkapan yang seharusnya menampilkan benda,
- d0. benda hanya memenuhi bagian atas layar sementara bagian bawah kosong, atau komponen tampak sangat kecil seperti ikon,
- d1. kotak label menutupi komponen yang ditunjuk,
- d. bagian benda keluar dari batas layar yang seharusnya utuh terlihat, atau posisinya miring tidak wajar,
- e. warna terlalu gelap sehingga bagian penting nyaris tak terlihat.
+Jawab TIDAK LOLOS (ok = false) kalau kamu menemukan SALAH SATU dari hal ini:
+ 1. Garis putus-putus label penunjuk (callout) menunjuk ke ruang kosong dan tidak menempel pada komponen mesin.
+ 2. Garis aliran fluida atau listrik menabrak dinding tertutup, atau tetap mengalir menembus katup yang sedang tertutup rapat.
+ 3. Ada komponen penting yang ukurannya terlalu kecil di pojok layar, atau terpotong batas kanvas.
+Selain itu, TIDAK LOLOS juga kalau jelas terlihat: teks label terpotong, bagian benda bertumpuk parah sehingga tidak terbaca, kotak label menutupi komponen yang ditunjuk, benda hanya memenuhi separuh atas layar sementara bawahnya kosong, atau warna begitu gelap sehingga bagian penting nyaris tak terlihat.
 Kalau tidak ada cacat jelas, jawab ok. Jangan mengada-ada demi terlihat teliti.
+Kalau TIDAK LOLOS, tuliskan perbaikan koordinat SVG pada kode TopicMechanism.tsx.
 Jawab HANYA JSON: {"ok": true atau false, "masalah": ["tangkapan ke-N: ..."], "perbaikan": ["perubahan koordinat atau ukuran SVG yang konkret, misalnya: geser kotak label PIN TENGAH ke x=300"]}"""
 
 
