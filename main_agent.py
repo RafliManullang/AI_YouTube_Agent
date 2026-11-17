@@ -224,6 +224,18 @@ STRUCTURES = (
     ("BEDAH LANGKAH DEMI LANGKAH", "ikuti satu kejadian dari detik pertama sampai akhir, tiap adegan satu tahap, tanpa analogi"),
     ("ORANG DI BALIKNYA", "mulai dari seseorang atau kejadian nyata yang melahirkan benda ini, lalu hubungkan ke cara kerjanya sekarang"),
 )
+MICRO_CAUSAL_RULE = (
+    "KERANGKA WAJIB, RANTAI SEBAB-AKIBAT MIKRO (5 babak untuk video 60 detik, urut, tanpa selipan sejarah, nama penemu, tahun, "
+    "atau fakta umum yang memutus gambar; semua kalimat membahas benda yang sedang tampil):\n"
+    "  BABAK 1, detik 0-6, hook dan anomali: benda utuh tampil, langsung ajukan paradoks fisika "
+    "(contoh: \"Benda sekecil kelingking ini menahan tekanan dua ton tanpa baut pengunci.\").\n"
+    "  BABAK 2, detik 6-15, bedah anatomi: cangkang luar dibelah, perkenalkan MAKSIMAL 3 komponen inti yang saling bersentuhan, sebut satu per satu.\n"
+    "  BABAK 3, detik 15-30, kondisi normal: jelaskan bagaimana gaya fisika (tekanan, pegas, arus) menahan komponen di posisinya saat diam.\n"
+    "  BABAK 4, detik 30-48, gangguan dan rantai reaksi: satu pemicu dari luar, lalu A mendorong B, B membuka celah C, "
+    "fluida atau arus D mengalir. SETIAP kalimat wajib punya subjek berupa komponen fisik yang menggerakkan komponen lain.\n"
+    "  BABAK 5, detik 48-60, resolusi: komponen kembali ke posisi semula, kamera menjauh ke wujud utuh, lalu kalimat pancingan penutup.\n"
+    "Bagi 8 sampai 10 adegan ke dalam kelima babak itu sesuai urutan dan rentang detiknya. Dilarang membahas sejarah atau statistik di tengah penjelasan mekanis."
+)
 STRUCTURE_HISTORY_PATH = os.path.join(BASE_DIR, "riwayat_alur.json")
 
 
@@ -345,7 +357,7 @@ def build_prompt(forced_topic, done_titles):
             "kreator yang sedang bercerita ke teman: ekspresif, ada penekanan, boleh bertanya ke penonton, tanpa "
             "basa-basi dan tanpa tanya-jawab dengan orang lain."
         )
-    STRUCTURE_RULE = pick_structure()
+    STRUCTURE_RULE = MICRO_CAUSAL_RULE
     return f"""
 Kamu adalah scriptwriter YouTube Shorts edukasi berbahasa Indonesia, gaya Kok Bisa / Veritasium.
 {topic_rule}
@@ -363,17 +375,10 @@ ke-0. DILARANG membuka dengan sapaan (halo, hai, selamat datang), basa-basi,
 "kali ini kita bahas", atau percakapan santai bernada datar. Kalimat pertama DILARANG diawali kata sambung (karena, dan, tapi, jadi, lalu,
 makanya, soalnya, sebab): harus kalimat utuh yang bisa berdiri sendiri. Visual adegan pertama harus langsung
 memperlihatkan inti masalahnya, bukan pemandangan umum.
-ALUR CERITA (supaya orang menonton sampai habis; ini kotak peralatan, BUKAN urutan wajib, ikuti KERANGKA CERITA VIDEO INI di bawah): (1) HOOK menghentak; (2) TARUHAN: kenapa ini penting
-atau bahaya apa yang mengintai; (3) PENJELASAN bertahap dengan analogi benda sehari-hari yang mudah dibayangkan;
-(4) TITIK BALIK tepat di tengah video: kalimat seperti "Tapi tunggu, ada yang lebih gila..." disusul fakta
-yang berlawanan dengan dugaan; (5) ANGKA GILA yang dibandingkan dengan benda yang akrab (contoh: "setara
-berat 6 ekor gajah", "sepanjang lapangan bola"), minimal 1 dan paling banyak 2 perbandingan seperti ini;
-BATAS ANGKA (supaya otak penonton tidak lelah): di SELURUH ucapan hanya boleh ada 3 angka penting, paling banyak
-satu angka per kalimat, dan jangan ada dua angka di kalimat berdekatan. Pilih angka yang paling mengejutkan, buang
-sisanya, lalu ganti dengan perbandingan kata-kata ("sedikit lebih cepat", "seberat mobil"). Tiap angka yang
-disebut diucapkan saat bagian bendanya bergerak di layar;
-(6) JAWABAN yang memuaskan rasa penasaran. Jangan membocorkan jawaban inti di awal: simpan sampai bagian
-(6). PENUTUP MELINGKAR (seamless loop): kalimat terakhir adalah PERTANYAAN PANCINGAN pendek (maksimal 10 kata)
+ALUR CERITA: ikuti KERANGKA WAJIB di bawah (rantai sebab-akibat mikro). Angka cukup satu atau dua yang paling mengejutkan, dan hanya
+kalau angka itu menjelaskan gaya atau ukuran komponen yang sedang tampil, dengan perbandingan benda akrab ("seberat mobil").
+Jangan menyelipkan analogi di luar benda, sejarah, atau titik balik "Tapi tunggu".
+PENUTUP MELINGKAR (seamless loop): kalimat terakhir adalah PERTANYAAN PANCINGAN pendek (maksimal 10 kata)
 yang dijawab langsung oleh kalimat pembuka saat video berulang. JANGAN mengulang kata-kata pembuka di penutup
 (pengulangan kata terdengar seperti gagap). Contoh: pembuka "Tiga pesawat hancur di udara gara-gara jendela
 kotak." dan penutup "Jadi, apa jadinya kalau jendela pesawat berbentuk kotak?". Contoh lain: pembuka "Karena
@@ -1083,6 +1088,31 @@ def llm_callers(raw=False):
     return [(n, (lambda p, n=n: dict(build_text_sources(p, raw))[n]())) for n in names]
 
 
+def vision_caller():
+    """Fungsi (prompt, [png]) -> teks memakai Gemini penglihat; None kalau tidak ada kunci Gemini (pemeriksaan visual dilewati)."""
+    if not GEMINI_KEY or GEMINI_KEY == "ISI_KEY_DI_SINI":
+        return None
+    try:
+        from google import genai
+        from google.genai import types
+    except Exception:
+        return None
+    client = genai.Client(api_key=GEMINI_KEY)
+
+    def call(prompt, images):
+        parts = [types.Part.from_bytes(data=b, mime_type="image/png") for b in images] + [prompt]
+        config = types.GenerateContentConfig(temperature=0.2, response_mime_type="application/json",
+                                             http_options=types.HttpOptions(timeout=90000))
+        last = None
+        for model_name in GEMINI_MODELS:
+            try:
+                return client.models.generate_content(model=model_name, contents=parts, config=config).text
+            except Exception as e:  # coba model berikutnya
+                last = e
+        raise RuntimeError(str(last)[:120] if last else "tidak ada model Gemini")
+    return call
+
+
 def _norm_word(w):
     return re.sub(r"[^a-z0-9]", "", str(w or "").lower())
 
@@ -1140,7 +1170,7 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
     props["mechScenes"] = timings
     info("  -> AI menggambar ilustrasi mekanis khusus topik ini (satu kanvas dari awal sampai akhir)...")
     props = schema_gate.validate_or_repair(props, REMOTION_DIR, None, info)
-    svg_composer.compose(data_title, scenes, timings, llm_callers(raw=True), REMOTION_DIR, props, info)
+    svg_composer.compose(data_title, scenes, timings, llm_callers(raw=True), REMOTION_DIR, props, info, vision=vision_caller())
 
     # Semua data wajib lolos skema Zod, lalu render berjalan dengan pemulihan otomatis (render_worker.py)
     render_worker.render(props, output_mp4, REMOTION_DIR, llm_callers(), info)

@@ -56,7 +56,11 @@ ATURAN MUTLAK:
    - Lapis 1B (FrontCoverShell, penutup depan bodi luar): bodi luar benda yang utuh dan tertutup (logam, karet, tekstur ulir luar, leher). Di adegan 0 penutup ini solid (opacity 1.0) dan menutupi isi dalam. Saat masuk adegan pembedahan komponen dalam (sceneIndex >= 1) penutup memudar ke opacity 0 dengan `spring` dimulai tepat di frame awal adegan itu (atau frame kata "memotong/membedah/dalamnya"), seperti dinding depan yang terbelah. Bagian dalam sudah ada dan bergerak pelan di belakang penutup sejak frame 0, hanya tertutup.
    - Lapis 2 (bagian dalam yang bergerak): minimal 5 komponen mekanis yang relevan dengan naskah. SETIAP komponen bergerak secara matematis dari `frame` (`rotate(frame*k)`, `Math.sin(frame/...)`, `interpolate`, `spring`, strokeDashoffset untuk aliran). Gerak idle berjalan terus dari frame 0.
    - Lapis 3 (label penunjuk): lihat aturan 8. Maksimal 2 label per adegan.
-4. SATU KANVAS, KAMERA BERKELANJUTAN: benda tidak pernah dihapus atau diganti saat `sceneIndex` berganti. Buat tabel kamera untuk SETIAP adegan (jangan pakai modulo): `[{scale, x, y}, ...]` dan pindah dari kamera adegan sebelumnya ke adegan sekarang dengan `spring` dari frame mulai adegan (zoom-in ke bagian yang dibahas, zoom-out untuk melihat sistem utuh). Bagian yang tidak dibahas boleh meredup (opacity 0.45) tapi tetap tergambar.
+4. SATU KANVAS, KAMERA BERKELANJUTAN DENGAN JANGKAR:
+   - Benda tidak pernah dihapus atau diganti saat `sceneIndex` berganti. Bagian yang tidak dibahas boleh meredup (opacity 0.45) tapi tetap tergambar.
+   - Di awal file (di luar komponen) WAJIB ada kamus `COMPONENT_ANCHORS` berisi titik pusat pasti (x, y) setiap komponen yang kamu gambar, misalnya `const COMPONENT_ANCHORS = { whole: {x:540,y:820}, pin: {x:540,y:520}, spring: {x:540,y:780} }`. Gambar tiap komponen persis di koordinat jangkarnya (satu sumber kebenaran, jangan menulis angka koordinat yang berbeda di tempat lain). Wajib ada jangkar `whole` untuk tampilan benda utuh.
+   - Tabel kamera untuk SETIAP adegan (jangan pakai modulo): `CAMERA = [{ scale, anchor: "nama jangkar" }, ...]`. Pindah dari kamera adegan sebelumnya ke adegan sekarang dengan satu `spring` (progres 0..1) dari frame mulai adegan; skala dan koordinat jangkar keduanya di-interpolasi dengan progres yang sama.
+   - Fungsi kamera (CameraRig) WAJIB mengunci jangkar tepat di pusat layar (540, 820): bungkus seluruh gambar benda dengan `<g transform={`translate(540 820) scale(${s}) translate(${-ax} ${-ay})`}>` dengan (ax, ay) = jangkar hasil interpolasi, s = skala hasil interpolasi. Dilarang memakai `transform-origin` tetap. Skala zoom-in 1.4 sampai 2.4, zoom-out adegan pembuka dan penutup skala 1 dengan jangkar `whole`.
 5. KATA PEMICU: dari frame pertama seluruh benda sudah terlihat dan bergerak pelan (idle). `triggerProgress` = 0 sebelum `triggerFrame` adegan aktif lalu naik 0 sampai 1 dengan `spring`; pakai untuk AKSI KLIMAKS adegan itu (poros memerah dan retak, katup menutup, percikan, sudut membelok, aliran menyempit, dan sebagainya). Klimaks harus sesuai isi narasi adegan.
 6. KODE ANTI-CRASH:
    - HANYA impor dari 'react' dan 'remotion' (`AbsoluteFill, useCurrentFrame, useVideoConfig, spring, interpolate`). Dilarang impor lain, gambar luar, `<image>`, `<foreignObject>`.
@@ -68,7 +72,7 @@ ATURAN MUTLAK:
    - Warna kontras tinggi di atas latar gelap (biru #38bdf8, oranye #f59e0b, merah #ef4444, hijau #22c55e, abu logam #94a3b8), bagian aktif diberi `filter="url(#glow)"`.
 8. LABEL ANTI-TERPOTONG (HUD LAYAR, DI LUAR KAMERA):
    - Callout label DILARANG berada di dalam `<g>` yang terkena `transform` kamera (translate/scale). Gambar benda di dalam satu `<g transform=...>` kamera. Lalu gambar SEMUA label di grup terpisah SESUDAH grup kamera, tanpa transform kamera, sehingga ukuran dan posisi kotak tidak ikut membesar dan tidak keluar layar saat zoom.
-   - Posisi akhir kotak label dihitung dari titik target di layar: `sx = cx*camScale + camX`, `sy = cy*camScale + camY` (pakai nilai kamera yang sama dengan grup kamera). Garis penunjuk berakhir di (sx, sy), kotak label diletakkan di sisi kiri atau kanan titik itu, lalu posisinya DIJEPIT dengan `Math.min(Math.max(x, 180), 900 - lebarKotak)`. Kotak harus selalu penuh terlihat, X 180..900, Y 240..1420.
+   - Posisi titik target di layar dihitung dengan nilai kamera yang sama dengan grup kamera: `sx = 540 + (cx - ax) * s`, `sy = 820 + (cy - ay) * s`, dengan (cx, cy) koordinat komponen, (ax, ay) jangkar kamera hasil interpolasi, dan s skala kamera. Garis penunjuk berakhir di (sx, sy), kotak label diletakkan di sisi kiri atau kanan titik itu, lalu posisinya DIJEPIT dengan `Math.min(Math.max(x, 180), 900 - lebarKotak)`. Kotak harus selalu penuh terlihat, X 180..900, Y 240..1420.
    - Lebar kotak = jumlah karakter * 15 + 40. Teks label HANYA nama komponen dari `labels`, huruf kapital, maksimal 3 kata dan 22 karakter (contoh "PIN TENGAH", "PEGAS ULIR", "SEGEL KARET"). DILARANG memotong atau menyalin potongan kalimat narasi. Kalau `labels` kosong, jangan tulis label apa pun.
 9. URUTAN SEBAB-AKIBAT:
    - Alat pemicu dari luar (kepala pompa, jari, pelatuk, tangan, piston) digambar DI DALAM layar (Y 200..420, tidak pernah di Y < 150) dan bergerak turun atau maju sampai menempel pada komponen SEBELUM komponen itu bergerak. Urutannya: alat bergerak (triggerProgress 0 sampai 0.35), komponen terdorong (0.2 sampai 0.7), baru aliran muncul.
@@ -79,7 +83,11 @@ ATURAN MUTLAK:
    - Dinding selongsong punya bibir dudukan katup (valve seat) yang menyempit di bagian yang menahan katup, bukan dua balok lurus. Ulir luar digambar sebagai garis melingkar sejajar (bukan duri miring). Semua pipa, pegas, dan garis aliran memakai `strokeLinejoin="round"` dan `strokeLinecap="round"`.
    - Ruang bertekanan berisi 12 sampai 15 partikel bulat kecil (`<circle>`, r 3..6) yang bergerak naik-turun lewat `Math.sin(frame * 0.1 + i)`, memantul tepat di bawah permukaan segel/penutup (tidak menembusnya). Panah gaya menyentuh permukaan yang ditekan, bukan melayang di ruang kosong.
    - Saat adegan klimaks, partikel di ruang bertekanan bergerak ke arah celah yang terbuka.
-11. SIAP DIPAKAI: komponen WAJIB diekspor tepat seperti ini, dan interface WAJIB ada persis:
+11. KEDALAMAN 2.5D DAN MATERIAL (DILARANG TERLIHAT DATAR):
+   - Setiap batang, selongsong, pin, pipa, dan silinder memakai `<linearGradient>` dengan MINIMAL 3 titik warna `<stop>`: tepi gelap, pantulan terang di tengah (specular highlight), tepi bayangan. Contoh logam: #475569 (0%), #e2e8f0 (45%), #334155 (100%). Kaca/cairan memakai biru transparan dengan highlight putih. Dilarang mengisi komponen dengan satu warna solid.
+   - Tiap komponen yang bergerak diberi garis highlight tipis di sisi atas/kiri (`stroke="#ffffff" strokeOpacity={0.35} strokeWidth={2}`) dan bayangan gelap di belakangnya (`<filter id="shadow">` dengan `<feDropShadow dx="6" dy="8" stdDeviation="6" floodColor="#000" floodOpacity="0.55"/>`) supaya bagian dalam mesin tampak bertumpuk dan punya kedalaman ruang. Komponen yang lebih dalam digambar lebih dulu dan sedikit lebih gelap.
+   - Fluida, gas, atau listrik yang berubah kondisi (tekanan rendah ke tinggi, dingin ke panas) mengubah WARNA secara halus lewat `interpolateColors(progress, [0, 1], ["#38bdf8", "#f97316"])` (impor dari 'remotion'), bukan berganti warna mendadak. Kondisi rendah = biru, kondisi tinggi = oranye menyala.
+12. SIAP DIPAKAI: komponen WAJIB diekspor tepat seperti ini, dan interface WAJIB ada persis:
 ```tsx
 export interface SceneTiming {
   sceneIndex: number;
@@ -164,6 +172,11 @@ def lint(code):
         errs.append("pegas dan pipa wajib memakai strokeLinejoin=\"round\" dan strokeLinecap=\"round\"")
     if not re.search(r"FrontCover", code):
         errs.append("wajib ada komponen FrontCoverShell (penutup depan yang memudar saat masuk adegan pembedahan)")
+    if "COMPONENT_ANCHORS" not in code:
+        errs.append("wajib ada kamus COMPONENT_ANCHORS (koordinat pasti tiap komponen) dan kamera yang mengunci jangkar di pusat layar")
+    grads = re.findall(r"<linearGradient\b.*?</linearGradient>", code, re.S)
+    if sum(1 for g in grads if g.count("<stop") >= 3) < 2:
+        errs.append("wajib minimal 2 <linearGradient> dengan 3 titik warna <stop> atau lebih (efek logam 3D: tepi gelap, pantulan terang, tepi bayangan)")
     if re.search(r"<polyline", code):
         errs.append("dilarang <polyline> zig-zag; gambar pegas dengan <path> kurva Bezier")
     return errs
@@ -242,6 +255,22 @@ def _filled_fraction(png_path):
     return sum(1 for v in px if abs(v - mean) > 28) / len(px)
 
 
+def render_still(remotion_dir, props_name, frame, png, timeout=300):
+    """Render satu bingkai ke png. Mengembalikan None kalau berhasil, atau teks galat."""
+    import shutil
+    npx = shutil.which("npx")
+    cmd = [npx, "remotion", "still", "src/index.ts", "ShortsComp", png, f"--frame={frame}", f"--props={props_name}"]
+    gl = os.getenv("GL_MODE")
+    if gl:
+        cmd.append("--gl=" + gl)
+    cmd += shlex.split(os.getenv("REMOTION_EXTRA", ""))  # opsi tambahan (mis. jalur browser), lazimnya kosong
+    res = subprocess.run(cmd, cwd=remotion_dir, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
+    if res.returncode != 0 or not os.path.exists(png):
+        tail = ((res.stderr or "") + (res.stdout or "")).strip().splitlines()
+        return " | ".join([l for l in tail if l.strip()][-6:])[:600]
+    return None
+
+
 def smoke_render(remotion_dir, props, log=print):
     """Render beberapa bingkai sungguhan. Mengembalikan daftar masalah (kosong = lolos)."""
     import shutil
@@ -263,16 +292,9 @@ def smoke_render(remotion_dir, props, log=print):
     try:
         for fr in frames:
             png = os.path.join(out_dir, f"_smoke_{fr}.png")
-            cmd = [npx, "remotion", "still", "src/index.ts", "ShortsComp", png, f"--frame={fr}", "--props=smoke_props.json"]
-            gl = os.getenv("GL_MODE")
-            if gl:
-                cmd.append("--gl=" + gl)
-            cmd += shlex.split(os.getenv("REMOTION_EXTRA", ""))  # opsi tambahan (mis. jalur browser), lazimnya kosong
-            res = subprocess.run(cmd, cwd=remotion_dir, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
-            if res.returncode != 0 or not os.path.exists(png):
-                tail = ((res.stderr or "") + (res.stdout or "")).strip().splitlines()
-                keep = [l for l in tail if l.strip()][-6:]
-                problems.append(f"gagal dirender di bingkai {fr}: " + " | ".join(keep)[:600])
+            err = render_still(remotion_dir, "smoke_props.json", fr, png)
+            if err:
+                problems.append(f"gagal dirender di bingkai {fr}: " + err)
                 break
             if fr == 0:
                 frac = _filled_fraction(png)
@@ -290,6 +312,92 @@ def smoke_render(remotion_dir, props, log=print):
         except OSError:
             pass
     return problems
+
+
+VISION_PROMPT = """Kamu pemeriksa kualitas animasi infografis mekanis untuk video pendek vertikal (1080x1920). Di bawah ada {n} tangkapan layar dari video yang sama, berurutan: {desc}.
+Abaikan subtitle putih besar di bagian bawah layar dan bayangan gelap di bawahnya; itu memang ada.
+Periksa HANYA cacat yang jelas terlihat:
+ a. teks label terpotong di tepi layar atau keluar layar,
+ b. bagian benda saling bertumpuk parah sehingga tidak terbaca, atau menimpa label,
+ c. layar terlalu kosong atau benda terlalu kecil (kurang dari separuh lebar layar) pada tangkapan yang seharusnya menampilkan benda,
+ d. bagian benda keluar dari batas layar yang seharusnya utuh terlihat, atau posisinya miring tidak wajar,
+ e. warna terlalu gelap sehingga bagian penting nyaris tak terlihat.
+Kalau tidak ada cacat jelas, jawab ok. Jangan mengada-ada demi terlihat teliti.
+Jawab HANYA JSON: {"ok": true atau false, "masalah": ["tangkapan ke-N: ..."], "perbaikan": ["perubahan koordinat atau ukuran SVG yang konkret, misalnya: geser kotak label PIN TENGAH ke x=300"]}"""
+
+
+def vision_frames(timings, total_frames):
+    """Tiga bingkai kunci: cangkang awal, saat pembedahan, dan aksi klimaks adegan di sepertiga akhir."""
+    n = len(timings)
+    f1 = 30
+    f2 = timings[min(1, n - 1)]["startFrame"] + 25
+    f3 = timings[min(n - 1, max(1, (n * 2) // 3))]["triggerFrame"] + 15
+    out = []
+    for f, name in ((f1, "benda utuh di awal"), (f2, "saat dibedah"), (f3, "aksi klimaks")):
+        f = max(0, min(total_frames - 1, int(f)))
+        if f not in [x[0] for x in out]:
+            out.append((f, name))
+    return out
+
+
+def parse_critique(text):
+    """Baca jawaban pemeriksa visual. Mengembalikan daftar masalah (kosong = tidak ada cacat atau jawaban tak terbaca)."""
+    m = re.search(r"\{.*\}", text or "", re.S)
+    if not m:
+        return []
+    try:
+        data = json.loads(m.group(0))
+    except Exception:
+        return []
+    if data.get("ok") is True:
+        return []
+    issues = [str(x)[:220] for x in (data.get("masalah") or [])][:4]
+    fixes = [str(x)[:220] for x in (data.get("perbaikan") or [])][:4]
+    return ["Pemeriksa visual: " + x for x in issues] + ["Saran perbaikan: " + x for x in fixes]
+
+
+def vision_critique(remotion_dir, props, vision, log=print):
+    """Render 3 bingkai kunci (hanya beberapa detik), lalu minta model penglihat memeriksanya.
+    Mengembalikan daftar masalah. Pemeriksaan ini bersifat penasihat: gangguan apa pun menghasilkan daftar kosong."""
+    import shutil
+    if not shutil.which("npx"):
+        return []
+    total = int(round(float(props["durationInSeconds"]) * 30))
+    frames = vision_frames(props["mechScenes"], total)
+    test = dict(props)
+    test["audioUrl"] = ""
+    test.pop("bgmUrl", None)
+    test["sfx"] = False
+    path = os.path.join(remotion_dir, "vision_props.json")
+    out_dir = os.path.join(remotion_dir, "out")
+    os.makedirs(out_dir, exist_ok=True)
+    pngs = []
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(test, f, ensure_ascii=False)
+        for fr, _ in frames:
+            png = os.path.join(out_dir, f"_vision_{fr}.png")
+            if render_still(remotion_dir, "vision_props.json", fr, png, timeout=180):
+                return []
+            with open(png, "rb") as fh:
+                pngs.append(fh.read())
+        desc = "; ".join(f"tangkapan {i + 1} = {name} (bingkai {fr})" for i, (fr, name) in enumerate(frames))
+        prompt = VISION_PROMPT.replace("{n}", str(len(pngs))).replace("{desc}", desc)
+        return parse_critique(vision(prompt, pngs))
+    except Exception as e:
+        log(f"     Pemeriksaan visual dilewati: {str(e)[:100]}")
+        return []
+    finally:
+        for fn in os.listdir(out_dir):
+            if fn.startswith("_vision_"):
+                try:
+                    os.remove(os.path.join(out_dir, fn))
+                except OSError:
+                    pass
+        try:
+            os.remove(path)
+        except OSError:
+            pass
 
 
 def describe_scenes(scenes, timings):
@@ -345,7 +453,43 @@ def build_timings(scenes, words, fps=30):
     return out
 
 
-def compose(topic, scenes, timings, callers, remotion_dir, props_for_smoke, log=print, max_repairs=2):
+def _check_all(code, remotion_dir, props):
+    errors = lint(code)
+    if not errors:
+        write_code(remotion_dir, code)
+        errors = typecheck_generated(remotion_dir)
+    if not errors:
+        errors = smoke_render(remotion_dir, props)
+    return errors
+
+
+def _vision_gate(code, callers, remotion_dir, props, vision, log, dead):
+    """Gerbang visual: lihat 3 tangkapan layar, kalau ada cacat jelas revisi kode SEKALI. Revisi dipakai hanya kalau lolos semua pemeriksaan kode."""
+    log("  -> Pemeriksa visual melihat 3 tangkapan layar sebelum render penuh...")
+    issues = vision_critique(remotion_dir, props, vision, log)
+    if not issues:
+        log("     Tidak ada cacat visual yang jelas.")
+        return code
+    log(f"     Cacat visual: {issues[0][:130]}")
+    ask = REPAIR_PROMPT.replace("{errors}", "\n".join("- " + e for e in issues)).replace("{code}", code)
+    for name, call in callers:
+        if name in dead:
+            continue
+        try:
+            revised = normalize(extract_code(call(ask)))
+        except Exception as e:
+            log(f"     Revisi visual oleh {name} dilewati: {str(e)[:80]}")
+            continue
+        if not _check_all(revised, remotion_dir, props):
+            log(f"     Revisi visual oleh {name} lolos pemeriksaan dan dipakai.")
+            return revised
+        log("     Revisi visual belum lolos pemeriksaan kode, memakai versi sebelumnya.")
+        break
+    write_code(remotion_dir, code)  # pulihkan versi yang sudah lolos
+    return code
+
+
+def compose(topic, scenes, timings, callers, remotion_dir, props_for_smoke, log=print, max_repairs=2, vision=None):
     """Hasilkan dan validasi komponen. Mengembalikan True kalau berkas siap dipakai; melempar RuntimeError kalau semua gagal."""
     ensure_stub(remotion_dir)
     prompt = PROMPT_SVG_COMPOSER.replace("{topic}", str(topic)).replace("{scenes}", describe_scenes(scenes, timings))
@@ -378,6 +522,8 @@ def compose(topic, scenes, timings, callers, remotion_dir, props_for_smoke, log=
             errors = smoke_render(remotion_dir, props_for_smoke, log)
         if not errors:
             log(f"  -> Kanvas mekanis dibuat oleh {last_source} dan lolos semua pemeriksaan (percobaan {attempt}).")
+            if vision is not None:
+                code = _vision_gate(code, callers, remotion_dir, props_for_smoke, vision, log, dead)
             return True
         log(f"  -> Kanvas percobaan {attempt}/{attempts} belum lolos: {errors[0][:140]}")
     raise RuntimeError("Kanvas mekanis buatan AI tidak lolos pemeriksaan setelah perbaikan otomatis: " + "; ".join(errors[:3]))

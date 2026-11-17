@@ -260,3 +260,10 @@ Cara lama (memilih salah satu dari sekitar 10 gambar preset lalu mengganti tulis
 - Dihapus: komponen bola 1-2, tabung VS, lift, bearing, grafik, tanda tanya, judul bab di atas layar, hook besar yang menutupi benda, dan semua kode pemilih preset (`director`, `topic_lock`, `primitives`, `sim_*`, `metaphors`, rekaman stok, gambar kartun, model 3D).
 - Prompt naskah diganti: satu benda utama, tiap adegan menyorot satu bagian, `trigger` wajib.
 - Catatan: pembuatan kanvas butuh model yang kuat menulis kode (Gemini lebih baik daripada model cadangan kecil), dan memakan sekitar 1 sampai 3 menit tambahan.
+
+## Tahap 32: naskah rantai sebab-akibat, kedalaman 2.5D, jangkar kamera, pemeriksa visual
+
+- Naskah mengikuti 5 babak mekanis (hook paradoks, bedah komponen, kondisi normal, rantai reaksi, resolusi) tanpa sejarah atau fakta umum di tengah.
+- Prompt gambar mewajibkan gradasi logam 3 titik warna, bayangan, dan warna fluida yang berubah halus (`interpolateColors`). Pemeriksa kode menolak gambar yang hanya memakai warna datar.
+- Kode gambar wajib punya `COMPONENT_ANCHORS`; kamera mengunci jangkar komponen yang dibahas tepat di pusat layar.
+- Sebelum render penuh, 3 bingkai kunci dirender dan dilihat Gemini (butuh `GEMINI_API_KEY`). Kalau ada cacat jelas, kode direvisi sekali dan revisi hanya dipakai kalau lolos semua pemeriksaan. Tanpa kunci Gemini, langkah ini dilewati.
