@@ -388,7 +388,7 @@ yang berbeda dari benda yang sama (kamera mendekat ke bagian itu, bagian itu ber
 2. Tidak ada grafik batang, jam kecepatan, bola bernomor, tabung perbandingan, kartu teks, daftar poin, timeline, atau tanda tanya besar.
    Angka cukup diucapkan; yang tampil di layar selalu bagian benda yang bergerak.
 3. Setiap adegan: "type" selalu "mechanism". "items" berisi 1 sampai 2 nama bagian benda yang DISEBUT di kalimat adegan itu
-   ("label" 1 sampai 3 kata, "value" kosong). Hanya nama itu yang akan ditulis di layar.
+   ("label" 1 sampai 3 kata berupa NAMA KOMPONEN FISIK seperti "pin tengah", "pegas ulir", "segel karet", bukan potongan kalimat; "value" kosong). Hanya nama itu yang akan ditulis di layar.
 4. "trigger" WAJIB diisi untuk setiap adegan: SATU kata persis seperti yang diucapkan narator di adegan itu, yaitu saat aksi klimaks
    adegan terjadi di layar (contoh: "patah", "menekan", "membelok", "berhenti"). Sebelum kata itu bagian benda bergerak pelan.
 5. Perbandingan harus masuk akal secara fisika (lintasan luar lebih panjang dari lintasan dalam, benda berat lebih lambat, dan sebagainya).

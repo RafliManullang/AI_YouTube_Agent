@@ -49,12 +49,13 @@ TAHAP 1 - BLUEPRINT (tulis sebagai komentar blok di bagian paling atas file, mak
 TAHAP 2 - KODE.
 
 ATURAN MUTLAK:
-1. DILARANG BENTUK SLIDE ATAU INFOGRAFIS: tidak ada grafik batang, tabung VS, bola bernomor 1-2-3, speedometer, tanda tanya besar, kartu teks, judul bab, atau daftar poin. Layar adalah SATU benda utuh. Teks hanya boleh berupa label penunjuk kecil yang diambil dari `labels` adegan aktif. Dilarang menulis teks lain (angka, kalimat, judul) yang kamu karang sendiri.
+1. DILARANG BENTUK SLIDE ATAU INFOGRAFIS: tidak ada grafik batang, tabung VS, bola bernomor 1-2-3, speedometer, tanda tanya besar, kartu teks, judul bab, atau daftar poin. Layar adalah SATU benda utuh. Teks hanya boleh berupa label nama komponen yang diambil dari `labels` adegan aktif. Dilarang menulis teks lain (angka, kalimat, judul) yang kamu karang sendiri.
 2. BENTUK HARUS BENAR SECARA FISIKA: gambar bendanya seperti aslinya (roda gigi harus punya gigi yang saling bertaut, pegas berbentuk pegas, pipa berongga, aliran dengan panah). Dilarang memakai bola/lingkaran polos untuk mewakili benda yang bukan bola. Kalau ada perbandingan (misalnya lintasan panjang vs pendek), gambarkan dengan panjang garis yang BENAR: yang lebih panjang harus tampak lebih panjang.
 3. TIGA LAPIS:
    - Lapis 1 (cangkang luar): siluet bodi asli benda, `fill="rgba(30,41,59,0.35)"`, `stroke="#475569"`, `strokeWidth={3}`, supaya penonton langsung mengenali bendanya sejak frame pertama.
+   - Lapis 1B (FrontCoverShell, penutup depan bodi luar): bodi luar benda yang utuh dan tertutup (logam, karet, tekstur ulir luar, leher). Di adegan 0 penutup ini solid (opacity 1.0) dan menutupi isi dalam. Saat masuk adegan pembedahan komponen dalam (sceneIndex >= 1) penutup memudar ke opacity 0 dengan `spring` dimulai tepat di frame awal adegan itu (atau frame kata "memotong/membedah/dalamnya"), seperti dinding depan yang terbelah. Bagian dalam sudah ada dan bergerak pelan di belakang penutup sejak frame 0, hanya tertutup.
    - Lapis 2 (bagian dalam yang bergerak): minimal 5 komponen mekanis yang relevan dengan naskah. SETIAP komponen bergerak secara matematis dari `frame` (`rotate(frame*k)`, `Math.sin(frame/...)`, `interpolate`, `spring`, strokeDashoffset untuk aliran). Gerak idle berjalan terus dari frame 0.
-   - Lapis 3 (label penunjuk): `<line>` + `<text>` yang menunjuk koordinat bagian yang dibahas. Maksimal 2 label per adegan, fontSize 26, kontras tinggi, tidak bertumpuk, teks persis dari `labels`.
+   - Lapis 3 (label penunjuk): lihat aturan 8. Maksimal 2 label per adegan.
 4. SATU KANVAS, KAMERA BERKELANJUTAN: benda tidak pernah dihapus atau diganti saat `sceneIndex` berganti. Buat tabel kamera untuk SETIAP adegan (jangan pakai modulo): `[{scale, x, y}, ...]` dan pindah dari kamera adegan sebelumnya ke adegan sekarang dengan `spring` dari frame mulai adegan (zoom-in ke bagian yang dibahas, zoom-out untuk melihat sistem utuh). Bagian yang tidak dibahas boleh meredup (opacity 0.45) tapi tetap tergambar.
 5. KATA PEMICU: dari frame pertama seluruh benda sudah terlihat dan bergerak pelan (idle). `triggerProgress` = 0 sebelum `triggerFrame` adegan aktif lalu naik 0 sampai 1 dengan `spring`; pakai untuk AKSI KLIMAKS adegan itu (poros memerah dan retak, katup menutup, percikan, sudut membelok, aliran menyempit, dan sebagainya). Klimaks harus sesuai isi narasi adegan.
 6. KODE ANTI-CRASH:
@@ -65,7 +66,20 @@ ATURAN MUTLAK:
    - Semua id `<linearGradient>`, `<radialGradient>`, `<filter id="glow">` didefinisikan di `<defs>`. Pastikan semua tag SVG tertutup dan semua variabel yang dipakai sudah dideklarasikan.
    - viewBox utama `0 0 1080 1920`. Area aman gambar utama: X 100..980, Y 220..1450. Area Y 1500..1920 harus bersih (tempat subtitle). Latar: gradien gelap radial; tanpa lantai, tanpa grid, tanpa kilatan putih.
    - Warna kontras tinggi di atas latar gelap (biru #38bdf8, oranye #f59e0b, merah #ef4444, hijau #22c55e, abu logam #94a3b8), bagian aktif diberi `filter="url(#glow)"`.
-7. SIAP DIPAKAI: komponen WAJIB diekspor tepat seperti ini, dan interface WAJIB ada persis:
+8. LABEL ANTI-TERPOTONG (HUD LAYAR, DI LUAR KAMERA):
+   - Callout label DILARANG berada di dalam `<g>` yang terkena `transform` kamera (translate/scale). Gambar benda di dalam satu `<g transform=...>` kamera. Lalu gambar SEMUA label di grup terpisah SESUDAH grup kamera, tanpa transform kamera, sehingga ukuran dan posisi kotak tidak ikut membesar dan tidak keluar layar saat zoom.
+   - Posisi akhir kotak label dihitung dari titik target di layar: `sx = cx*camScale + camX`, `sy = cy*camScale + camY` (pakai nilai kamera yang sama dengan grup kamera). Garis penunjuk berakhir di (sx, sy), kotak label diletakkan di sisi kiri atau kanan titik itu, lalu posisinya DIJEPIT dengan `Math.min(Math.max(x, 180), 900 - lebarKotak)`. Kotak harus selalu penuh terlihat, X 180..900, Y 240..1420.
+   - Lebar kotak = jumlah karakter * 15 + 40. Teks label HANYA nama komponen dari `labels`, huruf kapital, maksimal 3 kata dan 22 karakter (contoh "PIN TENGAH", "PEGAS ULIR", "SEGEL KARET"). DILARANG memotong atau menyalin potongan kalimat narasi. Kalau `labels` kosong, jangan tulis label apa pun.
+9. URUTAN SEBAB-AKIBAT:
+   - Alat pemicu dari luar (kepala pompa, jari, pelatuk, tangan, piston) digambar DI DALAM layar (Y 200..420, tidak pernah di Y < 150) dan bergerak turun atau maju sampai menempel pada komponen SEBELUM komponen itu bergerak. Urutannya: alat bergerak (triggerProgress 0 sampai 0.35), komponen terdorong (0.2 sampai 0.7), baru aliran muncul.
+   - Aliran udara/cairan/listrik melewati celah HANYA tampil (opacity > 0) sesudah katup atau pin benar-benar membuka celah (`triggerProgress > 0.35`). Opacity aliran = `interpolate(triggerProgress, [0.35, 0.6], [0, 1], clamp)`. Sebelum itu celah tertutup rapat dan aliran tidak boleh terlihat menembus penutup.
+   - Adegan pengandaian negatif ("tanpa komponen ini", "seandainya tidak ada"): komponen yang dibahas menjadi transparan tipis (opacity 0.15) dan tampilkan panah oranye (#f59e0b) yang melesat keluar lewat ujung lubang. Adegan seperti ini harus punya gerak yang terlihat sejak awal adegan, tidak boleh diam.
+10. BENTUK LUWES, BUKAN KAKU:
+   - Pegas: `<path>` kurva Bezier (perintah C atau S) membentuk lilitan bulat, atau tumpukan elips setengah, dengan `strokeLinejoin="round"` dan `strokeLinecap="round"`, `strokeWidth` 6, gradasi metalik (linearGradient abu terang ke abu gelap). Dilarang `<polyline>` zig-zag bersudut lancip. Saat pegas tertekan, jarak lilitan dirapatkan, bukan garis dipotong.
+   - Dinding selongsong punya bibir dudukan katup (valve seat) yang menyempit di bagian yang menahan katup, bukan dua balok lurus. Ulir luar digambar sebagai garis melingkar sejajar (bukan duri miring). Semua pipa, pegas, dan garis aliran memakai `strokeLinejoin="round"` dan `strokeLinecap="round"`.
+   - Ruang bertekanan berisi 12 sampai 15 partikel bulat kecil (`<circle>`, r 3..6) yang bergerak naik-turun lewat `Math.sin(frame * 0.1 + i)`, memantul tepat di bawah permukaan segel/penutup (tidak menembusnya). Panah gaya menyentuh permukaan yang ditekan, bukan melayang di ruang kosong.
+   - Saat adegan klimaks, partikel di ruang bertekanan bergerak ke arah celah yang terbuka.
+11. SIAP DIPAKAI: komponen WAJIB diekspor tepat seperti ini, dan interface WAJIB ada persis:
 ```tsx
 export interface SceneTiming {
   sceneIndex: number;
@@ -146,6 +160,12 @@ def lint(code):
         errs.append("gambar terlalu sedikit bentuk (minimal 5 komponen mekanis)")
     if not re.search(r"useCurrentFrame\s*\(", code):
         errs.append("gerak harus dihitung dari useCurrentFrame()")
+    if not re.search(r"strokeLinejoin\s*=\s*[\"{']+round", code):
+        errs.append("pegas dan pipa wajib memakai strokeLinejoin=\"round\" dan strokeLinecap=\"round\"")
+    if not re.search(r"FrontCover", code):
+        errs.append("wajib ada komponen FrontCoverShell (penutup depan yang memudar saat masuk adegan pembedahan)")
+    if re.search(r"<polyline", code):
+        errs.append("dilarang <polyline> zig-zag; gambar pegas dengan <path> kurva Bezier")
     return errs
 
 
@@ -307,9 +327,13 @@ def build_timings(scenes, words, fps=30):
         else:
             trig = start + int((end - start) * 0.35)
         trig = min(max(trig, start + 3), max(start + 3, end - 5))
-        labels = [str(it.get("label") or "")[:28] for it in (s.get("items") or []) if isinstance(it, dict) and it.get("label")][:2]
-        if not labels:
-            labels = [str(p)[:28] for p in (s.get("points") or [])][:1]
+        labels = []
+        for it in (s.get("items") or []):
+            if isinstance(it, dict) and it.get("label"):
+                lb = " ".join(str(it["label"]).split()[:3]).upper()[:22].strip()
+                if lb:
+                    labels.append(lb)
+        labels = labels[:2]
         out.append({
             "sceneIndex": i,
             "startFrame": start if i else 0,

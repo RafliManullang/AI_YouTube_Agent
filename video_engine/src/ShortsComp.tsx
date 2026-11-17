@@ -192,17 +192,6 @@ export const ShortsComp: React.FC<ShortsProps> = ({
       </CaptionZone>
       )}
 
-      {/* Garis kemajuan di bagian atas */}
-      {clean ? null : <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          height: 12,
-          width: `${Math.min(100, (time / total) * 100)}%`,
-          background: `linear-gradient(90deg, ${activePalette.accent}, ${activePalette.accent2})`,
-        }}
-      />}
     </AbsoluteFill>
     </SfxMap.Provider>
     </SfxSeed.Provider>
