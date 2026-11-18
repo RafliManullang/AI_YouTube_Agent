@@ -280,3 +280,13 @@ Cara lama (memilih salah satu dari sekitar 10 gambar preset lalu mengganti tulis
 
 - Babak 1 (adegan pertama): benda utuh di tempat aslinya. Babak 2: kamera menembus cangkang (mode `xray`, cangkang 0.25). Babak 3: mekanisme inti (mode `blueprint`, panah gaya HUD dan lingkaran pembesar). Babak 4 (adegan terakhir): zoom-out, cangkang menutup, benda utuh menyelesaikan tugasnya.
 - Mode `analogi` dari Tahap 36 dihapus; perumpamaan cukup satu kalimat di naskah babak 3.
+
+## Tahap 38: kanvas modular dan anti kehabisan kuota
+
+- AI tidak lagi menggambar satu SVG raksasa. Ia hanya menggambar tiga tampilan (`Exterior` bodi luar, `Analogy` perumpamaan, `Cutaway` potongan dalam) dan mengisi tabel `ANCHORS`/`CAMERA`. Kamera, label, panah gaya, beban, tanda silang, dan kaca pembesar dikerjakan panggung sistem (`components/MechanismStage.tsx`).
+- `components/MechanicalPrimitives.tsx` berisi pegas, pipa berisi aliran, piston, roda gigi, dan membran karet yang sudah jadi, jadi model kecil pun menghasilkan bentuk yang rapi.
+- Mode `analogi` kembali: satu adegan di babak 3 yang diawali "Ibarat ..." memakai tampilan perumpamaan.
+- Hal kecil (latar layar penuh, teks karangan, `<svg>` bersarang, ekspor yang kurang) diperbaiki otomatis oleh kode, bukan dengan memanggil ulang AI. Hanya galat nyata yang diulang.
+- Naskah dan editor dikerjakan Groq lebih dulu supaya kuota Gemini dipakai untuk menulis kanvas. Ubah dengan `TEXT_FIRST=gemini` di `.env`.
+- Banyak key: tulis dipisah koma, misalnya `GEMINI_API_KEY=kunci1,kunci2,kunci3`. Key dirotasi otomatis saat kena batas.
+- Jeda pintar: 429/503/504 menunggu sesuai petunjuk server ("try again in Xs"), kalau tidak ada 10 detik x percobaan. Model yang tidak ada (404) atau terlalu besar (413) langsung dilewati. `gemini-2.5-flash` dihapus dari daftar.

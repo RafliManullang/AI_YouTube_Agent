@@ -16,7 +16,8 @@ import { CitationBadge } from "./components/hud";
 import { Ambience, Sfx, SfxEnabled, SfxMap, SfxSeed, climaxSound } from "./Sfx";
 import { springIn } from "./utils/animation";
 import { Palette, ShortsProps, WordItem, paletteFor } from "./types";
-import { TopicMechanism } from "./generated/GeneratedMechanism";
+import * as GEN from "./generated/GeneratedMechanism";
+import { MechanismStage } from "./components/MechanismStage";
 
 export type { ShortsProps, WordItem } from "./types";
 
@@ -155,7 +156,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
       {mechScenes.length > 0 ? (
         <>
           {plainBg ? null : <EnvBackground type={environmentType} blueprint={blueprint} />}
-          <TopicMechanism scenes={mechScenes} />
+          <MechanismStage scenes={mechScenes} gen={GEN as any} />
         </>
       ) : (
         <Background palette={paletteFor(0, themeIndex)} />
