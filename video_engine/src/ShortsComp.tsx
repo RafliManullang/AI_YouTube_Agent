@@ -23,7 +23,7 @@ export type { ShortsProps, WordItem } from "./types";
 
 const FADE_SECONDS = 0.25; // lama transisi antar adegan
 const MAX_PHRASE_WORDS = 4; // jumlah kata maksimal dalam satu frasa subtitle
-const HOOK_SECONDS = 12; // lama kalimat tanya di kiri atas tampil
+const HOOK_SECONDS = 5; // lama kalimat tanya di kiri atas tampil (diperpendek supaya tidak menabrak label callout mesin)
 const SUBTITLE_LEAD = 0.04; // kata muncul sedikit lebih awal supaya terasa pas dengan suara
 
 const SPEAKER_STYLE: Record<string, { name: string; color: string }> = {
@@ -253,7 +253,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
                   fontWeight: 900,
                   lineHeight: 1.1,
                   letterSpacing: 1,
-                  color: !isActive && emph ? "#FFE14D" : "#FFFFFF",
+                  color: "#FFFFFF", // selalu putih; hanya kata aktif yang dapat kotak oranye (jangan dua warna sekaligus)
                   textTransform: "uppercase",
                   padding: "4px 12px",
                   borderRadius: 10,

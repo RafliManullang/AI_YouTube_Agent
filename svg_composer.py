@@ -22,7 +22,7 @@ STUB = '''// Berkas ini DITULIS ULANG oleh agen di setiap video (svg_composer.py
 // supaya proyek tetap bisa dikompilasi sebelum agen pernah berjalan.
 import React from "react";
 
-export interface ViewProps { trig: number; sceneIndex: number; local: number; mode: string }
+export interface ViewProps { trig: number; sceneIndex: number; local: number; mode: string; focus: string }
 export const ANCHORS: Record<string, { x: number; y: number }> = { whole: { x: 540, y: 830 } };
 export const CAMERA: { scale: number; anchor: string }[] = [{ scale: 1, anchor: "whole" }];
 export const LABEL_ANCHORS: string[] = [];
@@ -33,7 +33,7 @@ export const Cutaway: React.FC<ViewProps> = () => <g />;
 '''
 
 VIEW_IFACE = '''
-export interface ViewProps { trig: number; sceneIndex: number; local: number; mode: string }
+export interface ViewProps { trig: number; sceneIndex: number; local: number; mode: string; focus: string }
 '''
 
 ALLOWED_IMPORTS = ("react", "remotion", "../components/MechanicalPrimitives", "../components/hud")
@@ -46,17 +46,17 @@ KERANGKA (patuhi persis, isi bagian ...):
 ```tsx
 import React from "react";
 import { useCurrentFrame, interpolate, interpolateColors } from "remotion";
-import { CoilSpring, PipeChannel, PistonCylinder, GearWheel, FlexDiaphragm, INK } from "../components/MechanicalPrimitives";
-export interface ViewProps { trig: number; sceneIndex: number; local: number; mode: string }
+import { CoilSpring, PipeChannel, PistonCylinder, GearWheel, FlexDiaphragm, CurvedArrow, INK } from "../components/MechanicalPrimitives";
+export interface ViewProps { trig: number; sceneIndex: number; local: number; mode: string; focus: string }
 
-export const ANCHORS = { whole: { x: 540, y: 830 }, /* nama: {x,y} pusat tiap komponen yang dibahas */ };
+export const ANCHORS = { whole: { x: 540, y: 830 }, /* nama: {x,y} pusat SETIAP komponen fisik yang dibahas, wajib beda-beda, jangan dua nama berbagi titik yang sama */ };
 export const CAMERA = [ { scale: 1, anchor: "whole" }, /* SATU baris untuk SETIAP adegan, urut */ ];
 export const LABEL_ANCHORS = [ /* nama jangkar untuk label pertama dan kedua adegan aktif, mis. "spring", "valve" */ ];
 export const DETAIL_ANCHOR = "valve"; // bagian terkecil yang beraksi, diperbesar 3x oleh kaca pembesar sistem
 
-export const Exterior: React.FC<ViewProps> = ({ trig }) => <g>...</g>;   // bodi luar UTUH dan solid
-export const Analogy: React.FC<ViewProps> = ({ trig }) => <g>...</g>;    // perumpamaan sehari-hari yang mudah dibayangkan
-export const Cutaway: React.FC<ViewProps> = ({ trig }) => <g>...</g>;    // potongan dalam, inti mekanisme, besar dan detail
+export const Exterior: React.FC<ViewProps> = ({ trig, focus }) => <g>...</g>;   // bodi luar UTUH dan solid
+export const Analogy: React.FC<ViewProps> = ({ trig, focus }) => <g>...</g>;    // perumpamaan sehari-hari yang mudah dibayangkan
+export const Cutaway: React.FC<ViewProps> = ({ trig, sceneIndex, focus }) => <g>...</g>;    // potongan dalam, inti mekanisme, besar dan detail; `focus` = nama anchor yang sedang disorot kamera (pakai untuk meredupkan bagian lain, lihat aturan 14); `sceneIndex` dipakai untuk kontinuitas state (aturan 13)
 ```
 Tiap tampilan mengembalikan `<g>` (BUKAN `<svg>`), memakai koordinat dunia yang sama. Sistem menumpuk Exterior di atas Cutaway dan memudarkannya sendiri saat adegan masuk mode xray/blueprint, jadi Exterior WAJIB menutup posisi Cutaway (bodi luar benda), dan Cutaway digambar lengkap di belakangnya.
 
@@ -66,6 +66,7 @@ KOMPONEN SIAP PAKAI (impor dari ../components/MechanicalPrimitives; PAKAI ini un
  - `<PistonCylinder x y width height strokeProgress color />` silinder + kepala piston + segel, strokeProgress 0..1
  - `<GearWheel cx cy radius rotation teeth color />` roda gigi bergigi; rotation dalam derajat (mis. frame*2)
  - `<FlexDiaphragm x y width bendAmount />` membran karet, bendAmount -1..1
+ - `<CurvedArrow x1 y1 cx cy x2 y2 color width />` panah gaya/aliran melengkung (bukan garis lurus kaku) dengan kepala panah otomatis
  Bagian lain (bodi, rumah, katup, bola, bilah, selang, sayap, roda) gambar sendiri dari path/rect/circle/ellipse.
 
 ATURAN:
@@ -79,6 +80,31 @@ ATURAN:
 8. TEKS: jangan menulis teks apa pun (tanpa elemen `<text>`). Label, angka, dan HUD dibuat sistem.
 9. KODE AMAN: impor hanya 'react', 'remotion', '../components/MechanicalPrimitives', '../components/hud'. Dilarang Math.random, Date, useState/useEffect/hook lain, fetch, eval, window, document, setTimeout, `<image>`, `<foreignObject>`. Semua gerak murni fungsi dari `frame`. `interpolate` wajib inputRange naik ketat dan `{extrapolateLeft:"clamp", extrapolateRight:"clamp"}`. Jangan menggambar latar atau rect seukuran layar. Perulangan maksimal 40 elemen dan memakai `[0,1,2,...].map` atau `Array.from({length: n})` dengan n kecil tetap.
 10. Benda yang sama konsisten di ketiga tampilan (warna dan bentuk bodi sama), dan tidak ada bagian diam yang membeku.
+11. INTERAKSI MEKANIS NYATA (WAJIB, dilarang komponen generik melayang sendiri-sendiri): tiap tampilan Cutaway WAJIB menggambar MINIMAL
+    tiga komponen yang SALING BERSENTUHAN secara fisik dan terhubung dalam satu kerangka: (a) BENDA KERJA/medium yang dikenai kerja
+    (kertas yang bergerak, cairan di pipa, piringan yang berputar, udara yang mengalir), (b) KOMPONEN EKSEKUTOR yang bergerak menyentuh
+    benda kerja (mata pisau yang turun, katup yang menutup, roda gigi yang mengait), (c) PEMICU/SENSOR yang memulai gerakan itu (sensor,
+    pegas yang melepas, tuas yang tertekan). Jangan menggambar bentuk abstrak (kotak polos, piston generik) yang tidak menyerupai bentuk
+    asli alat; semua komponen harus terlihat seperti bagian sungguhan dari benda yang dibahas di TOPIK.
+12. ANATOMI KONSISTEN (dilarang bentuk berubah-ubah mendadak antar adegan): satu benda = satu anatomi dari awal sampai akhir. Pipa tidak
+    boleh berubah jadi roda, kotak tidak boleh berubah jadi tabung. Hanya POSISI dan GERAKAN yang berubah mengikuti `sceneIndex`/`trig`,
+    bentuk dasarnya tetap. Dilarang `<rect>` polos sebagai bodi luar utama; bodi luar WAJIB `<path>` dengan kurva (M/L/C/Q/Z, minimal 6
+    titik) yang membentuk siluet khas benda itu (ada lekukan, leher, kaki, atau tonjolan sesuai bentuk aslinya).
+13. KONTINUITAS STATE ANTAR-ADEGAN (dilarang reset mendadak): kalau efek suatu aksi harus tetap terlihat di adegan sesudahnya (cangkang
+    yang sudah terbuka, pin yang sudah tertekan, katup yang sudah menutup), JANGAN menulis `sceneIndex === N ? progress : 0` (itu akan
+    melompat balik ke 0 begitu masuk adegan berikutnya). WAJIB pakai pola kumulatif berikut di dalam komponen:
+    `const stepAt = (n: number) => (sceneIndex < n ? 0 : sceneIndex > n ? 1 : trig);` lalu panggil `stepAt(3)`, `stepAt(4)`, dst. untuk tiap
+    aksi bertahap, sehingga posisinya TETAP di 1 pada adegan-adegan berikutnya, tidak pernah kembali ke awal.
+14. SOROTAN FOKUS (spotlight dimming) pada Cutaway saat mode bukan konteks: bungkus TIAP kelompok komponen internal dengan
+    `<g opacity={focus === "nama_jangkar_komponen_itu" ? 1 : 0.35} filter={focus === "nama_jangkar_komponen_itu" ? "url(#spotlightGlow)" : undefined}>`
+    (prop `focus` berisi nama anchor kamera adegan aktif, sudah tersedia di ViewProps) supaya komponen yang sedang dibahas menyala dan
+    sekitarnya meredup. Pada adegan pembuka/penutup (wujud utuh) boleh semua opacity 1.
+15. RONGGA & ALIRAN TERTUTUP RAPAT (clipPath): ruang dalam benda (rongga silinder, lorong pipa, tangki) WAJIB didefinisikan sebagai
+    `<clipPath>` sendiri di `<defs>` tampilan itu, lalu SEMUA partikel/cairan/gas yang bergerak di dalamnya dibungkus
+    `<g clipPath="url(#id-rongga-itu)">`, supaya segeras apa pun ia bergerak tidak pernah bocor menembus dinding.
+16. ARSIRAN POTONGAN & PANAH ARAH: pada dinding bodi yang dibelah (bagian X-ray/cutaway), pakai `fill="url(#cutawayHatch)"` (sudah
+    disediakan sistem) pada ketebalan dindingnya supaya terlihat seperti gambar teknik mesin asli. Pada setiap garis aliran fluida/udara/
+    gaya, pasang `markerEnd="url(#flowArrow)"` (sudah disediakan sistem) di ujungnya supaya arah gerak (masuk/keluar, naik/turun) jelas.
 
 KELUARAN: HANYA satu blok kode .tsx utuh. Tanpa penjelasan.
 

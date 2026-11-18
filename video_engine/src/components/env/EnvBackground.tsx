@@ -177,7 +177,7 @@ const SCENERY: Record<EnvType, React.FC<{ f: number }>> = {
 // Latar bergerak yang mengikuti topik. `blueprint` (0 sampai 1) = seberapa banyak latar berganti ke mode cetak biru / sinar-X.
 export const EnvBackground: React.FC<{ type?: string; blueprint?: number }> = ({ type, blueprint = 0 }) => {
   const f = useCurrentFrame();
-  const Scene = SCENERY[(ENV_TYPES as readonly string[]).includes(type || "") ? (type as EnvType) : "industrial_pipe"];
+  const Scene = SCENERY[(ENV_TYPES as readonly string[]).includes(type || "") ? (type as EnvType) : "domestic_room"];
   const bp = Math.max(0, Math.min(1, blueprint));
   return (
     <AbsoluteFill style={{ backgroundColor: "#0b0f19" }}>

@@ -425,8 +425,14 @@ ada kejadian yang pas. Jangan memakai bunyi yang sama di dua adegan berturutan.
 TEMPO PADAT: kalimat pendek, tanpa pengantar bertele-tele, tanpa pengulangan. Setiap kalimat membawa informasi baru. Adegan terakhir
 penutup singkat yang bikin orang ingin menonton ulang. Ucapan hanya berisi kalimat yang diucapkan: tanpa instruksi panggung,
 tanpa emoji, tanpa tanda bintang, tanpa hashtag.
-LARANGAN KLISE: jangan memakai "Tapi tunggu", "ternyata", "bayangkan kamu", "rahasianya adalah", "inilah rahasia". Judul adegan spesifik
+LARANGAN KLISE: jangan memakai "Tapi tunggu", "bayangkan kamu", "rahasianya adalah", "inilah rahasia". Judul adegan spesifik
 pada isi (contoh: "Gigi spider", bukan "Penjelasan"), maksimal 4 kata.
+BAHASA LISAN NYATA, BUKAN KARANGAN PUITIS: tulis seperti bercerita ke teman, bukan seperti narasi dokumenter yang dibuat-buat. Boleh
+pakai penghubung santai sesekali ("pernah perhatiin", "nah", "makanya", "jadi gini"). DILARANG KERAS kalimat puitis atau metafora yang
+salah secara fisika/tidak masuk akal kalau dibayangkan sungguhan (contoh yang DILARANG: "desis halus yang menyejukkan aliran udara",
+"tarian cahaya di balik roda gigi") -- setiap kalimat harus menjelaskan gerakan atau sebab-akibat yang benar-benar terjadi pada bendanya,
+bukan menghias. Kalimat penutup DILARANG berupa ajakan menebak yang murahan ("coba tebak apa yang terjadi selanjutnya", "menurutmu apa
+yang akan dipotong berikutnya") -- penutup harus pertanyaan pancingan yang jawabannya adalah kalimat pembuka (lihat PENUTUP MELINGKAR).
 "keywords" berisi 1 sampai 3 kata kunci terpenting dari ucapan adegan itu, ditulis persis seperti yang diucapkan.
 "sound" adalah suara latar adegan, pilih satu: "angin", "gesekan", "benturan", "mesin", "air", atau "hening".
 "music" adalah musik latar seluruh video: "misterius", "semangat", atau "tenang".
@@ -456,7 +462,7 @@ Keluarkan HANYA JSON murni dengan format persis ini:
   "category": "CARA KERJA",
   "thumbnail_text": "KOK BISA JATUH?",
   "music": "misterius",
-  "environment": "industrial_pipe",
+  "environment": "domestic_room",
   "hook_question": "Kok bisa mati sendiri?",
   "hook_highlight": "mati sendiri",
   "claim": {{"source": "", "text": ""}},
@@ -853,8 +859,8 @@ def enforce_loop(scenes):
 ENV_TYPES = ("outdoor_motion", "domestic_room", "industrial_pipe", "micro_circuit", "anatomical_fluid", "deep_pressure")
 ENV_HINTS = {
     "outdoor_motion": ("mobil", "motor", "kendaraan", "pesawat", "roda", "rem ", "jalan", "kereta", "ban ", "aerodinamika", "sayap", "kapal", "sepeda", "jembatan"),
-    "domestic_room": ("setrika", "korek", "regulator", "gas", "ac ", "kulkas", "kompor", "detektor", "rumah", "dapur", "pentil", "kunci", "lampu", "toilet", "kipas", "mesin cuci"),
-    "industrial_pipe": ("pompa", "katup", "pipa", "bendungan", "konstruksi", "turbin", "listrik", "pabrik", "crane", "lift", "bor", "gergaji", "rumput", "pemotong", "kabel"),
+    "domestic_room": ("setrika", "korek", "regulator", "gas", "ac ", "kulkas", "kompor", "detektor", "rumah", "dapur", "pentil", "kunci", "lampu", "toilet", "kipas", "mesin cuci", "printer", "struk", "kasir", "kertas", "fotokopi", "mesin jahit", "jam", "gunting"),
+    "industrial_pipe": ("pompa", "katup", "pipa", "bendungan", "konstruksi", "turbin", "pabrik", "crane", "lift", "bor", "gergaji mesin", "rumput", "kabel listrik"),
     "micro_circuit": ("chip", "sensor", "baterai", "sinyal", "gelombang", "prosesor", "transistor", "wifi", "layar", "kamera", "ponsel", "laser", "magnet"),
     "anatomical_fluid": ("tubuh", "jantung", "darah", "otot", "medis", "sel ", "paru", "mata", "otak", "tulang", "kimia", "vaksin", "obat"),
     "deep_pressure": ("kapal selam", "hidrolik", "antariksa", "roket", "vakum", "laut", "selam", "tekanan tinggi", "satelit", "dalam air"),
@@ -874,7 +880,7 @@ def pick_environment(raw, text):
     low = " " + text.lower() + " "
     scores = {k: sum(low.count(w) for w in ws) for k, ws in ENV_HINTS.items()}
     best = max(scores, key=scores.get)
-    return best if scores[best] > 0 else "industrial_pipe"
+    return best if scores[best] > 0 else "domestic_room"  # default netral; industrial_pipe dulu sering salah muncul di topik non-pipa
 
 
 def finish_screen_fields(data):
@@ -1339,7 +1345,7 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
         "durationInSeconds": duration,
         "themeIndex": theme_index,
         "bgSeed": bg_seed,
-        "environmentType": (screen or {}).get("environment") or "industrial_pipe",
+        "environmentType": (screen or {}).get("environment") or "domestic_room",
         "hookQuestion": (screen or {}).get("hook_question") or "",
         "hookHighlight": (screen or {}).get("hook_highlight") or "",
         **({"claim": screen["claim"]} if (screen or {}).get("claim", {}).get("text") else {}),

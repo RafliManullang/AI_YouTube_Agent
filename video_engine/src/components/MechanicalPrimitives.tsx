@@ -194,3 +194,20 @@ export const FlexDiaphragm: React.FC<{
     </g>
   );
 };
+
+// ---------------------------------------------------------------------------------------------
+// Panah melengkung siap pakai untuk garis gaya/aliran yang membelok (bukan garis lurus kaku).
+// Pasang markerEnd="url(#flowArrow)" (sudah tersedia dari panggung sistem) kalau mau kepala panah di ujungnya.
+export const CurvedArrow: React.FC<{
+  x1: number; y1: number; cx: number; cy: number; x2: number; y2: number; color?: string; width?: number; opacity?: number; withHead?: boolean;
+}> = ({ x1, y1, cx, cy, x2, y2, color = "#38bdf8", width = 6, opacity = 1, withHead = true }) => (
+  <path
+    d={`M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`}
+    fill="none"
+    stroke={color}
+    strokeWidth={width}
+    strokeLinecap="round"
+    opacity={opacity}
+    markerEnd={withHead ? "url(#flowArrow)" : undefined}
+  />
+);
