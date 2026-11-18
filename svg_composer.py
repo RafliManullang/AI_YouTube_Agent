@@ -1,4 +1,4 @@
-"""Penulis kanvas mekanis: AI menulis SATU komponen React/SVG khusus untuk topik video ini (TopicMechanism.tsx).
+"""Penulis kanvas mekanis: AI menulis SATU komponen React/SVG khusus untuk topik video ini (GeneratedMechanism.tsx: tiga tampilan Exterior, Analogy, Cutaway).
 
 Tidak ada daftar preset. Seluruh video adalah satu benda/mesin yang digambar dari awal sampai akhir; tiap adegan hanya
 menggerakkan kamera dan bagian benda yang sedang dibahas. Kode dari AI melewati empat pagar sebelum dirender:
@@ -21,143 +21,74 @@ GEN_REL = os.path.join("src", "generated", "GeneratedMechanism.tsx")
 STUB = '''// Berkas ini DITULIS ULANG oleh agen di setiap video (svg_composer.py). Isi di bawah hanya cadangan kosong
 // supaya proyek tetap bisa dikompilasi sebelum agen pernah berjalan.
 import React from "react";
-import { AbsoluteFill } from "remotion";
 
-export interface SceneTiming {
-  sceneIndex: number;
-  startFrame: number;
-  endFrame: number;
-  triggerFrame: number;
-  focusTarget: string;
-  labels: string[];
-  mode?: "konteks" | "xray" | "blueprint";
-  negationFrame?: number;
-  hud?: { load?: string; force?: string };
-}
-
-export interface TopicMechanismProps {
-  scenes: SceneTiming[];
-}
-
-export const TopicMechanism: React.FC<TopicMechanismProps> = () => <AbsoluteFill />;
+export interface ViewProps { trig: number; sceneIndex: number; local: number; mode: string }
+export const ANCHORS: Record<string, { x: number; y: number }> = { whole: { x: 540, y: 830 } };
+export const CAMERA: { scale: number; anchor: string }[] = [{ scale: 1, anchor: "whole" }];
+export const LABEL_ANCHORS: string[] = [];
+export const DETAIL_ANCHOR = "whole";
+export const Exterior: React.FC<ViewProps> = () => <g />;
+export const Analogy: React.FC<ViewProps> = () => <g />;
+export const Cutaway: React.FC<ViewProps> = () => <g />;
 '''
 
-PROMPT_SVG_COMPOSER = """Kamu adalah Principal Motion Graphics Engineer dan Technical Illustrator (spesialis gaya 2D Cutaway / X-Ray Engineering seperti Animagraffs dan Kurzgesagt).
+VIEW_IFACE = '''
+export interface ViewProps { trig: number; sceneIndex: number; local: number; mode: string }
+'''
 
-TUGAS: berdasarkan TOPIK dan DAFTAR ADEGAN di bawah, tulis SATU file React TypeScript Remotion utuh (`TopicMechanism.tsx`) yang menggambar SATU benda/mesin dari topik ini sebagai ilustrasi SVG potongan melintang (cutaway) yang menyatu dari detik 0 sampai akhir video. Benda digambar KHUSUS untuk topik ini dari bentuk dasar SVG (path, rect, circle, ellipse, line, polygon, g, defs). Jangan memakai pola yang sudah kamu hafal dari video lain; rancang dari fisika benda yang dibahas.
+ALLOWED_IMPORTS = ("react", "remotion", "../components/MechanicalPrimitives", "../components/hud")
 
-TAHAP 1 - BLUEPRINT (tulis sebagai komentar blok di bagian paling atas file, maksimal 25 baris):
- - sebut sistem utuhnya dan 4 sampai 7 bagian bergerak (nama, posisi pusat x,y, ukuran, apa yang membuatnya bergerak);
- - untuk tiap adegan: bagian mana yang menjadi fokus kamera (scale, translateX, translateY) dan aksi klimaksnya.
-TAHAP 2 - KODE.
+PROMPT_SVG_COMPOSER = """Kamu ilustrator teknis 2D (gaya cutaway edukasi seperti Kurzgesagt dan Animagraffs, bentuk bervolume dengan garis tepi tegas) sekaligus engineer Remotion.
 
-ATURAN MUTLAK:
-1. DILARANG BENTUK SLIDE ATAU INFOGRAFIS: tidak ada grafik batang, tabung VS, bola bernomor 1-2-3, speedometer, tanda tanya besar, kartu teks, judul bab, atau daftar poin. Layar adalah SATU benda utuh. Teks hanya boleh berupa label nama komponen yang diambil dari `labels` adegan aktif, ditambah teks di dalam komponen HUD (aturan 19) yang datanya diberikan sistem. Dilarang menulis teks lain (angka, kalimat, judul) yang kamu karang sendiri.
-2. BENTUK HARUS BENAR SECARA FISIKA: gambar bendanya seperti aslinya (roda gigi harus punya gigi yang saling bertaut, pegas berbentuk pegas, pipa berongga, aliran dengan panah). Dilarang memakai bola/lingkaran polos untuk mewakili benda yang bukan bola. Kalau ada perbandingan (misalnya lintasan panjang vs pendek), gambarkan dengan panjang garis yang BENAR: yang lebih panjang harus tampak lebih panjang.
-3. TIGA LAPIS:
-   - Lapis 1 (cangkang luar): siluet bodi asli benda, `fill="rgba(30,41,59,0.35)"`, `stroke="#475569"`, `strokeWidth={3}`, supaya penonton langsung mengenali bendanya sejak frame pertama.
-   - Lapis 1B (FrontCoverShell, penutup depan bodi luar): bodi luar benda yang utuh dan tertutup (logam, karet, tekstur ulir luar, leher). Pada `mode === "konteks"` penutup solid (opacity 1.0) dan menutupi isi dalam. Saat `mode` menjadi `"xray"` penutup memudar dengan `spring` dimulai tepat di `startFrame` adegan itu sampai opacity 0.25 (transparan, isi dalam terlihat), dan tetap 0.25 selama `"blueprint"`. Saat `mode` kembali `"konteks"` (penutup akhir) penutup menutup lagi sampai opacity 1. Bagian dalam sudah ada dan bergerak pelan di belakang penutup sejak frame 0.
-   - Lapis 2 (bagian dalam yang bergerak): minimal 5 komponen mekanis yang relevan dengan naskah. SETIAP komponen bergerak secara matematis dari `frame` (`rotate(frame*k)`, `Math.sin(frame/...)`, `interpolate`, `spring`, strokeDashoffset untuk aliran). Gerak idle berjalan terus dari frame 0.
-   - Lapis 3 (label penunjuk): lihat aturan 7 dan 12. Maksimal 2 label per adegan.
-4. SATU KANVAS, KAMERA BERKELANJUTAN DENGAN JANGKAR:
-   - Benda tidak pernah dihapus atau diganti saat `sceneIndex` berganti. Bagian yang tidak dibahas boleh meredup (opacity 0.45) tapi tetap tergambar.
-   - Di awal file (di luar komponen) WAJIB ada kamus `COMPONENT_ANCHORS` berisi titik pusat pasti (x, y) setiap komponen yang kamu gambar, misalnya `const COMPONENT_ANCHORS = { whole: {x:540,y:820}, pin: {x:540,y:520}, spring: {x:540,y:780} }`. Gambar tiap komponen persis di koordinat jangkarnya (satu sumber kebenaran, jangan menulis angka koordinat yang berbeda di tempat lain). Wajib ada jangkar `whole` untuk tampilan benda utuh.
-   - Tabel kamera untuk SETIAP adegan (jangan pakai modulo): `CAMERA = [{ scale, anchor: "nama jangkar" }, ...]`. Pindah dari kamera adegan sebelumnya ke adegan sekarang dengan satu `spring` (progres 0..1) dari frame mulai adegan; skala dan koordinat jangkar keduanya di-interpolasi dengan progres yang sama.
-   - Fungsi kamera (CameraRig) WAJIB mengunci jangkar tepat di pusat layar (540, 820): bungkus seluruh gambar benda dengan `<g transform={`translate(540 820) scale(${s}) translate(${-ax} ${-ay})`}>` dengan (ax, ay) = jangkar hasil interpolasi, s = skala hasil interpolasi. Dilarang memakai `transform-origin` tetap. Skala zoom-in 1.4 sampai 2.4, zoom-out adegan pembuka dan penutup skala 1 dengan jangkar `whole`.
-5. KATA PEMICU: dari frame pertama seluruh benda sudah terlihat dan bergerak pelan (idle). `triggerProgress` = 0 sebelum `triggerFrame` adegan aktif lalu naik 0 sampai 1 dengan `spring`; pakai untuk AKSI KLIMAKS adegan itu (poros memerah dan retak, katup menutup, percikan, sudut membelok, aliran menyempit, dan sebagainya). Klimaks harus sesuai isi narasi adegan.
-6. KODE ANTI-CRASH:
-   - HANYA impor dari 'react' dan 'remotion' (`AbsoluteFill, useCurrentFrame, useVideoConfig, spring, interpolate`). Dilarang impor lain, gambar luar, `<image>`, `<foreignObject>`.
-   - Dilarang `Math.random`, `Date`, `useState`, `useEffect`, `fetch`, `eval`, `window`, `document`, `setTimeout`. Semua gerak murni fungsi dari `frame`.
-   - `interpolate` wajib dipanggil dengan inputRange yang naik ketat dan `{extrapolateLeft:'clamp', extrapolateRight:'clamp'}`.
-   - Jangan memakai `Array.from` atau perulangan tanpa batas pasti; jumlah elemen dibuat dari angka tetap kecil (maksimal 60 per perulangan).
-   - Semua id `<linearGradient>`, `<radialGradient>`, `<filter id="glow">` didefinisikan di `<defs>`. Pastikan semua tag SVG tertutup dan semua variabel yang dipakai sudah dideklarasikan.
-   - viewBox utama `0 0 1080 1920`. Area aman gambar utama: X 100..980, Y 380..1280. Area Y 1290..1920 harus bersih (tempat subtitle di 68% tinggi layar), dan area Y 0..380 dipakai kalimat tanya pembuka serta kotak klaim. Latar layar disediakan sistem: svg WAJIB transparan (lihat aturan 21).
-   - Warna kontras tinggi di atas latar gelap (biru #38bdf8, oranye #f59e0b, merah #ef4444, hijau #22c55e, abu logam #94a3b8), bagian aktif diberi `filter="url(#glow)"`.
-7. LABEL ANTI-TERPOTONG (HUD LAYAR, DI LUAR KAMERA):
-   - Callout label DILARANG berada di dalam `<g>` yang terkena `transform` kamera (translate/scale). Gambar benda di dalam satu `<g transform=...>` kamera. Lalu gambar SEMUA label di grup terpisah SESUDAH grup kamera, tanpa transform kamera, sehingga ukuran dan posisi kotak tidak ikut membesar dan tidak keluar layar saat zoom.
-   - Posisi titik target di layar dihitung dengan nilai kamera yang sama dengan grup kamera: `sx = 540 + (cx - ax) * s`, `sy = 820 + (cy - ay) * s`, dengan (cx, cy) koordinat komponen, (ax, ay) jangkar kamera hasil interpolasi, dan s skala kamera. Beri nama hasilnya `screenTargetX = sx` dan `screenTargetY = sy`. Garis penunjuk WAJIB berujung tepat di titik itu (`<line x1={screenTargetX} y1={screenTargetY} .../>`) dan taruh titik bulat kecil `<circle cx={screenTargetX} cy={screenTargetY} r={6} />` di titik tersebut, supaya garis selalu menempel pada komponen walau kamera zoom-in atau bergeser (garis yang menunjuk ruang kosong dianggap salah). Kotak label diletakkan di sisi kiri atau kanan titik itu, lalu posisinya DIJEPIT dengan `Math.min(Math.max(x, 180), 900 - lebarKotak)`. Kotak harus selalu penuh terlihat, X 180..900, Y 380..1270.
-   - Lebar kotak = jumlah karakter * 15 + 40. Teks label HANYA nama komponen dari `labels`, huruf kapital, maksimal 3 kata dan 22 karakter (contoh "PIN TENGAH", "PEGAS ULIR", "SEGEL KARET"). DILARANG memotong atau menyalin potongan kalimat narasi. Kalau `labels` kosong, jangan tulis label apa pun.
-8. URUTAN SEBAB-AKIBAT:
-   - Alat pemicu dari luar (kepala pompa, jari, pelatuk, tangan, piston) digambar DI DALAM layar (Y 200..420, tidak pernah di Y < 150) dan bergerak turun atau maju sampai menempel pada komponen SEBELUM komponen itu bergerak. Urutannya: alat bergerak (triggerProgress 0 sampai 0.35), komponen terdorong (0.2 sampai 0.7), baru aliran muncul.
-   - Aliran udara/cairan/listrik melewati celah HANYA tampil (opacity > 0) sesudah katup atau pin benar-benar membuka celah (`triggerProgress > 0.35`). Opacity aliran = `interpolate(triggerProgress, [0.35, 0.6], [0, 1], clamp)`. Sebelum itu celah tertutup rapat dan aliran tidak boleh terlihat menembus penutup.
-   - Adegan pengandaian negatif ("tanpa komponen ini", "seandainya tidak ada"): komponen yang dibahas menjadi transparan tipis (opacity 0.15) dan tampilkan panah oranye (#f59e0b) yang melesat keluar lewat ujung lubang. Adegan seperti ini harus punya gerak yang terlihat sejak awal adegan, tidak boleh diam.
-9. BENTUK LUWES, BUKAN KAKU:
-   - Pegas: `<path>` kurva Bezier (perintah C atau S) membentuk lilitan bulat, atau tumpukan elips setengah, dengan `strokeLinejoin="round"` dan `strokeLinecap="round"`, `strokeWidth` 6, gradasi metalik (linearGradient abu terang ke abu gelap). Dilarang `<polyline>` zig-zag bersudut lancip. Saat pegas tertekan, jarak lilitan dirapatkan, bukan garis dipotong.
-   - Dinding selongsong punya bibir dudukan katup (valve seat) yang menyempit di bagian yang menahan katup, bukan dua balok lurus. Ulir luar digambar sebagai garis melingkar sejajar (bukan duri miring). Semua pipa, pegas, dan garis aliran memakai `strokeLinejoin="round"` dan `strokeLinecap="round"`.
-   - Ruang bertekanan berisi 12 sampai 15 partikel bulat kecil (`<circle>`, r 3..6) yang bergerak naik-turun lewat `Math.sin(frame * 0.1 + i)`, memantul tepat di bawah permukaan segel/penutup (tidak menembusnya). Panah gaya menyentuh permukaan yang ditekan, bukan melayang di ruang kosong.
-   - Saat adegan klimaks, partikel di ruang bertekanan bergerak ke arah celah yang terbuka.
-10. KEDALAMAN 2.5D DAN MATERIAL (DILARANG TERLIHAT DATAR):
-   - Setiap batang, selongsong, pin, pipa, dan silinder memakai `<linearGradient>` dengan MINIMAL 3 titik warna `<stop>`: tepi gelap, pantulan terang di tengah (specular highlight), tepi bayangan. Contoh logam: #475569 (0%), #e2e8f0 (45%), #334155 (100%). Kaca/cairan memakai biru transparan dengan highlight putih. Dilarang mengisi komponen dengan satu warna solid. Semua gradasi tetap dibungkus garis tepi tegas (aturan 17).
-   - Tiap komponen yang bergerak diberi garis highlight tipis di sisi atas/kiri (`stroke="#ffffff" strokeOpacity={0.35} strokeWidth={2}`) dan bayangan gelap di belakangnya (`<filter id="shadow">` dengan `<feDropShadow dx="6" dy="8" stdDeviation="6" floodColor="#000" floodOpacity="0.55"/>`) supaya bagian dalam mesin tampak bertumpuk dan punya kedalaman ruang. Komponen yang lebih dalam digambar lebih dulu dan sedikit lebih gelap.
-   - Fluida, gas, atau listrik yang berubah kondisi (tekanan rendah ke tinggi, dingin ke panas) mengubah WARNA secara halus lewat `interpolateColors(progress, [0, 1], ["#38bdf8", "#f97316"])` (impor dari 'remotion'), bukan berganti warna mendadak. Kondisi rendah = biru, kondisi tinggi = oranye menyala.
-11. TATA LETAK PENUH LAYAR (DILARANG MENGUMPUL DI ATAS):
-   - Di kamera `whole` (skala 1), seluruh sistem benda harus mengisi area X 120..960 dan Y 380..1280: lebar sistem minimal 75% dari 840, tinggi minimal 60% dari 900, titik tengahnya sekitar (540, 830). Dilarang menaruh benda hanya di setengah atas layar sementara setengah bawah kosong, dan dilarang membuat komponen kecil-kecil seperti ikon (komponen inti minimal 160 px pada skala 1).
-   - Saat kamera zoom-in, komponen yang dibahas harus utuh terlihat (tidak terpotong tepi layar) dan berukuran sedikitnya 40% lebar layar. Pilih skala zoom supaya komponen beserta tetangganya yang bersentuhan masih muat di X 60..1020.
-   - Sistem yang rumit (rem kereta, mesin, jaringan pipa) disederhanakan menjadi SATU rantai utama dari kiri ke kanan atau atas ke bawah yang terdiri dari 4 sampai 6 komponen besar. Dilarang menaruh komponen yang tidak pernah dibahas narasi.
-   - Setiap komponen yang disebut di narasi harus punya bentuk yang bisa dikenali (silinder, piston, pegas, katup, roda, pipa berongga), bukan kotak polos atau ikon.
-12. PENEMPATAN LABEL: kotak label tidak boleh menutupi komponen yang ditunjuk atau komponen lain. Letakkan kotak label di ruang kosong, minimal 70 px dari tepi gambar komponen itu, dengan garis penunjuk pendek. Dua label dalam satu adegan tidak boleh saling berpotongan atau berjarak kurang dari 80 px.
-13. JALUR ALIRAN KONTINU DAN LOGIKA KATUP:
-   - Kalau ada aliran (gas, cairan, udara, arus listrik, atau gaya), `<path>` aliran WAJIB kontinu dari titik masuk (inlet), melewati ruang tengah, sampai berbelok masuk ke pipa atau jalur keluar (outlet). Dilarang garis aliran yang berhenti menabrak dinding buntu.
-   - Saat katup, bola, atau saklar menutup jalur (shutoff/terkunci), aliran di sisi keluar (downstream) WAJIB berhenti total (opacity 0), dan partikel atau aliran hanya boleh menumpuk di sisi sebelum penutup (upstream).
-14. NOL KOMPONEN DIAM (ZERO STATIC PARTS):
-   - Dilarang menggambar komponen internal (pegas kedua, membran diafragma, roda gigi pendamping, jarum indikator) yang membeku sepanjang video.
-   - Setiap komponen internal diberi gerak mikro (secondary motion) dengan `Math.sin(frame * 0.08)` atau bereaksi terhadap perubahan tekanan atau gerak komponen utama.
-15. LARANGAN IKON MIKRO DI PINGGIR LAYAR (FOKUS MAKRO):
-   - Dilarang menggambar objek pemicu (robekan selang, percikan api, benturan) berukuran kecil (kurang dari 60 px) di tepi layar.
-   - Kalau adegan membahas kerusakan atau reaksi di bagian pinggir alat, masukkan koordinat bagian itu ke `COMPONENT_ANCHORS` lalu arahkan kamera zoom-in (`scale` 1.5 atau lebih) tepat ke titik itu supaya terlihat jelas dan dramatis.
-16. PENGAMAN RUNTIME BINGKAI 0 (ANTI-CRASH REACT DAN REMOTION):
-   - Elemen `<svg>` utama WAJIB persis `viewBox="0 0 1080 1920"`.
-   - Jangkar kamera diambil dari nama pada tabel `CAMERA`, selalu dengan cadangan: `const A = (name: string) => COMPONENT_ANCHORS[name] ?? COMPONENT_ANCHORS.whole ?? { x: 540, y: 820 };`. Dilarang membaca `.x` atau `.y` dari hasil pencarian kamus tanpa cadangan, dan dilarang memakai `focusTarget` (itu judul adegan, bukan nama jangkar) sebagai kunci kamus.
-   - Definisikan satu pembantu di atas dan pakai di mana-mana: `const clampOpt = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const; const lerp = (v: number, a: number, b: number, c: number, d: number) => interpolate(v, [a, Math.max(a + 1, b)], [c, d], clampOpt);`. Dilarang memanggil `interpolate` dengan inputRange yang `a >= b` (misalnya `[0, 0]` saat startFrame sama dengan triggerFrame).
-   - `scenes` bisa kosong atau memuat frame di luar semua adegan: pakai `const active = scenes.find(...) ?? scenes[scenes.length - 1]`, lalu cadangan `active?.labels ?? []`, `active?.sceneIndex ?? 0`. Indeks tabel `CAMERA` selalu dijepit `Math.min(Math.max(i, 0), CAMERA.length - 1)`.
-   - Ekspor `export const TopicMechanism` sekaligus `export default TopicMechanism;`.
-17. GAYA CEL-SHADED TECHNICAL ILLUSTRATION (STANDAR STUDIO ANIMASI EDUKASI):
-   - SETIAP komponen benda memakai garis tepi gelap tegas: `stroke="#0f172a" strokeWidth={3.5} strokeLinejoin="round" strokeLinecap="round"`. Garis tepi ini yang membuat gambar kode terlihat seperti ilustrasi studio, bukan kotak mentah. Tulis konstanta `const INK = "#0f172a";` dan pakai di mana-mana.
-   - Warna fungsional (tetap, jangan diganti): bodi atau cangkang pasif netral (#cbd5e1, #94a3b8, #475569); komponen penggerak utama (pegas, pin, katup, roda gigi) hangat kontras (#f59e0b kuning emas atau #ef4444 merah); aliran energi, fluida, gaya: biru sian #38bdf8 untuk kondisi normal, dingin, atau masuk, oranye menyala #f97316 untuk tekanan tinggi, panas, atau bahaya, hijau #22c55e untuk kondisi terkunci, aman, atau gaya angkat.
-18. ALUR SINEMATIK 4 BABAK (WAJIB UNTUK SEMUA TOPIK; ikuti `mode` tiap adegan; benda yang sama tetap ada, hanya penyajiannya berubah):
-   - Babak 1, adegan 0 (`"konteks"`, EXTERIOR HOOK): dari frame pertama render bodi luar benda secara UTUH dan SOLID di tengah layar, jelas bentuk aslinya, lengkap dengan konteks tempat benda bekerja di atas latar lingkungan milik sistem (nosel menempel di lubang tangki, setrika di atas kain, pompa di rumah pompa, bodi mesin cuci dengan tabung kaca bundar). Penutup depan solid, kamera `whole` skala 1. DILARANG langsung menampilkan diagram dalam tanpa memperlihatkan wujud utuh benda di adegan pertama.
-   - Babak 2, adegan dengan `"xray"` (X-RAY DIVE-IN): kamera melakukan zoom-in tajam (skala 1.8 sampai 2.4) menembus bodi luar ke arah komponen internal utama, dengan spring halus dari `startFrame`; bodi luar memudar sampai opacity 0.25 dan komponen internal utama mulai bergerak jelas. Ini menjawab rasa penasaran "apa isi di dalam benda ini". Latar sistem berganti ke cetak biru.
-   - Babak 3, adegan dengan `"blueprint"` (CORE MECHANICS): kamera berpindah bergantian ke komponen internal yang sedang dibahas narasi (pakai jangkar `COMPONENT_ANCHORS` yang spesifik), penutup tetap 0.25. Panah gaya HUD (aturan 19) muncul sesuai data adegan, dan Lingkaran Pembesar (Magnifier Inset) muncul dengan `spring` di pojok kanan bawah: pusat X=800, Y=1150, radius 140, bingkai putih `stroke="#ffffff" strokeWidth={6}` plus garis tepi INK, isinya DIPOTONG `<clipPath>` bulat dan menampilkan zoom 3x pada bagian terkecil yang sedang beraksi (celah 1 mm, bola gotri, membran, ujung pin). Cara: tulis bagian kecil itu sebagai komponen fungsi sendiri (mis. `SmallPart`), panggil dua kali: sekali di gambar utama dan sekali di dalam lingkaran dengan `transform="translate(800 1150) scale(3) translate(-px -py)"` (px, py = jangkar bagian itu). Lingkaran pembesar digambar di grup HUD, di luar grup kamera.
-   - Babak 4, adegan terakhir (`"konteks"`, RESOLUTION AND ZOOM-OUT): kamera zoom-out ke skala 1 jangkar `whole` melewati cangkang transparan, bodi luar menutup kembali sampai opacity 1, dan benda ditampilkan utuh sedang menyelesaikan tugasnya (gerak idle yang puas, aliran normal kembali), sebagai penutup yang tuntas.
-   - Latar layar penuh disediakan sistem (lihat aturan 21). Jangan menggambar latar sendiri.
-19. HUD FISIKA (komponen siap pakai; JANGAN menggambar panah angka atau ikon beban sendiri). Impor persis: `import { SegmentedForceArrow, LoadWeightBadge, MisconceptionCross } from "../components/hud";` dan gambar di grup HUD SESUDAH grup kamera (koordinat layar, hitung dengan rumus aturan 7):
-   - `<SegmentedForceArrow x={} y={} direction="up" | "down" | "left" | "right" label={scene.hud.force} level={triggerProgress} />`: panah gaya 4 balok yang menyala bertahap; panggil HANYA di adegan yang `hud.force`-nya terisi. `level` = `triggerProgress` (0 sampai 1). Letakkan di dekat komponen yang gayanya naik, arah sesuai arah gaya. Label panah berada 44 px di bawah pangkalnya, jadi untuk panah `up` pangkal (y) harus di Y 1190 atau lebih kecil supaya label tidak menabrak subtitle di Y 1306.
-   - `<LoadWeightBadge value={scene.hud.load} x={} y={} />`: ikon beban merah-oranye; panggil HANYA di adegan yang `hud.load`-nya terisi; letakkan di atas atau di samping komponen yang menahan beban itu.
-   - `<MisconceptionCross active={frame >= scene.negationFrame} since={scene.negationFrame} x={} y={} />`: silang merah; panggil HANYA di adegan yang `negationFrame >= 0`, letakkan di atas bagian yang dibantah narasi.
-   - Teks HUD datang dari `scene.hud` dan `scene.negationFrame` pada `scenes` (lihat interface). Dilarang mengarang nilai sendiri. Kalau datanya kosong, komponen itu tidak dipanggil. Kotak klaim berangka di kiri atas, kalimat tanya pembuka, dan subtitle dibuat sistem: JANGAN digambar.
-20. FISIKA MIKRO (benda harus terasa hidup dan bereaksi terhadap gaya):
-   - Deformasi elastis: setiap komponen yang menahan beban atau tekanan (membran, sayap, pelat, ban, pegas, selang) melengkung dengan kurva Bezier `Q` atau `C` yang titik kontrolnya bergeser mengikuti `triggerProgress`. Dilarang komponen elastis yang tetap kaku saat menerima gaya.
-   - Efek kontak: setiap kali dua komponen berbenturan, katup menutup rapat, atau tekanan bocor, munculkan 6 sampai 8 partikel kecil (lingkaran atau garis pendek) yang memancar keluar dari titik kontak dengan arah `i * 2 * Math.PI / 7`. Jarak, skala, dan opacity partikel dihitung dengan `interpolate` dari `frame - triggerFrame` (0 sampai 20 frame, memudar).
-21. LATAR DAN LAPISAN LAYAR MILIK SISTEM:
-   - Sistem sudah menggambar latar bergerak sesuai topik (atau latar cetak biru saat mode blueprint) di belakang gambarmu. `<svg>` utama WAJIB transparan: dilarang `<rect>` seukuran layar, dilarang `background` atau `backgroundColor` CSS, dilarang `<AbsoluteFill style={{ background }}>`.
-   - Sistem juga menggambar kalimat tanya pembuka (kiri atas, 12 detik pertama), kotak klaim (kiri atas, setelah 12 detik), dan subtitle (di 68% tinggi layar). Jangan menaruh bagian penting benda di Y < 380 atau Y > 1290.
-22. SIAP DIPAKAI: komponen WAJIB diekspor tepat seperti ini, dan interface WAJIB ada persis:
+TUGAS: tulis SATU file `GeneratedMechanism.tsx` untuk topik di bawah. Kamu TIDAK menulis kamera, label, panah gaya, latar, atau subtitle: panggung milik sistem mengurus semuanya. Kamu hanya menggambar TIGA TAMPILAN dari benda yang sama di ruang gambar 1080x1920 (pusat benda sekitar (540, 830); area aman X 100..980, Y 400..1250), lalu mengisi tabel jangkar.
+
+KERANGKA (patuhi persis, isi bagian ...):
 ```tsx
-export interface SceneTiming {
-  sceneIndex: number;
-  startFrame: number;
-  endFrame: number;
-  triggerFrame: number; // frame absolut saat kata pemicu diucapkan
-  focusTarget: string;
-  labels: string[];
-  mode?: "konteks" | "xray" | "blueprint"; // tampilan adegan (aturan 18)
-  negationFrame?: number; // frame kata penyangkal, -1 kalau tidak ada
-  hud?: { load?: string; force?: string }; // data HUD adegan (aturan 19)
-}
-export interface TopicMechanismProps { scenes: SceneTiming[]; }
-export const TopicMechanism: React.FC<TopicMechanismProps> = ({ scenes }) => { ... }
-```
-   Adegan aktif dicari dari `frame` (cadangan: adegan terakhir). Frame di luar semua adegan tidak boleh membuat galat.
+import React from "react";
+import { useCurrentFrame, interpolate, interpolateColors } from "remotion";
+import { CoilSpring, PipeChannel, PistonCylinder, GearWheel, FlexDiaphragm, INK } from "../components/MechanicalPrimitives";
+export interface ViewProps { trig: number; sceneIndex: number; local: number; mode: string }
 
-KELUARAN: HANYA satu blok kode TypeScript (.tsx) utuh. Tanpa penjelasan di luar kode.
+export const ANCHORS = { whole: { x: 540, y: 830 }, /* nama: {x,y} pusat tiap komponen yang dibahas */ };
+export const CAMERA = [ { scale: 1, anchor: "whole" }, /* SATU baris untuk SETIAP adegan, urut */ ];
+export const LABEL_ANCHORS = [ /* nama jangkar untuk label pertama dan kedua adegan aktif, mis. "spring", "valve" */ ];
+export const DETAIL_ANCHOR = "valve"; // bagian terkecil yang beraksi, diperbesar 3x oleh kaca pembesar sistem
+
+export const Exterior: React.FC<ViewProps> = ({ trig }) => <g>...</g>;   // bodi luar UTUH dan solid
+export const Analogy: React.FC<ViewProps> = ({ trig }) => <g>...</g>;    // perumpamaan sehari-hari yang mudah dibayangkan
+export const Cutaway: React.FC<ViewProps> = ({ trig }) => <g>...</g>;    // potongan dalam, inti mekanisme, besar dan detail
+```
+Tiap tampilan mengembalikan `<g>` (BUKAN `<svg>`), memakai koordinat dunia yang sama. Sistem menumpuk Exterior di atas Cutaway dan memudarkannya sendiri saat adegan masuk mode xray/blueprint, jadi Exterior WAJIB menutup posisi Cutaway (bodi luar benda), dan Cutaway digambar lengkap di belakangnya.
+
+KOMPONEN SIAP PAKAI (impor dari ../components/MechanicalPrimitives; PAKAI ini untuk pegas, pipa, piston, roda gigi, membran, JANGAN menggambar ulang dari nol):
+ - `<CoilSpring x y width height coils compression color />` compression 0..1 (pegas tertekan merapat mulus)
+ - `<PipeChannel points={[[x,y],...]} width fluidColor flowSpeed isBlocked blockAt />` pipa berisi aliran; isBlocked=true menghentikan aliran setelah titik blockAt (0..1) dan memasang sumbat merah
+ - `<PistonCylinder x y width height strokeProgress color />` silinder + kepala piston + segel, strokeProgress 0..1
+ - `<GearWheel cx cy radius rotation teeth color />` roda gigi bergigi; rotation dalam derajat (mis. frame*2)
+ - `<FlexDiaphragm x y width bendAmount />` membran karet, bendAmount -1..1
+ Bagian lain (bodi, rumah, katup, bola, bilah, selang, sayap, roda) gambar sendiri dari path/rect/circle/ellipse.
+
+ATURAN:
+1. Benda digambar sesuai fisika dan proporsi aslinya, bervolume: gradasi `<linearGradient>` 3 titik warna (tepi gelap, pantulan terang, bayangan) di dalam `<defs>` TIAP tampilan dengan id unik berawalan nama tampilan (mis. `ext-body`, `cut-wall`), garis tepi `stroke={INK} strokeWidth={3.5} strokeLinejoin="round" strokeLinecap="round"`, garis highlight putih tipis di sisi atas. Bagian lebih dalam lebih gelap. Dilarang `<polyline>` zig-zag.
+2. Exterior (adegan pembuka dan penutup): wujud asli benda lengkap dengan konteks pemakaiannya (nosel di tangki, setrika di kain, pompa di rumahnya), besar, memenuhi X 160..920 dan Y 420..1240. Gerak idle halus dari `useCurrentFrame()`.
+3. Analogy: SATU perumpamaan benda sehari-hari yang kerjanya sama (mis. keran air, gelas dan sedotan, pintu pegas), digambar besar di tengah dengan bentuk utuh, bergerak mengikuti `trig`.
+4. Cutaway: potongan dalam yang BESAR dan rinci, minimal 5 komponen, seluruhnya terlihat di skala 1, tiap komponen bergerak (rotasi, `Math.sin(frame*0.08)`, aliran dengan strokeDashoffset). Klimaks adegan = `trig` (0 sampai 1, sudah di-spring sistem): ubah warna biru #38bdf8 ke oranye #f97316 lewat `interpolateColors`, gerakkan katup/pin/piston, tekan pegas, belokkan membran. Klimaks harus cocok dengan narasi adegan.
+5. Sebab sebelum akibat: alat pemicu bergerak dulu (trig 0..0.35), komponen terdorong (0.2..0.7), baru aliran terlihat (opacity naik di trig 0.35..0.6). Saat jalur tertutup, aliran sesudah penutup berhenti total dan hanya menumpuk sebelum penutup.
+6. Warna fungsional: bodi pasif abu (#cbd5e1 #94a3b8 #475569); penggerak utama emas #f59e0b atau merah #ef4444; fluida/gaya biru #38bdf8 (normal), oranye #f97316 (tekanan/panas), hijau #22c55e (terkunci/aman).
+7. Tabel CAMERA: tepat satu baris tiap adegan; adegan pembuka dan penutup skala 1 jangkar whole; adegan inti skala 1.5 sampai 2.4 pada jangkar komponen yang dibahas, dan komponen itu harus utuh terlihat. Semua nama `anchor` HARUS ada di ANCHORS.
+8. TEKS: jangan menulis teks apa pun (tanpa elemen `<text>`). Label, angka, dan HUD dibuat sistem.
+9. KODE AMAN: impor hanya 'react', 'remotion', '../components/MechanicalPrimitives', '../components/hud'. Dilarang Math.random, Date, useState/useEffect/hook lain, fetch, eval, window, document, setTimeout, `<image>`, `<foreignObject>`. Semua gerak murni fungsi dari `frame`. `interpolate` wajib inputRange naik ketat dan `{extrapolateLeft:"clamp", extrapolateRight:"clamp"}`. Jangan menggambar latar atau rect seukuran layar. Perulangan maksimal 40 elemen dan memakai `[0,1,2,...].map` atau `Array.from({length: n})` dengan n kecil tetap.
+10. Benda yang sama konsisten di ketiga tampilan (warna dan bentuk bodi sama), dan tidak ada bagian diam yang membeku.
+
+KELUARAN: HANYA satu blok kode .tsx utuh. Tanpa penjelasan.
 
 TOPIK: {topic}
 
-DAFTAR ADEGAN (urut; narasi, kata pemicu, label bagian yang boleh ditulis, fokus):
+DAFTAR ADEGAN (tampilan: konteks = Exterior, analogi = Analogy, xray/blueprint = Cutaway; HANYA baca, jangan ditulis ulang di kode):
 {scenes}
 """
 
-REPAIR_PROMPT = """Kode `TopicMechanism.tsx` di bawah GAGAL pada pemeriksaan otomatis. Perbaiki kodenya, jangan ubah tema gambarnya, dan tetap patuhi semua aturan (hanya impor 'react', 'remotion', dan '../components/hud'; SVG viewBox 0 0 1080 1920, tanpa Math.random, ekspor `TopicMechanism`, `SceneTiming`, `TopicMechanismProps`, benda terlihat dan bergerak sejak frame 0).
+REPAIR_PROMPT = """Kode `GeneratedMechanism.tsx` di bawah GAGAL pada pemeriksaan otomatis. Perbaiki kodenya tanpa mengubah tema gambar. Tetap patuhi kerangka: ekspor ANCHORS, CAMERA, LABEL_ANCHORS, DETAIL_ANCHOR, Exterior, Analogy, Cutaway (masing-masing tampilan mengembalikan `<g>`, tanpa teks, tanpa latar layar penuh); impor hanya 'react', 'remotion', '../components/MechanicalPrimitives', '../components/hud'.
 
 MASALAH YANG DITEMUKAN:
 {errors}
@@ -195,87 +126,82 @@ def extract_code(text):
 
 
 def lint(code):
-    """Pemeriksaan teks. Mengembalikan daftar masalah (kosong = lolos)."""
+    """Pemeriksaan KERAS saja: hanya hal yang pasti membuat render rusak. Selera gambar ditangani auto-perbaikan dan peringatan."""
     errs = []
-    if len(code) < 2500:
-        errs.append("kode terlalu pendek untuk ilustrasi mekanis yang utuh")
+    if len(code) < 1200:
+        errs.append("kode terlalu pendek untuk tiga tampilan mekanis yang utuh")
     if len(code) > 60000:
         errs.append("kode terlalu panjang (maksimal 60000 karakter)")
     for mod in re.findall(r"from\s+['\"]([^'\"]+)['\"]", code):
-        if mod not in ("react", "remotion", "../components/hud"):
-            errs.append(f"impor '{mod}' dilarang; hanya 'react', 'remotion', dan '../components/hud'")
+        if mod not in ALLOWED_IMPORTS:
+            errs.append(f"impor '{mod}' dilarang; hanya 'react', 'remotion', '../components/MechanicalPrimitives', '../components/hud'")
     for pat, msg in FORBIDDEN:
         if re.search(pat, code):
             errs.append(msg)
-    if not re.search(r"export\s+const\s+TopicMechanism\b", code):
-        errs.append("tidak ada `export const TopicMechanism`")
-    if "viewBox" not in code or "1080" not in code or "1920" not in code:
-        errs.append("viewBox harus 0 0 1080 1920")
-    if code.count("<g") + code.count("<path") + code.count("<rect") + code.count("<circle") < 12:
-        errs.append("gambar terlalu sedikit bentuk (minimal 5 komponen mekanis)")
-    if not re.search(r"useCurrentFrame\s*\(", code):
-        errs.append("gerak harus dihitung dari useCurrentFrame()")
-    if not re.search(r"strokeLinejoin\s*=\s*[\"{']+round", code):
-        errs.append("pegas dan pipa wajib memakai strokeLinejoin=\"round\" dan strokeLinecap=\"round\"")
-    if not re.search(r"FrontCover", code):
-        errs.append("wajib ada komponen FrontCoverShell (penutup depan yang memudar saat masuk adegan pembedahan)")
+    if not re.search(r"export\s+const\s+Cutaway\b", code):
+        errs.append("tidak ada `export const Cutaway` (tampilan potongan dalam wajib ada)")
+    if not re.search(r"export\s+const\s+Exterior\b", code):
+        errs.append("tidak ada `export const Exterior` (bodi luar benda)")
+    if not re.search(r"export\s+const\s+ANCHORS\b", code) or not re.search(r"export\s+const\s+CAMERA\b", code):
+        errs.append("wajib ekspor `ANCHORS` dan `CAMERA` (satu baris kamera tiap adegan)")
     for m in re.finditer(r"interpolate\(\s*[^,\[\]]+,\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)", code):
         if float(m.group(1)) >= float(m.group(2)):
             errs.append(f"interpolate dengan inputRange [{m.group(1)}, {m.group(2)}] tidak naik ketat dan akan membuat render crash")
             break
-    if "#0f172a" not in code or not re.search(r"strokeWidth\s*=\s*\{?\s*3\.5", code):
-        errs.append("gaya cel-shaded: komponen wajib bergaris tepi stroke=\"#0f172a\" strokeWidth={3.5} strokeLinejoin=\"round\"")
-    if re.search(r"<rect\b[^>]*width\s*=\s*\{?[\"']?1080[\"']?\}?[^>]*height\s*=\s*\{?[\"']?1920", code) or \
-            re.search(r"\bbackground(Color)?\s*:\s*[\"'`](?!transparent)", code):
-        errs.append("dilarang menggambar latar layar penuh (rect 1080x1920 atau CSS background); latar disediakan sistem, svg harus transparan")
-    if "clipPath" not in code:
-        errs.append("wajib ada Lingkaran Pembesar (magnifier) dengan <clipPath> bulat untuk mode blueprint")
-    if '"blueprint"' not in code or '"xray"' not in code:
-        errs.append("wajib menangani alur 4 babak: mode \"konteks\", \"xray\", dan \"blueprint\" (aturan 18)")
-    if "COMPONENT_ANCHORS" not in code:
-        errs.append("wajib ada kamus COMPONENT_ANCHORS (koordinat pasti tiap komponen) dan kamera yang mengunci jangkar di pusat layar")
-    grads = re.findall(r"<linearGradient\b.*?</linearGradient>", code, re.S)
-    if sum(1 for g in grads if g.count("<stop") >= 3) < 2:
-        errs.append("wajib minimal 2 <linearGradient> dengan 3 titik warna <stop> atau lebih (efek logam 3D: tepi gelap, pantulan terang, tepi bayangan)")
-    if re.search(r"<polyline", code):
-        errs.append("dilarang <polyline> zig-zag; gambar pegas dengan <path> kurva Bezier")
     return errs
 
 
-def fix_viewbox(code):
-    """Paksa <svg> utama memakai viewBox 0 0 1080 1920 (hanya tag <svg pertama), tanpa membuang satu panggilan AI hanya karena ukurannya beda."""
-    m = re.search(r"<svg\b[^>]*>", code, re.S)
-    if not m:
-        return code
-    tag = m.group(0)
-    new = re.sub(r"\sviewBox\s*=\s*(\"[^\"]*\"|'[^']*'|\{[^}]*\})", "", tag)
-    new = new.replace("<svg", '<svg viewBox="0 0 1080 1920"', 1)
-    return code[:m.start()] + new + code[m.end():]
+def soft_warnings(code):
+    """Catatan kualitas yang TIDAK membuang satu panggilan AI; hanya dicetak ke log."""
+    w = []
+    if len(re.findall(r"<(?:g|path|rect|circle|ellipse|CoilSpring|PipeChannel|PistonCylinder|GearWheel|FlexDiaphragm)\b", code)) < 12:
+        w.append("gambar sedikit bentuk")
+    if not re.search(r"useCurrentFrame\s*\(", code):
+        w.append("tidak ada gerak dari useCurrentFrame")
+    grads = re.findall(r"<linearGradient\b.*?</linearGradient>", code, re.S)
+    if sum(1 for g in grads if g.count("<stop") >= 3) < 2:
+        w.append("gradasi logam kurang dari 2")
+    if "<text" in code:
+        w.append("ada elemen <text> (seharusnya tanpa teks)")
+    return w
+
+
+_FULL_RECT = re.compile(r"<rect\b[^>]*?(?:width\s*=\s*\{?[\"']?1080[\"']?\}?[^>]*?height\s*=\s*\{?[\"']?1920|height\s*=\s*\{?[\"']?1920[\"']?\}?[^>]*?width\s*=\s*\{?[\"']?1080)[^>]*?/>", re.S)
+_CSS_BG = re.compile(r"\bbackground(?:Color)?\s*:\s*(?:\"[^\"]*\"|'[^']*'|`[^`]*`)\s*,?")
+_TEXT_EL = re.compile(r"<text\b[^>]*?(?:/>|>.*?</text>)", re.S)
+
+
+def autofix(code):
+    """Perbaiki dengan kode (bukan menyuruh AI menulis ulang): buang latar layar penuh, CSS background, teks karangan, dan <svg> bersarang."""
+    code = _FULL_RECT.sub("", code)
+    code = _CSS_BG.sub("", code)
+    code = _TEXT_EL.sub("", code)
+    body_start = code.find("export const")
+    if body_start > 0:
+        head, body = code[:body_start], code[body_start:]
+        body = re.sub(r"<svg\b[^>]*>", "<g>", body)
+        body = body.replace("</svg>", "</g>")
+        code = head + body
+    return code
 
 
 def normalize(code):
-    """Pembersih otomatis: viewBox, export default, impor react, dan interface wajib."""
-    code = fix_viewbox(code)
-    if "TopicMechanism" in code and not re.search(r"export\s+default\s+TopicMechanism", code):
-        code = code.rstrip() + "\nexport default TopicMechanism;\n"
+    """Pembersih otomatis: auto-perbaikan, impor react, ViewProps, dan ekspor cadangan agar panggung tidak pernah crash karena hal kecil."""
+    code = autofix(code)
     if not re.search(r"import\s+React\b|import\s+\*\s+as\s+React", code):
         code = 'import React from "react";\n' + code
-    if not re.search(r"interface\s+SceneTiming\b|type\s+SceneTiming\b", code):
-        code += '''
-export interface SceneTiming {
-  sceneIndex: number;
-  startFrame: number;
-  endFrame: number;
-  triggerFrame: number;
-  focusTarget: string;
-  labels: string[];
-  mode?: "konteks" | "xray" | "blueprint";
-  negationFrame?: number;
-  hud?: { load?: string; force?: string };
-}
-'''
-    if not re.search(r"interface\s+TopicMechanismProps\b|type\s+TopicMechanismProps\b", code):
-        code += "\nexport interface TopicMechanismProps {\n  scenes: SceneTiming[];\n}\n"
+    if not re.search(r"interface\s+ViewProps\b|type\s+ViewProps\b", code):
+        code += VIEW_IFACE
+    if not re.search(r"export\s+const\s+ANCHORS\b", code):
+        code += '\nexport const ANCHORS: Record<string, { x: number; y: number }> = { whole: { x: 540, y: 830 } };\n'
+    if not re.search(r"export\s+const\s+CAMERA\b", code):
+        code += '\nexport const CAMERA: { scale: number; anchor: string }[] = [{ scale: 1, anchor: "whole" }];\n'
+    if not re.search(r"export\s+const\s+LABEL_ANCHORS\b", code):
+        code += '\nexport const LABEL_ANCHORS: string[] = [];\n'
+    if not re.search(r"export\s+const\s+DETAIL_ANCHOR\b", code):
+        code += '\nexport const DETAIL_ANCHOR = "whole";\n'
+    if re.search(r"export\s+const\s+Cutaway\b", code) and not re.search(r"export\s+const\s+Analogy\b", code):
+        code += "\nexport const Analogy = Cutaway;\n"  # tanpa tampilan analogi, adegan analogi memakai potongan dalam
     return code
 
 
@@ -312,9 +238,15 @@ def typecheck_generated(remotion_dir):
 
 
 def smoke_frames(timings, total_frames):
-    """Bingkai uji: awal, tepat sesudah pemicu adegan tengah, dan dekat akhir."""
-    mid = timings[len(timings) // 2]
-    frames = [0, min(total_frames - 1, mid["triggerFrame"] + 12), max(0, total_frames - 6)]
+    """Bingkai uji: awal, satu bingkai sesudah pemicu untuk SETIAP jenis tampilan yang dipakai (luar, analogi, sinar-X, cetak biru), dan dekat akhir."""
+    frames = [0]
+    seen = set()
+    for t in timings:
+        m = t.get("mode", "konteks")
+        if m not in seen:
+            seen.add(m)
+            frames.append(min(total_frames - 1, t["triggerFrame"] + 12))
+    frames.append(max(0, total_frames - 6))
     return sorted(set(max(0, f) for f in frames))
 
 
@@ -417,7 +349,7 @@ Jawab TIDAK LOLOS (ok = false) kalau kamu menemukan SALAH SATU dari hal ini:
  3. Ada komponen penting yang ukurannya terlalu kecil di pojok layar, atau terpotong batas kanvas.
 Selain itu, TIDAK LOLOS juga kalau jelas terlihat: teks label terpotong, bagian benda bertumpuk parah sehingga tidak terbaca, kotak label menutupi komponen yang ditunjuk, benda hanya memenuhi separuh atas layar sementara bawahnya kosong, atau warna begitu gelap sehingga bagian penting nyaris tak terlihat.
 Kalau tidak ada cacat jelas, jawab ok. Jangan mengada-ada demi terlihat teliti.
-Kalau TIDAK LOLOS, tuliskan perbaikan koordinat SVG pada kode TopicMechanism.tsx.
+Kalau TIDAK LOLOS, tuliskan perbaikan koordinat atau ukuran pada kode GeneratedMechanism.tsx (tampilan Exterior, Analogy, atau Cutaway, tabel ANCHORS dan CAMERA).
 Jawab HANYA JSON: {"ok": true atau false, "masalah": ["tangkapan ke-N: ..."], "perbaikan": ["perubahan koordinat atau ukuran SVG yang konkret, misalnya: geser kotak label PIN TENGAH ke x=300"]}"""
 
 
@@ -501,7 +433,7 @@ def describe_scenes(scenes, timings):
         rows.append(
             f"Adegan {tm['sceneIndex']} (frame {tm['startFrame']}-{tm['endFrame']}, kata pemicu di frame {tm['triggerFrame']}): "
             f"narasi = \"{sc.get('narration', '')}\" | kata pemicu = \"{sc.get('trigger') or ''}\" | "
-            f"tampilan (mode) = {tm['mode']} | label yang boleh ditulis = {tm['labels']} | fokus = \"{tm['focusTarget']}\" | "
+            f"tampilan (mode) = {tm['mode']} ({ {'konteks':'Exterior','analogi':'Analogy','xray':'Cutaway + Exterior memudar','blueprint':'Cutaway'}.get(tm['mode'],'Cutaway') }) | label yang boleh ditulis = {tm['labels']} | fokus = \"{tm['focusTarget']}\" | "
             f"HUD = {tm['hud'] or 'tidak ada'} | kata penyangkal di frame = {tm['negationFrame'] if tm['negationFrame'] >= 0 else 'tidak ada'}"
         )
     return "\n".join(rows)
@@ -510,13 +442,20 @@ def describe_scenes(scenes, timings):
 NEGATION_WORDS = ("bukan", "bukanlah", "tanpa", "jangan")
 
 
-def view_mode(index, count, start_fraction):
-    """Empat babak: adegan 0 benda utuh (konteks), 12-30% menembus cangkang (xray), 30-90% mekanisme inti (blueprint), penutup kembali ke benda utuh."""
+ANALOGY_WORDS = ("ibarat", "bagaikan", "layaknya", "seperti", "mirip", "sama seperti")
+
+
+def view_mode(index, count, start_fraction, narration=""):
+    """Empat babak: adegan 0 benda utuh (konteks), 12-30% menembus cangkang (xray), 30-90% mekanisme inti (blueprint),
+    penutup kembali ke benda utuh. Satu adegan di babak 3 yang memuat perumpamaan ("ibarat", "seperti") memakai tampilan analogi."""
     if index == 0 or (index == count - 1 and count >= 5):
         return "konteks"
     if start_fraction < 0.30:
         return "xray"
     if start_fraction < 0.90:
+        low = " " + str(narration or "").lower() + " "
+        if count >= 5 and any(f" {w} " in low for w in ANALOGY_WORDS):
+            return "analogi"
         return "blueprint"
     return "konteks"
 
@@ -560,7 +499,7 @@ def build_timings(scenes, words, fps=30):
         if s.get("force"):
             hud["force"] = str(s["force"])[:26]
         out.append({
-            "mode": view_mode(i, n, float(s["start"]) / total_end),
+            "mode": view_mode(i, n, float(s["start"]) / total_end, s.get("narration", "")),
             "negationFrame": int(round(float(neg["start"]) * fps)) if neg is not None else -1,
             "hud": hud,
             "sceneIndex": i,
@@ -570,6 +509,12 @@ def build_timings(scenes, words, fps=30):
             "focusTarget": str(s.get("title") or "")[:60],
             "labels": labels,
         })
+    seen = False
+    for t in out:  # paling banyak satu adegan analogi; sisanya kembali ke mekanisme inti
+        if t["mode"] == "analogi":
+            if seen:
+                t["mode"] = "blueprint"
+            seen = True
     return out
 
 
@@ -584,8 +529,8 @@ def _check_all(code, remotion_dir, props):
 
 
 def _vision_gate(code, callers, remotion_dir, props, vision, log, dead):
-    """Gerbang visual: lihat 3 tangkapan layar, kalau ada cacat jelas revisi kode SEKALI. Revisi dipakai hanya kalau lolos semua pemeriksaan kode."""
-    log("  -> Pemeriksa visual melihat 3 tangkapan layar sebelum render penuh...")
+    """Gerbang visual: lihat tangkapan layar, kalau ada cacat jelas revisi kode SEKALI. Revisi dipakai hanya kalau lolos semua pemeriksaan kode."""
+    log("  -> Pemeriksa visual melihat tangkapan layar sebelum render penuh...")
     issues = vision_critique(remotion_dir, props, vision, log)
     if not issues:
         log("     Tidak ada cacat visual yang jelas.")
@@ -610,7 +555,8 @@ def _vision_gate(code, callers, remotion_dir, props, vision, log, dead):
 
 
 def compose(topic, scenes, timings, callers, remotion_dir, props_for_smoke, log=print, max_repairs=2, vision=None):
-    """Hasilkan dan validasi komponen. Mengembalikan True kalau berkas siap dipakai; melempar RuntimeError kalau semua gagal."""
+    """Hasilkan dan validasi tiga tampilan. Mengembalikan True kalau berkas siap dipakai; melempar RuntimeError kalau semua gagal.
+    Penulisan kanvas dipanggil SEKALI kalau bisa: hal kecil diperbaiki oleh normalize(); model hanya dipanggil ulang untuk galat nyata."""
     ensure_stub(remotion_dir)
     prompt = PROMPT_SVG_COMPOSER.replace("{topic}", str(topic)).replace("{scenes}", describe_scenes(scenes, timings))
     code, errors, last_source = None, [], None
@@ -628,7 +574,7 @@ def compose(topic, scenes, timings, callers, remotion_dir, props_for_smoke, log=
                 break
             except Exception as e:
                 msg = str(e)
-                if any(x in msg for x in ("404", "NOT_FOUND", "401", "403", "413", "invalid_api_key", "model_not_found")):
+                if any(x in msg for x in ("404", "NOT_FOUND", "401", "403", "413", "invalid_api_key", "model_not_found", "tidak tersedia")):
                     dead.add(name)
                 log(f"     Penulis kanvas {name} dilewati: {msg[:90]}")
         if got is None:
@@ -636,6 +582,8 @@ def compose(topic, scenes, timings, callers, remotion_dir, props_for_smoke, log=
         code = normalize(got)
         errors = lint(code)
         if not errors:
+            for note in soft_warnings(code):
+                log(f"     Catatan (tidak menggagalkan): {note}")
             write_code(remotion_dir, code)
             errors = typecheck_generated(remotion_dir)
         if not errors:
@@ -647,5 +595,5 @@ def compose(topic, scenes, timings, callers, remotion_dir, props_for_smoke, log=
             return True
         log(f"  -> Kanvas percobaan {attempt}/{attempts} belum lolos: {errors[0][:260]}")
         if attempt < attempts:
-            time.sleep(RETRY_PAUSE)  # beri jeda supaya batas token per menit (429) pulih
+            time.sleep(RETRY_PAUSE)
     raise RuntimeError("Kanvas mekanis buatan AI tidak lolos pemeriksaan setelah perbaikan otomatis: " + "; ".join(errors[:3]))

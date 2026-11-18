@@ -58,7 +58,21 @@ if load_dotenv:
     load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 END_PAD = 1.5  # detik jeda setelah suara selesai (45 bingkai pada 30 fps)
-GEMINI_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
+
+
+def split_keys(*values):
+    """Satu variabel .env boleh berisi beberapa key dipisah koma (kunci1,kunci2,kunci3). Hasil: daftar unik tanpa nilai kosong atau contoh."""
+    out = []
+    for v in values:
+        for k in re.split(r"[,;\s]+", v or ""):
+            k = k.strip().strip('"').strip("'")
+            if k and k != "ISI_KEY_DI_SINI" and k not in out:
+                out.append(k)
+    return out
+
+
+GEMINI_KEYS = split_keys(os.getenv("GEMINI_API_KEY"), os.getenv("GOOGLE_API_KEY"))
+GEMINI_KEY = GEMINI_KEYS[0] if GEMINI_KEYS else ""  # key pertama dipakai untuk suara (TTS) dan pemeriksa visual
 PEXELS_KEY = os.getenv("PEXELS_API_KEY") or ""  # opsional: video latar gratis dari Pexels
 PIXABAY_KEY = os.getenv("PIXABAY_API_KEY") or ""  # opsional: video latar gratis dari Pixabay
 # Kalau model pertama tidak tersedia, agen otomatis mencoba yang berikutnya
@@ -66,7 +80,6 @@ GEMINI_MODELS = [
     m for m in [
         os.getenv("GEMINI_MODEL", "gemini-3.8-flash"),
         "gemini-3.6-flash",
-        "gemini-2.5-flash",
     ] if m
 ]
 
@@ -235,7 +248,7 @@ MICRO_CAUSAL_RULE = (
     "  BABAK 3, CORE MECHANISM DAN TRIGGER (sekitar 30-90%, tampilan: bagian demi bagian di dalam mesin): jelaskan runtut, mulai dari kondisi normal "
     "(gaya tekanan, pegas, atau arus menahan komponen di posisinya), lalu satu pemicu dari luar dan rantai reaksinya: A mendorong B, B membuka celah C, "
     "fluida atau arus D mengalir. SETIAP kalimat wajib punya subjek berupa komponen fisik yang menggerakkan komponen lain. "
-    "Boleh satu perumpamaan benda sehari-hari dalam satu kalimat pendek, tanpa adegan sendiri.\n"
+    "Boleh SATU perumpamaan benda sehari-hari: satu adegan tersendiri di babak ini yang kalimatnya diawali kata \"Ibarat\" (tampilannya berganti ke gambar perumpamaan).\n"
     "  BABAK 4, RESOLUTION DAN ZOOM-OUT (adegan terakhir saja, sekitar 90-100%, tampilan: kembali ke benda utuh): komponen kembali ke posisi semula, "
     "benda utuh menyelesaikan tugasnya, lalu kalimat pancingan penutup.\n"
     "Bagi 8 sampai 10 adegan ke dalam keempat babak itu sesuai urutan dan persentasenya. Dilarang membahas sejarah atau statistik di tengah penjelasan mekanis. "
@@ -383,7 +396,7 @@ makanya, soalnya, sebab): harus kalimat utuh yang bisa berdiri sendiri. Visual a
 memperlihatkan inti masalahnya, bukan pemandangan umum.
 ALUR CERITA: ikuti KERANGKA WAJIB di bawah (rantai sebab-akibat mikro). Angka cukup satu atau dua yang paling mengejutkan, dan hanya
 kalau angka itu menjelaskan gaya atau ukuran komponen yang sedang tampil, dengan perbandingan benda akrab ("seberat mobil").
-Perumpamaan paling banyak satu kalimat, di babak 3. Jangan menyelipkan sejarah atau titik balik "Tapi tunggu".
+Perumpamaan paling banyak satu adegan pendek berawalan "Ibarat", di babak 3. Jangan menyelipkan sejarah atau titik balik "Tapi tunggu".
 PENUTUP MELINGKAR (seamless loop): kalimat terakhir adalah PERTANYAAN PANCINGAN pendek (maksimal 10 kata)
 yang dijawab langsung oleh kalimat pembuka saat video berulang. JANGAN mengulang kata-kata pembuka di penutup
 (pengulangan kata terdengar seperti gagap). Contoh: pembuka "Tiga pesawat hancur di udara gara-gara jendela
@@ -466,13 +479,13 @@ Keluarkan HANYA JSON murni dengan format persis ini:
 """
 
 
-GROQ_KEY = os.getenv("GROQ_API_KEY") or ""
-CEREBRAS_KEY = os.getenv("CEREBRAS_API_KEY") or ""
+GROQ_KEYS = split_keys(os.getenv("GROQ_API_KEY"))
+CEREBRAS_KEYS = split_keys(os.getenv("CEREBRAS_API_KEY"))
 # Penyedia cadangan (gratis) yang memakai format OpenAI: (nama, alamat, key, daftar model)
 BACKUP_PROVIDERS = [
-    ("Groq", "https://api.groq.com/openai/v1/chat/completions", GROQ_KEY,
+    ("Groq", "https://api.groq.com/openai/v1/chat/completions", GROQ_KEYS,
      [m for m in [os.getenv("GROQ_MODEL"), "openai/gpt-oss-120b", "openai/gpt-oss-20b"] if m]),
-    ("Cerebras", "https://api.cerebras.ai/v1/chat/completions", CEREBRAS_KEY,
+    ("Cerebras", "https://api.cerebras.ai/v1/chat/completions", CEREBRAS_KEYS,
      [m for m in [os.getenv("CEREBRAS_MODEL"), "gpt-oss-120b", "llama-3.3-70b", "qwen-3-32b", "llama3.1-8b"] if m]),
 ]
 
@@ -528,29 +541,96 @@ def _fetch_models(url, key):
     return set()
 
 
+_WAIT_PATTERNS = (
+    r"try again in\s*(?:(\d+)m)?\s*(\d+(?:\.\d+)?)\s*s",
+    r"retry in\s*(\d+(?:\.\d+)?)\s*s",
+    r"retryDelay['\\\" :]*(\d+(?:\.\d+)?)s",
+)
+_BUSY_MARKS = ("429", "503", "504", "RESOURCE_EXHAUSTED", "UNAVAILABLE", "DEADLINE", "overloaded", "timed out", "Timeout", "rate limit")
+_FATAL_MARKS = ("404", "NOT_FOUND", "401", "403", "413", "invalid_api_key", "model_not_found")
+_COOLDOWN = {}  # nama sumber -> waktu (time.time) sampai boleh dicoba lagi
+
+
+def parse_wait_seconds(message):
+    """Baca 'try again in 7.5s' / 'retry in 12s' / '1m3.2s' dari pesan galat. None kalau tidak ada."""
+    msg = str(message or "")
+    for pat in _WAIT_PATTERNS:
+        m = re.search(pat, msg, re.I)
+        if m:
+            nums = [x for x in m.groups() if x]
+            try:
+                if len(nums) == 2:
+                    return float(nums[0]) * 60 + float(nums[1])
+                return float(nums[0])
+            except ValueError:
+                pass
+    return None
+
+
+def call_llm_with_smart_wait(name, fn, tries=3, log=None):
+    """Panggil satu sumber LLM dengan jeda cerdas:
+    - 404 / key salah / 413 (terlalu besar): langsung dilempar, jangan diulang.
+    - 429: kalau server bilang cukup tunggu <= 25 detik, tunggu sebentar lalu ulang; kalau lebih lama, langsung pindah sumber lain
+      (key berikutnya) dan sumber ini diistirahatkan sampai waktunya.
+    - 503 / 504 / timeout: tunggu sesuai petunjuk server, kalau tidak ada 10 detik x (percobaan + 1), lalu ulang."""
+    log = log or info
+    until = _COOLDOWN.get(name, 0)
+    if until > time.time():
+        raise RuntimeError(f"429 {name} masih istirahat {int(until - time.time())} detik")
+    last = None
+    for attempt in range(tries):
+        try:
+            return fn()
+        except Exception as e:
+            last = e
+            msg = str(e)
+            if any(x in msg for x in _FATAL_MARKS) and "429" not in msg:
+                raise
+            busy = any(x in msg for x in _BUSY_MARKS)
+            if not busy:
+                raise
+            hint = parse_wait_seconds(msg)
+            is_quota = "429" in msg or "RESOURCE_EXHAUSTED" in msg or "rate limit" in msg.lower()
+            if is_quota and (hint is None or hint > 25):
+                _COOLDOWN[name] = time.time() + (hint if hint else 60)
+                raise
+            if attempt >= tries - 1:
+                raise
+            wait = (hint + 1.5) if hint is not None else 10 * (attempt + 1)
+            wait = min(wait, 40)
+            log(f"     {name} sibuk, menunggu {wait:.0f} detik lalu mencoba lagi ({attempt + 2}/{tries})...")
+            time.sleep(wait)
+    raise last
+
+
 def build_text_sources(prompt, raw=False):
-    """Daftar sumber penulis naskah berurutan: Gemini dulu, lalu cadangan gratis.
-    Tiap item: (nama, fungsi yang mengembalikan teks JSON)."""
-    sources = []
-    if GEMINI_KEY and GEMINI_KEY != "ISI_KEY_DI_SINI":
+    """Daftar sumber LLM berurutan. Pembagian tugas supaya kuota Gemini tidak habis untuk hal yang bisa dikerjakan model lain:
+    - naskah dan editor (raw=False): Groq dulu, lalu Cerebras, Gemini terakhir;
+    - penulis kanvas kode (raw=True): Gemini dulu (paling kuat menggambar), lalu Groq dan Cerebras.
+    Tiap provider bisa punya banyak key; key dirotasi otomatis. Tiap item: (nama, fungsi tanpa argumen yang mengembalikan teks)."""
+    gem = []
+    if GEMINI_KEYS:
         from google import genai
         from google.genai import types
 
-        client = genai.Client(api_key=GEMINI_KEY)
         if raw:  # keluaran berupa kode, bukan JSON
             config = types.GenerateContentConfig(temperature=0.6, http_options=types.HttpOptions(timeout=240000))
         else:
             config = types.GenerateContentConfig(response_mime_type="application/json", temperature=1.0,
                                                  http_options=types.HttpOptions(timeout=120000))
+        clients = [genai.Client(api_key=k) for k in GEMINI_KEYS]
         for model_name in GEMINI_MODELS:
-            sources.append((
-                f"Gemini {model_name}",
-                lambda mn=model_name: client.models.generate_content(model=mn, contents=prompt, config=config).text,
-            ))
-    for name, url, key, models in BACKUP_PROVIDERS:
-        if not key:
+            for ki, client in enumerate(clients):
+                tag = f" #{ki + 1}" if len(clients) > 1 else ""
+                gem.append((
+                    f"Gemini {model_name}{tag}",
+                    lambda mn=model_name, c=client: c.models.generate_content(model=mn, contents=prompt, config=config).text,
+                ))
+    backups = []
+    for name, url, keys, models in BACKUP_PROVIDERS:
+        if not keys:
             continue
-        have = available_models(url, key)
+        have = available_models(url, keys[0])
         if have:
             usable = [x for x in models if x in have]
             if not usable:
@@ -562,11 +642,14 @@ def build_text_sources(prompt, raw=False):
                 info(f"  -> {name}: model {', '.join(skipped)} tidak tersedia untuk key ini, dilewati.")
             models = usable
         for model_name in models:
-            sources.append((
-                f"{name} {model_name}",
-                lambda u=url, k=key, mn=model_name: call_openai_style(u, k, mn, prompt, raw),
-            ))
-    return sources
+            for ki, key in enumerate(keys):
+                tag = f" #{ki + 1}" if len(keys) > 1 else ""
+                backups.append((
+                    f"{name} {model_name}{tag}",
+                    lambda u=url, k=key, mn=model_name: call_openai_style(u, k, mn, prompt, raw),
+                ))
+    ordered = (gem + backups) if (raw or os.getenv("TEXT_FIRST", "groq").strip().lower() == "gemini") else (backups + gem)
+    return [(n, (lambda n=n, f=f: call_llm_with_smart_wait(n, f))) for n, f in ordered]
 
 
 GREETINGS = ("halo", "hai", "hay", "selamat datang", "kali ini", "hari ini kita", "apa kabar", "teman-teman")
@@ -646,7 +729,6 @@ def research_and_write(forced_topic=None):
 
     last_error = None
     dead = set()  # sumber yang tidak tersedia (model tidak ada atau key salah) dilewati pada putaran berikutnya
-    started = time.time()
     waits = (25, 45, 70)  # jeda antar putaran (detik); total paling lama sekitar 8 menit
     for round_no in range(1, len(waits) + 2):
         for name, call in sources:

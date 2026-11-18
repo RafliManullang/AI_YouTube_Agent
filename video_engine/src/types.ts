@@ -134,7 +134,7 @@ export type MechTiming = {
   triggerFrame: number;
   focusTarget: string;
   labels: string[];
-  mode?: "konteks" | "xray" | "blueprint"; // tampilan adegan: benda utuh di tempat aslinya, menembus cangkang (sinar-X), atau mekanisme inti (cetak biru)
+  mode?: "konteks" | "analogi" | "xray" | "blueprint"; // tampilan adegan: benda utuh di tempat aslinya, menembus cangkang (sinar-X), atau mekanisme inti (cetak biru)
   negationFrame?: number; // bingkai kata penyangkal ("bukan", "tanpa"); -1 kalau tidak ada
   hud?: { load?: string; force?: string }; // beban yang ditahan dan label panah gaya untuk adegan ini
 };

@@ -149,7 +149,7 @@ export const mechTimingSchema = z.object({
   triggerFrame: finite.int().min(0),
   focusTarget: text(80),
   labels: z.array(text(40)).max(4),
-  mode: z.enum(["konteks", "xray", "blueprint"]).optional(),
+  mode: z.enum(["konteks", "analogi", "xray", "blueprint"]).optional(),
   negationFrame: finite.int().min(-1).optional(),
   hud: z.object({ load: text(24).optional(), force: text(30).optional() }).optional(),
 });
