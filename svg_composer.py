@@ -14,9 +14,29 @@ import re
 import shlex
 import subprocess
 import time
+from pathlib import Path
 
 RETRY_PAUSE = 6  # detik jeda sebelum mengulang penulisan kanvas
 GEN_REL = os.path.join("src", "generated", "GeneratedMechanism.tsx")
+
+# Folder skill opsional: skills/motion-graphics-by-nalarka/. Paket ini berisi SKILL.md + 2 referensi generik
+# (alur kerja motion-graphics editorial berbasis ffmpeg/asset-upload, gaya "latar putih minimalis") yang TIDAK
+# cocok disuntikkan mentah ke prompt kanvas mekanis ini -- isinya untuk pipeline lain dan gaya visual yang
+# bertentangan dengan HUD cutaway teknis yang sudah dipakai proyek ini. Yang dimuat hanya
+# `references/yukngulikin-golden-style.md`, referensi gaya visual yang memang ditulis untuk video mekanis ini.
+SKILL_DIR = Path(__file__).parent / "skills" / "motion-graphics-by-nalarka"
+GOLDEN_STYLE_FILES = [SKILL_DIR / "references" / "yukngulikin-golden-style.md"]
+
+
+def load_golden_style_reference() -> str:
+    """Baca referensi gaya visual @yukngulikin (kalau ada) untuk disuntik ke PROMPT_SVG_COMPOSER."""
+    sections = []
+    for fp in GOLDEN_STYLE_FILES:
+        if fp.exists():
+            content = fp.read_text(encoding="utf-8", errors="ignore").strip()
+            if content:
+                sections.append(content)
+    return "\n\n".join(sections)
 
 STUB = '''// Berkas ini DITULIS ULANG oleh agen di setiap video (svg_composer.py). Isi di bawah hanya cadangan kosong
 // supaya proyek tetap bisa dikompilasi sebelum agen pernah berjalan.
@@ -585,6 +605,9 @@ def compose(topic, scenes, timings, callers, remotion_dir, props_for_smoke, log=
     Penulisan kanvas dipanggil SEKALI kalau bisa: hal kecil diperbaiki oleh normalize(); model hanya dipanggil ulang untuk galat nyata."""
     ensure_stub(remotion_dir)
     prompt = PROMPT_SVG_COMPOSER.replace("{topic}", str(topic)).replace("{scenes}", describe_scenes(scenes, timings))
+    golden_style = load_golden_style_reference()
+    if golden_style:
+        prompt += "\n\n" + golden_style
     code, errors, last_source = None, [], None
     attempts = max_repairs + 1
     dead = set()
