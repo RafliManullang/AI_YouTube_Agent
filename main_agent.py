@@ -1653,13 +1653,15 @@ def prepare_hybrid(data, voice):
     spec, shots = asset_generator.storyboard(data, voice["timings"])
     components = list(dict.fromkeys(s["component"] for s in shots if s["asset_id"] == "03_cutaway"))
     cache = data.setdefault("hybrid_cache", {})
-    client = None
-    if GEMINI_KEY:
+    clients = []
+    if GEMINI_KEYS:
         from google import genai
-        client = genai.Client(api_key=GEMINI_KEY)
+        from google.genai import types
+        options = types.HttpOptions(timeout=120000, retry_options=types.HttpRetryOptions(attempts=1))
+        clients = [genai.Client(api_key=k, http_options=options) for k in GEMINI_KEYS]
     asset_map, anchors = asset_generator.generate_scene_assets(
         spec, Path(PUBLIC_DIR) / "assets", data["title"], components, cache,
-        lambda: save_session({"version": 1, "data": data, "voice": voice}), client, vision_caller(), info)
+        lambda: save_session({"version": 1, "data": data, "voice": voice}), clients, vision_caller(), info)
     asset_generator.apply_anchors(shots, anchors)
     return {"assetMap": asset_map, "shots": shots}
 

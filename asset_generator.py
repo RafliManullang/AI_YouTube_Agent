@@ -5,7 +5,7 @@ import json
 import math
 import os
 import re
-from urllib.parse import quote
+import time
 
 import requests
 from PIL import Image, ImageOps
@@ -65,23 +65,55 @@ def picture_bytes(raw):
         return buf.getvalue()
 
 
-def generate_picture(prompt, seed, client, log):
-    # Gemini Developer API tidak menerima seed untuk Imagen. Gunakan palet yang sama;
-    # Flux di bawah juga mendapat seed numerik.
-    if client is not None:
-        try:
-            result = client.models.generate_images(model=os.getenv('IMAGEN_MODEL') or 'imagen-4.0-generate-001',
-                prompt=prompt, config={'number_of_images': 1, 'aspect_ratio': '9:16'})
-            return picture_bytes(result.generated_images[0].image.image_bytes)
-        except Exception as exc:
-            log(f'  -> Imagen gagal ({type(exc).__name__}); mencoba Flux.')
-    token = os.getenv('POLLINATIONS_API_KEY')
-    endpoint = 'https://gen.pollinations.ai/image/' if token else 'https://image.pollinations.ai/prompt/'
-    res = requests.get(endpoint + quote(prompt, safe=''), timeout=90,
-                       headers={'Authorization': f'Bearer {token}'} if token else {},
-                       params={'width': 1080, 'height': 1920, 'model': 'flux', 'nologo': 'true', 'seed': seed})
-    res.raise_for_status()
-    return picture_bytes(res.content)
+GEMINI_IMAGE_MODELS = (
+    'gemini-3.1-flash-image', 'gemini-3.1-flash-lite-image',
+    'gemini-2.5-flash-image', 'gemini-3-pro-image',
+)
+HF_FLUX_URL = 'https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell'
+
+
+def generate_with_gemini_image(client, prompt, model_name):
+    from google.genai import types
+
+    response = client.models.generate_content(
+        model=model_name, contents=prompt,
+        config=types.GenerateContentConfig(response_modalities=['IMAGE'],
+                                          image_config=types.ImageConfig(aspect_ratio='9:16')),
+    )
+    for candidate in response.candidates or ():
+        if not candidate.content:
+            continue
+        for part in candidate.content.parts or ():
+            blob = part.inline_data
+            if blob and blob.data and (not blob.mime_type or blob.mime_type.startswith('image/')):
+                return blob.data
+    raise ValueError('Gemini tidak mengembalikan data gambar.')
+
+
+def generate_with_hf_flux(prompt, seed):
+    token = os.getenv('HF_TOKEN', '').strip()
+    if not token:
+        raise RuntimeError('Fallback Hugging Face tidak tersedia: HF_TOKEN belum diisi di .env.')
+    response = requests.post(HF_FLUX_URL, timeout=120,
+                             headers={'Authorization': f'Bearer {token}', 'Accept': 'image/png'},
+                             json={'inputs': prompt, 'parameters': {'width': 768, 'height': 1344, 'seed': seed}})
+    response.raise_for_status()
+    return response.content
+
+
+def generate_picture(prompt, seed, clients, log):
+    # Baca override saat dipanggil: .env baru dimuat setelah modul ini diimpor.
+    primary = os.getenv('IMAGE_MODEL', '').strip() or GEMINI_IMAGE_MODELS[0]
+    models = dict.fromkeys((primary, *GEMINI_IMAGE_MODELS[1:]))
+    for index, client in enumerate(clients, 1):
+        for model in models:
+            try:
+                return picture_bytes(generate_with_gemini_image(client, prompt, model))
+            except Exception as exc:
+                detail = re.sub(r'AIza[\w-]+', '[redacted]', str(exc))
+                log(f'  -> Gemini Image {model} (key #{index}) gagal: {type(exc).__name__}: {detail[:400]}')
+    log('  -> Beralih ke Hugging Face FLUX.1-schnell.')
+    return picture_bytes(generate_with_hf_flux(prompt, seed))
 
 
 def locate(vision, png, components):
@@ -102,7 +134,7 @@ def locate(vision, png, components):
     return {'has_garbled_text': obj['has_garbled_text'], 'anchors': anchors}
 
 
-def generate_scene_assets(spec, directory, title, components, cache, checkpoint, client=None, vision=None, log=print):
+def generate_scene_assets(spec, directory, title, components, cache, checkpoint, clients=(), vision=None, log=print):
     """Checkpoint dipanggil setelah setiap kandidat dan keputusan Vision, sebelum tahap berikutnya."""
     spec = validate_assets(spec)
     directory.mkdir(parents=True, exist_ok=True)
@@ -111,6 +143,7 @@ def generate_scene_assets(spec, directory, title, components, cache, checkpoint,
     records = cache.setdefault('images', {})
     if vision is None and not records.get('03_cutaway', {}).get('vision'):
         raise RuntimeError('GEMINI_API_KEY diperlukan untuk memeriksa cutaway. Gunakan --resume setelah key siap.')
+    generated = False
     for item in spec:
         key, view = item['id'], item['view_type']
         path = directory / f'{key}.png'
@@ -128,7 +161,10 @@ def generate_scene_assets(spec, directory, title, components, cache, checkpoint,
             if not png or rejected:
                 attempt = int(bool(rejected))
                 log(f'  -> Membuat {key} (seed {seed + attempt})')
-                png = generate_picture(build_image_prompt(item['prompt'], view, seed, bool(attempt)), seed + attempt, client, log)
+                if generated:
+                    time.sleep(2)  # hanya antar-generasi, bukan saat membaca checkpoint
+                png = generate_picture(build_image_prompt(item['prompt'], view, seed, bool(attempt)), seed + attempt, clients, log)
+                generated = True
                 pending = path.with_suffix('.tmp')
                 pending.write_bytes(png)
                 pending.replace(path)
