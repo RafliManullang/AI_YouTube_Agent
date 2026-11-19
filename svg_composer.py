@@ -25,24 +25,31 @@ GEN_REL = os.path.join("src", "generated", "GeneratedMechanism.tsx")
 # bertentangan dengan HUD cutaway teknis yang sudah dipakai proyek ini. Yang dimuat hanya
 # `references/yukngulikin-golden-style.md`, referensi gaya visual yang memang ditulis untuk video mekanis ini.
 SKILL_DIR = Path(__file__).parent / "skills" / "motion-graphics-by-nalarka"
-GOLDEN_STYLE_FILES = [SKILL_DIR / "references" / "yukngulikin-golden-style.md"]
+GOLDEN_STYLE_MD = SKILL_DIR / "references" / "yukngulikin-golden-style.md"
+GOLDEN_EXAMPLE_TSX = SKILL_DIR / "references" / "golden-example.tsx"
 
 
 def load_golden_style_reference() -> str:
-    """Baca referensi gaya visual @yukngulikin (kalau ada) untuk disuntik ke PROMPT_SVG_COMPOSER."""
+    """Baca referensi gaya visual @yukngulikin + contoh kode nyata (kalau ada) untuk disuntik ke PROMPT_SVG_COMPOSER."""
     sections = []
-    for fp in GOLDEN_STYLE_FILES:
-        if fp.exists():
-            content = fp.read_text(encoding="utf-8", errors="ignore").strip()
-            if content:
-                sections.append(content)
+    if GOLDEN_STYLE_MD.exists():
+        content = GOLDEN_STYLE_MD.read_text(encoding="utf-8", errors="ignore").strip()
+        if content:
+            sections.append(content)
+    if GOLDEN_EXAMPLE_TSX.exists():
+        code = GOLDEN_EXAMPLE_TSX.read_text(encoding="utf-8", errors="ignore").strip()
+        if code:
+            sections.append(
+                "CONTOH KODE REFERENSI (few-shot, JANGAN disalin topiknya, hanya contoh KEPADATAN detail path, "
+                "ketebalan garis tepi, tata letak HUD, dan struktur animasi yang setara):\n```tsx\n" + code + "\n```"
+            )
     return "\n\n".join(sections)
 
 STUB = '''// Berkas ini DITULIS ULANG oleh agen di setiap video (svg_composer.py). Isi di bawah hanya cadangan kosong
 // supaya proyek tetap bisa dikompilasi sebelum agen pernah berjalan.
 import React from "react";
 
-export interface ViewProps { trig: number; sceneIndex: number; local: number; mode: string; focus: string }
+export interface ViewProps { trig: number; sceneIndex: number; local: number; mode: string; focus: string; forceLevel: number; isDamaged: boolean }
 export const ANCHORS: Record<string, { x: number; y: number }> = { whole: { x: 540, y: 830 } };
 export const CAMERA: { scale: number; anchor: string }[] = [{ scale: 1, anchor: "whole" }];
 export const LABEL_ANCHORS: string[] = [];
@@ -53,7 +60,7 @@ export const Cutaway: React.FC<ViewProps> = () => <g />;
 '''
 
 VIEW_IFACE = '''
-export interface ViewProps { trig: number; sceneIndex: number; local: number; mode: string; focus: string }
+export interface ViewProps { trig: number; sceneIndex: number; local: number; mode: string; focus: string; forceLevel: number; isDamaged: boolean }
 '''
 
 ALLOWED_IMPORTS = ("react", "remotion", "../components/MechanicalPrimitives", "../components/hud")
@@ -66,8 +73,8 @@ KERANGKA (patuhi persis, isi bagian ...):
 ```tsx
 import React from "react";
 import { useCurrentFrame, interpolate, interpolateColors } from "remotion";
-import { CoilSpring, PipeChannel, PistonCylinder, GearWheel, FlexDiaphragm, CurvedArrow, INK } from "../components/MechanicalPrimitives";
-export interface ViewProps { trig: number; sceneIndex: number; local: number; mode: string; focus: string }
+import { CoilSpring, PipeChannel, PistonCylinder, GearWheel, FlexDiaphragm, CurvedArrow, ParticleFX, INK } from "../components/MechanicalPrimitives";
+export interface ViewProps { trig: number; sceneIndex: number; local: number; mode: string; focus: string; forceLevel: number; isDamaged: boolean }
 
 export const ANCHORS = { whole: { x: 540, y: 830 }, /* nama: {x,y} pusat SETIAP komponen fisik yang dibahas, wajib beda-beda, jangan dua nama berbagi titik yang sama */ };
 export const CAMERA = [ { scale: 1, anchor: "whole" }, /* SATU baris untuk SETIAP adegan, urut */ ];
@@ -76,7 +83,7 @@ export const DETAIL_ANCHOR = "valve"; // bagian terkecil yang beraksi, diperbesa
 
 export const Exterior: React.FC<ViewProps> = ({ trig, focus }) => <g>...</g>;   // bodi luar UTUH dan solid
 export const Analogy: React.FC<ViewProps> = ({ trig, focus }) => <g>...</g>;    // perumpamaan sehari-hari yang mudah dibayangkan
-export const Cutaway: React.FC<ViewProps> = ({ trig, sceneIndex, focus }) => <g>...</g>;    // potongan dalam, inti mekanisme, besar dan detail; `focus` = nama anchor yang sedang disorot kamera (pakai untuk meredupkan bagian lain, lihat aturan 14); `sceneIndex` dipakai untuk kontinuitas state (aturan 13)
+export const Cutaway: React.FC<ViewProps> = ({ trig, sceneIndex, focus, forceLevel, isDamaged }) => <g>...</g>;    // potongan dalam, inti mekanisme, besar dan detail; `focus` = nama anchor yang sedang disorot kamera (pakai untuk meredupkan bagian lain, lihat aturan 14); `sceneIndex` dipakai untuk kontinuitas state (aturan 13); `forceLevel` (1 normal, 2 saat narasi adegan ini menyebut tekanan/beban) dan `isDamaged` (true saat narasi adegan ini menyebut rusak/bocor/patah) -- dikirim otomatis dari kata yang SEDANG diucapkan narator (keyword-to-motion mapper), pakai untuk menyesuaikan intensitas warna/kecepatan/deformasi SAAT ITU JUGA, jangan diabaikan
 ```
 Tiap tampilan mengembalikan `<g>` (BUKAN `<svg>`), memakai koordinat dunia yang sama. Sistem menumpuk Exterior di atas Cutaway dan memudarkannya sendiri saat adegan masuk mode xray/blueprint, jadi Exterior WAJIB menutup posisi Cutaway (bodi luar benda), dan Cutaway digambar lengkap di belakangnya.
 
@@ -87,6 +94,7 @@ KOMPONEN SIAP PAKAI (impor dari ../components/MechanicalPrimitives; PAKAI ini un
  - `<GearWheel cx cy radius rotation teeth color />` roda gigi bergigi; rotation dalam derajat (mis. frame*2)
  - `<FlexDiaphragm x y width bendAmount />` membran karet, bendAmount -1..1
  - `<CurvedArrow x1 y1 cx cy x2 y2 color width />` panah gaya/aliran melengkung (bukan garis lurus kaku) dengan kepala panah otomatis
+ - `<ParticleFX bounds={{x,y,w,h}} intensity type="steam"|"bubbles"|"sparks"|"dust" />` efek mikro-lingkungan (lihat aturan 22)
  Bagian lain (bodi, rumah, katup, bola, bilah, selang, sayap, roda) gambar sendiri dari path/rect/circle/ellipse.
 
 ATURAN:
@@ -125,6 +133,31 @@ ATURAN:
 16. ARSIRAN POTONGAN & PANAH ARAH: pada dinding bodi yang dibelah (bagian X-ray/cutaway), pakai `fill="url(#cutawayHatch)"` (sudah
     disediakan sistem) pada ketebalan dindingnya supaya terlihat seperti gambar teknik mesin asli. Pada setiap garis aliran fluida/udara/
     gaya, pasang `markerEnd="url(#flowArrow)"` (sudah disediakan sistem) di ujungnya supaya arah gerak (masuk/keluar, naik/turun) jelas.
+17. OBJEK KONTEKS YANG DIKENALI MATA (WAJIB, dilarang mesin melayang sendirian di ruang hampa tanpa pembanding): sertakan MINIMAL satu
+    objek sehari-hari yang langsung dikenali orang awam di dekat mekanismenya, sesuai topik (contoh: piring putih bernoda di dekat baling-
+    baling semprot mesin cuci piring, jari/kelingking di dekat pentil ban, kertas struk putih di dekat mata pisau printer, gelas kaca di
+    rak kawat, telapak tangan di dekat katup). Objek ini memberi SKALA dan KONTEKS supaya penonton langsung paham ukuran dan fungsi benda
+    tanpa perlu dijelaskan narator.
+18. KONTRAS 3 TAHAP (SEBELUM -> PUNCAK -> SESUDAH): definisikan state visual yang berubah tegas mengikuti `sceneIndex`/`trig`, bukan
+    hanya posisi tapi SEKALIGUS warna dan kecepatan: tahap normal (warna aliran biru tenang `#38bdf8`, benda kerja masih kotor/utuh/diam),
+    tahap klimaks (warna beralih oranye/merah `#f97316`/`#ef4444`, bentuk melengkung/menyembur/bergetar cepat), tahap selesai (warna
+    beralih hijau aman `#22c55e`, benda kerja bersih/terpotong rapi/katup terkunci). Jangan hanya mengubah satu properti, ubah warna DAN
+    bentuk/kecepatan bersamaan supaya perubahan kondisi terasa jelas ke penonton.
+19. KOREOGRAFI KAMERA (nilai `scale` di CAMERA, panduan bukan harga mati -- sesuaikan ke topik): adegan pembuka wujud utuh (scale sekitar
+    0.9-1.0, seluruh benda+lingkungan terlihat), adegan bedah awal membesar bertahap (scale naik ke 1.3-1.5, cangkang mulai tembus),
+    adegan analogi kembali netral (scale sekitar 1.0, karena ini kanvas BENDA LAIN, bukan mesin utama -- lihat aturan 9 soal sembunyikan
+    Exterior/Cutaway saat Analogy tampil), adegan inti/klimaks paling dekat (scale 1.5-1.9, mengunci ke komponen yang beraksi), adegan
+    penutup mundur lagi ke wujud utuh (scale turun ke 1.0). Jangan kamera diam di scale yang sama sepanjang video.
+20. SALURAN MASUK/KELUAR TERSAMBUNG (dilarang pipa/kabel/selang/as/jalur kertas terputus menggantung di ruang hampa): kalau benda punya
+    saluran masuk atau keluar (pipa air, kabel listrik, selang gas, as roda, jalur kertas), gambar ujungnya memanjang sampai MENYENTUH
+    atau MELEWATI tepi kanvas (x <= 40 atau x >= 1040, atau y >= 1450 kalau menyambung ke lantai) supaya jelas dari mana masuk dan ke mana
+    keluarnya, bukan berhenti mengambang di tengah gambar.
+21. KOMPOSISI FRAME PERTAMA (thumbnail Shorts, sceneIndex 0): bodi utama benda WAJIB sudah besar dan proporsional sejak frame pertama,
+    mengisi minimal 55% tinggi area tengah kanvas (kira-kira Y 420..1320), BUKAN benda kecil di tengah ruang kosong. Kalau topik punya
+    angka ekstrem/paradoks (beban, tekanan, suhu), tampilkan juga sejak awal, jangan ditunda sampai detik ke-3.
+22. EFEK MIKRO-LINGKUNGAN: kalau topiknya relevan, pakai komponen siap pakai `<ParticleFX bounds={{x,y,w,h}} intensity={trig} type="steam"|"bubbles"|"sparks"|"dust" />`
+    dari `MechanicalPrimitives` (lihat daftar komponen di bawah) supaya benda terasa bereaksi dengan sekitarnya: "steam" untuk uap/panas,
+    "bubbles" untuk cairan bertekanan, "sparks" untuk percikan listrik/benturan logam, "dust" untuk kontak benda padat.
 
 KELUARAN: HANYA satu blok kode .tsx utuh. Tanpa penjelasan.
 
@@ -194,6 +227,20 @@ def lint(code):
         if float(m.group(1)) >= float(m.group(2)):
             errs.append(f"interpolate dengan inputRange [{m.group(1)}, {m.group(2)}] tidak naik ketat dan akan membuat render crash")
             break
+    # Gerbang kepadatan visual (semantic density gate): tolak kode yang cuma gambar kotak/lingkaran kaku dan diam,
+    # supaya yang lolos pasti punya siluet berkurva dan benar-benar bergerak di beberapa properti, bukan cuma satu.
+    path_count = len(re.findall(r"<path\b", code))
+    if path_count < 6:
+        errs.append(
+            f"hanya {path_count} tag <path> (minimal 6) -- bentuknya kemungkinan cuma <rect>/<circle> kaku, bukan siluet "
+            "kurva benda asli; bodi utama dan komponen dalam wajib digambar pakai <path> berkurva (lihat aturan 12)"
+        )
+    motion_calls = len(re.findall(r"\b(?:interpolate(?:Colors)?|spring)\s*\(", code))
+    if motion_calls < 4:
+        errs.append(
+            f"hanya {motion_calls} pemanggilan interpolate()/spring() -- gambarnya kemungkinan nyaris statis; animasikan "
+            "lebih banyak properti berbeda (posisi, rotasi, warna, bukaan) supaya gerak terasa hidup"
+        )
     return errs
 
 
@@ -486,6 +533,10 @@ def describe_scenes(scenes, timings):
 
 
 NEGATION_WORDS = ("bukan", "bukanlah", "tanpa", "jangan")
+# Pemeta kata kunci -> sinyal gerak (keyword-to-motion mapper): supaya animasi di Remotion selalu sinkron dengan apa
+# yang SEDANG diucapkan narator di adegan itu, bukan cuma mengandalkan satu kata pemicu generik.
+FORCE_WORDS = ("tekanan", "memadat", "menekan", "terjepit", "menahan", "beban", "berat", "mendorong", "tertekan")
+DAMAGE_WORDS = ("bocor", "robek", "patah", "retak", "pecah", "rusak", "aus", "terkikis", "jebol")
 
 
 ANALOGY_WORDS = ("ibarat", "bagaikan", "layaknya", "seperti", "mirip", "sama seperti")
@@ -544,6 +595,9 @@ def build_timings(scenes, words, fps=30):
             hud["load"] = str(s["load"])[:20]
         if s.get("force"):
             hud["force"] = str(s["force"])[:26]
+        narration_low = " " + str(s.get("narration", "")).lower() + " "
+        force_level = 2.0 if any(f" {w}" in narration_low or f"{w} " in narration_low for w in FORCE_WORDS) else 1.0
+        is_damaged = any(f" {w}" in narration_low or f"{w} " in narration_low for w in DAMAGE_WORDS)
         out.append({
             "mode": view_mode(i, n, float(s["start"]) / total_end, s.get("narration", "")),
             "negationFrame": int(round(float(neg["start"]) * fps)) if neg is not None else -1,
@@ -554,6 +608,8 @@ def build_timings(scenes, words, fps=30):
             "triggerFrame": trig,
             "focusTarget": str(s.get("title") or "")[:60],
             "labels": labels,
+            "forceLevel": force_level,
+            "isDamaged": is_damaged,
         })
     seen = False
     for t in out:  # paling banyak satu adegan analogi; sisanya kembali ke mekanisme inti

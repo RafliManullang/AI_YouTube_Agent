@@ -211,3 +211,75 @@ export const CurvedArrow: React.FC<{
     markerEnd={withHead ? "url(#flowArrow)" : undefined}
   />
 );
+
+// ---------------------------------------------------------------------------------------------
+// Efek mikro-lingkungan (uap, gelembung, percikan, debu kontak) supaya benda terasa bereaksi dengan sekitarnya,
+// bukan bergerak kering sendirian. `bounds` = area kemunculan partikel (pusat + jangkauan), `intensity` 0..1
+// biasanya diisi `trig` (makin besar makin ramai/besar partikelnya), `type` pilih jenis efeknya.
+export const ParticleFX: React.FC<{
+  bounds: { x: number; y: number; w: number; h: number };
+  intensity: number;
+  type: "steam" | "bubbles" | "sparks" | "dust";
+  count?: number;
+  color?: string;
+}> = ({ bounds, intensity, type, count, color }) => {
+  const frame = useCurrentFrame();
+  const amt = c01(intensity);
+  if (amt < 0.02) return null;
+  const { x, y, w, h } = bounds;
+
+  if (type === "steam") {
+    const n = count ?? 5;
+    return (
+      <g opacity={0.25 * amt}>
+        {Array.from({ length: n }).map((_, i) => {
+          const px = x - w / 2 + (w * (i + 0.5)) / n + Math.sin(frame * 0.08 + i) * 18;
+          const py = y - ((frame * 1.3 + i * 37) % h);
+          const r = 20 + 10 * Math.sin(frame * 0.05 + i);
+          return <circle key={i} cx={px} cy={py} r={Math.max(6, r)} fill={color ?? "#f1f5f9"} />;
+        })}
+      </g>
+    );
+  }
+  if (type === "bubbles") {
+    const n = count ?? 8;
+    return (
+      <g opacity={0.8 * amt}>
+        {Array.from({ length: n }).map((_, i) => {
+          const px = x - w / 2 + ((w * (i * 53 + frame * 2)) % (w * 100)) / 100;
+          const py = y - h / 2 + ((frame * 2.2 + i * 29) % h);
+          const r = 4 + (i % 3) * 2;
+          return <circle key={i} cx={px} cy={py} r={r} fill="none" stroke={color ?? "#e0f2fe"} strokeWidth={2} />;
+        })}
+      </g>
+    );
+  }
+  if (type === "sparks") {
+    const n = count ?? 7;
+    return (
+      <g opacity={amt}>
+        {Array.from({ length: n }).map((_, i) => {
+          const ang = (i / n) * Math.PI * 2 + frame * 0.3;
+          const len = 10 + 26 * amt;
+          const x1 = x + Math.cos(ang) * 6;
+          const y1 = y + Math.sin(ang) * 6;
+          const x2 = x + Math.cos(ang) * (6 + len);
+          const y2 = y + Math.sin(ang) * (6 + len);
+          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={color ?? "#fbbf24"} strokeWidth={3} strokeLinecap="round" />;
+        })}
+      </g>
+    );
+  }
+  // dust
+  const n = count ?? 6;
+  return (
+    <g opacity={0.5 * amt}>
+      {Array.from({ length: n }).map((_, i) => {
+        const ang = (i / n) * Math.PI;
+        const px = x + Math.cos(ang) * (10 + 22 * amt);
+        const py = y - Math.abs(Math.sin(ang)) * (10 + 22 * amt);
+        return <circle key={i} cx={px} cy={py} r={5} fill={color ?? "#94a3b8"} />;
+      })}
+    </g>
+  );
+};

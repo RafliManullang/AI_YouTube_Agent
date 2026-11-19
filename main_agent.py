@@ -394,6 +394,17 @@ ke-0. DILARANG membuka dengan sapaan (halo, hai, selamat datang), basa-basi,
 "kali ini kita bahas", atau percakapan santai bernada datar. Kalimat pertama DILARANG diawali kata sambung (karena, dan, tapi, jadi, lalu,
 makanya, soalnya, sebab): harus kalimat utuh yang bisa berdiri sendiri. Visual adegan pertama harus langsung
 memperlihatkan inti masalahnya, bukan pemandangan umum.
+NAMA BENDA WAJIB DI AWAL (supaya penonton awam langsung tahu benda apa yang dibahas dalam 1-2 detik pertama): salah satu dari
+3-5 kata pertama kalimat pembuka WAJIB menyebut nama benda/alatnya secara konkret (contoh: "Di dalam mesin cuci piring...",
+"Pentil ban motor itu...", "Saat kamu menekan tombol flush..."). DILARANG membuka dengan kalimat abstrak yang belum menyebut
+bendanya ("Air panas meluncur di dalam mesin...", "Sesuatu bergerak cepat di balik logam...").
+SATU ALAT, SATU ANATOMI (dilarang mencampur bagian dari dua alat berbeda yang mirip tapi beda fungsi): kalau topiknya mesin cuci
+PIRING, komponennya rak piring, baling-baling semprot, pemanas air, filter saringan -- BUKAN drum berputar (itu milik mesin cuci
+BAJU). Pastikan setiap nama komponen yang disebut benar-benar bagian asli dari benda yang sedang dibahas, bukan tertukar dari
+benda sejenis yang berbeda.
+DILARANG NARATOR MEMBACA ARAHAN KAMERA: kalimat narasi TIDAK BOLEH berisi kalimat yang menjelaskan apa yang dilakukan tampilan/
+kamera itu sendiri, seperti "Kamera menembus...", "Visual menampilkan...", "Layar memperlihatkan...", "Mari kita lihat lebih
+dekat...". Narator hanya boleh berbicara tentang BENDA dan KEJADIAN FISIKnya, bukan tentang gambar/videonya.
 ALUR CERITA: ikuti KERANGKA WAJIB di bawah (rantai sebab-akibat mikro). Angka cukup satu atau dua yang paling mengejutkan, dan hanya
 kalau angka itu menjelaskan gaya atau ukuran komponen yang sedang tampil, dengan perbandingan benda akrab ("seberat mobil").
 Perumpamaan paling banyak satu adegan pendek berawalan "Ibarat", di babak 3. Jangan menyelipkan sejarah atau titik balik "Tapi tunggu".
@@ -433,6 +444,8 @@ salah secara fisika/tidak masuk akal kalau dibayangkan sungguhan (contoh yang DI
 "tarian cahaya di balik roda gigi") -- setiap kalimat harus menjelaskan gerakan atau sebab-akibat yang benar-benar terjadi pada bendanya,
 bukan menghias. Kalimat penutup DILARANG berupa ajakan menebak yang murahan ("coba tebak apa yang terjadi selanjutnya", "menurutmu apa
 yang akan dipotong berikutnya") -- penutup harus pertanyaan pancingan yang jawabannya adalah kalimat pembuka (lihat PENUTUP MELINGKAR).
+DILARANG KERAS kalimat pancingan komentar murahan di penutup ("menurutmu kenapa?", "tulis di komentar", "komen di bawah") --
+pertanyaan pancingan PENUTUP MELINGKAR sudah cukup sebagai penutup, jangan ditambah ajakan komentar generik.
 "keywords" berisi 1 sampai 3 kata kunci terpenting dari ucapan adegan itu, ditulis persis seperti yang diucapkan.
 "sound" adalah suara latar adegan, pilih satu: "angin", "gesekan", "benturan", "mesin", "air", atau "hening".
 "music" adalah musik latar seluruh video: "misterius", "semangat", atau "tenang".
