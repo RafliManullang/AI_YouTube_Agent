@@ -1,4 +1,5 @@
 """Storyboard hybrid: satu palet per topik, gambar raster untuk anatomi, JSON untuk gerak."""
+import base64
 import hashlib
 import io
 import json
@@ -8,6 +9,7 @@ import re
 import time
 
 import requests
+from huggingface_hub import InferenceClient
 from PIL import Image, ImageOps
 
 VIEWS = {"01_exterior": "exterior", "02_analogy": "analogy", "03_cutaway": "cutaway", "04_closeup": "closeup"}
@@ -54,9 +56,9 @@ def clear_assets(directory):
         (directory / f'{key}.png').unlink(missing_ok=True)
 
 
-def picture_bytes(raw):
+def picture_bytes(raw, *, allow_square=False):
     with Image.open(io.BytesIO(raw)) as im:
-        if im.width >= im.height or im.width < 256 or im.width * im.height > 24_000_000:
+        if im.width > im.height or (im.width == im.height and not allow_square) or im.width < 256 or im.width * im.height > 24_000_000:
             raise ValueError('Provider tidak mengembalikan ilustrasi potret yang sesuai.')
         # Vision dan Remotion harus melihat crop yang persis sama.
         canvas = ImageOps.fit(im.convert('RGB'), (1080, 1920), method=Image.Resampling.LANCZOS)
@@ -69,7 +71,7 @@ GEMINI_IMAGE_MODELS = (
     'gemini-3.1-flash-image', 'gemini-3.1-flash-lite-image',
     'gemini-2.5-flash-image', 'gemini-3-pro-image',
 )
-HF_FLUX_URL = 'https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell'
+HF_DEFAULT_MODEL = 'black-forest-labs/FLUX.1-schnell'
 
 
 def generate_with_gemini_image(client, prompt, model_name):
@@ -94,14 +96,51 @@ def generate_with_hf_flux(prompt, seed):
     token = os.getenv('HF_TOKEN', '').strip()
     if not token:
         raise RuntimeError('Fallback Hugging Face tidak tersedia: HF_TOKEN belum diisi di .env.')
-    response = requests.post(HF_FLUX_URL, timeout=120,
-                             headers={'Authorization': f'Bearer {token}', 'Accept': 'image/png'},
-                             json={'inputs': prompt, 'parameters': {'width': 768, 'height': 1344, 'seed': seed}})
+    model = os.getenv('HF_IMAGE_MODEL', '').strip() or HF_DEFAULT_MODEL
+    client = InferenceClient(provider='auto', api_key=token, timeout=120)
+    try:
+        image = client.text_to_image(prompt, model=model, width=768, height=1344, seed=seed)
+    except Exception as exc:
+        # Jangan ulangi masalah token, kuota, atau jaringan dengan parameter yang sama.
+        status = getattr(getattr(exc, 'response', None), 'status_code', None)
+        if status not in (400, 422) and not (isinstance(exc, (ValueError, TypeError)) and
+                any(p in str(exc).lower() for p in ('width', 'height', 'size', 'dimension', 'seed'))):
+            raise
+        image = client.text_to_image(prompt, model=model)
+    buf = io.BytesIO()
+    image.save(buf, format='PNG')
+    return buf.getvalue()
+
+
+def generate_with_cloudflare_flux(prompt):
+    account = os.getenv('CF_ACCOUNT_ID', '').strip()
+    token = os.getenv('CF_API_TOKEN', '').strip()
+    if not account or not token:
+        raise RuntimeError('CF_ACCOUNT_ID / CF_API_TOKEN belum diisi di .env.')
+    url = f'https://api.cloudflare.com/client/v4/accounts/{account}/ai/run/@cf/black-forest-labs/flux-1-schnell'
+    response = requests.post(url, headers={'Authorization': f'Bearer {token}'},
+                             json={'prompt': prompt, 'steps': 4}, timeout=90)
     response.raise_for_status()
-    return response.content
+    payload = response.json()
+    if payload.get('success') is False or not (payload.get('result') or {}).get('image'):
+        raise ValueError('Cloudflare tidak mengembalikan gambar.')
+    return base64.b64decode(payload['result']['image'], validate=True)
+
+
+def skip_gemini_image():
+    return os.getenv('SKIP_GEMINI_IMAGE', '').strip() == '1'
 
 
 def generate_picture(prompt, seed, clients, log):
+    if os.getenv('CF_ACCOUNT_ID', '').strip() and os.getenv('CF_API_TOKEN', '').strip():
+        try:
+            return picture_bytes(generate_with_cloudflare_flux(prompt), allow_square=True)
+        except Exception as exc:
+            status = getattr(getattr(exc, 'response', None), 'status_code', None)
+            log(f'  -> Cloudflare Workers AI gagal ({status or type(exc).__name__}); mencoba provider berikutnya.')
+    if skip_gemini_image():
+        log('  -> Gemini Image dilewati; memakai Hugging Face.')
+        return picture_bytes(generate_with_hf_flux(prompt, seed), allow_square=True)
     # Baca override saat dipanggil: .env baru dimuat setelah modul ini diimpor.
     primary = os.getenv('IMAGE_MODEL', '').strip() or GEMINI_IMAGE_MODELS[0]
     models = dict.fromkeys((primary, *GEMINI_IMAGE_MODELS[1:]))
@@ -112,8 +151,8 @@ def generate_picture(prompt, seed, clients, log):
             except Exception as exc:
                 detail = re.sub(r'AIza[\w-]+', '[redacted]', str(exc))
                 log(f'  -> Gemini Image {model} (key #{index}) gagal: {type(exc).__name__}: {detail[:400]}')
-    log('  -> Beralih ke Hugging Face FLUX.1-schnell.')
-    return picture_bytes(generate_with_hf_flux(prompt, seed))
+    log('  -> Beralih ke Hugging Face.')
+    return picture_bytes(generate_with_hf_flux(prompt, seed), allow_square=True)
 
 
 def locate(vision, png, components):

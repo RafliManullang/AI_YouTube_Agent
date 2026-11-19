@@ -4,6 +4,7 @@ google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2
 requests
+huggingface_hub>=0.34.0
 Pillow
 python-dotenv
 numpy
