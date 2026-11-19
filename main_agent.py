@@ -1654,7 +1654,7 @@ def prepare_hybrid(data, voice):
     components = list(dict.fromkeys(s["component"] for s in shots if s["asset_id"] == "03_cutaway"))
     cache = data.setdefault("hybrid_cache", {})
     clients = []
-    if GEMINI_KEYS:
+    if GEMINI_KEYS and not asset_generator.skip_gemini_image():
         from google import genai
         from google.genai import types
         options = types.HttpOptions(timeout=120000, retry_options=types.HttpRetryOptions(attempts=1))

@@ -1,3 +1,4 @@
+import base64
 import io
 import json
 import os
@@ -90,6 +91,13 @@ class HybridTests(unittest.TestCase):
 
 
 class ImageProviderTests(unittest.TestCase):
+    def setUp(self):
+        # Jangan gunakan konfigurasi provider lokal saat menjalankan tes.
+        env = patch.dict(os.environ, {'CF_API_TOKEN':'', 'CF_ACCOUNT_ID':'', 'HF_TOKEN':'',
+                                      'HF_IMAGE_MODEL':'', 'SKIP_GEMINI_IMAGE':''})
+        env.start()
+        self.addCleanup(env.stop)
+
     @staticmethod
     def portrait():
         buf = io.BytesIO()
@@ -106,7 +114,7 @@ class ImageProviderTests(unittest.TestCase):
                 types.Part.from_text(text='note'), types.Part.from_bytes(data=self.portrait(), mime_type='image/jpeg')]))]),
         ]
         log = Mock()
-        with patch.dict(os.environ, {'IMAGE_MODEL': 'custom-image'}), patch.object(assets.requests, 'post') as hf:
+        with patch.dict(os.environ, {'IMAGE_MODEL': 'custom-image'}), patch.object(assets, 'InferenceClient') as hf:
             png = assets.generate_picture('prompt', 123, [first, second], log)
             hf.assert_not_called()
         self.assertEqual(Image.open(io.BytesIO(png)).size, (1080, 1920))
@@ -125,17 +133,55 @@ class ImageProviderTests(unittest.TestCase):
         client = Mock()
         client.models.generate_content.side_effect = RuntimeError('503')
         with patch.dict(os.environ, {'HF_TOKEN':'test', 'IMAGE_MODEL':'gemini-2.5-flash-image'}), \
-                patch.object(assets.requests, 'post') as hf:
-            hf.return_value.content = self.portrait()
+                patch.object(assets, 'InferenceClient') as hf:
+            hf.return_value.text_to_image.return_value = Image.open(io.BytesIO(self.portrait()))
             assets.generate_picture('prompt', 7, [client], Mock())
             self.assertEqual(client.models.generate_content.call_count, 3)  # override duplikat
-            hf.assert_called_once_with(assets.HF_FLUX_URL, timeout=120,
-                headers={'Authorization':'Bearer test', 'Accept':'image/png'},
-                json={'inputs':'prompt','parameters':{'width':768, 'height':1344, 'seed':7}})
-            hf.return_value.raise_for_status.assert_called_once()
+            hf.assert_called_once_with(provider='auto', api_key='test', timeout=120)
+            hf.return_value.text_to_image.assert_called_once_with('prompt', model=assets.HF_DEFAULT_MODEL,
+                                                                width=768, height=1344, seed=7)
+
+    def test_cloudflare_first_even_if_gemini_skipped(self):
+        buf = io.BytesIO()
+        Image.new('RGB',(512,512)).save(buf,format='JPEG')
+        client = Mock()
+        with patch.dict(os.environ, {'CF_API_TOKEN':'token','CF_ACCOUNT_ID':'account','SKIP_GEMINI_IMAGE':'1'}), \
+                patch.object(assets.requests, 'post') as cf, patch.object(assets, 'InferenceClient') as hf:
+            cf.return_value.json.return_value = {'result':{'image':base64.b64encode(buf.getvalue()).decode()}}
+            png = assets.generate_picture('prompt', 7, [client], Mock())
+            cf.assert_called_once_with('https://api.cloudflare.com/client/v4/accounts/account/ai/run/@cf/black-forest-labs/flux-1-schnell',
+                                       headers={'Authorization':'Bearer token'}, json={'prompt':'prompt','steps':4}, timeout=90)
+            hf.assert_not_called()
+            client.models.generate_content.assert_not_called()
+            with Image.open(io.BytesIO(png)) as im:
+                self.assertEqual((im.format, im.size), ('PNG', (1080,1920)))
+
+    def test_cloudflare_invalid_output_skips_gemini_then_hf_retries_default_size(self):
+        client = Mock()
+        with patch.dict(os.environ, {'CF_API_TOKEN':'cf','CF_ACCOUNT_ID':'id','SKIP_GEMINI_IMAGE':'1',
+                                     'HF_TOKEN':'hf','HF_IMAGE_MODEL':'custom'}), \
+                patch.object(assets.requests, 'post') as cf, patch.object(assets, 'InferenceClient') as hf:
+            cf.return_value.json.return_value = {'result':{'image':'invalid base64'}}
+            infer = hf.return_value.text_to_image
+            infer.side_effect = [ValueError('custom width unsupported'), Image.new('RGB',(512,512))]
+            assets.generate_picture('prompt', 7, [client], Mock())
+            client.models.generate_content.assert_not_called()
+            self.assertEqual(infer.call_args_list, [call('prompt', model='custom',width=768,height=1344,seed=7),
+                                                    call('prompt', model='custom')])
+
+    def test_skip_gemini_without_cloudflare_and_no_retry_for_auth(self):
+        client = Mock()
+        with patch.dict(os.environ, {'HF_TOKEN':'token','SKIP_GEMINI_IMAGE':'1'}), \
+                patch.object(assets.requests, 'post') as cf, patch.object(assets, 'InferenceClient') as hf:
+            hf.return_value.text_to_image.side_effect = PermissionError('unauthorized')
+            with self.assertRaises(PermissionError):
+                assets.generate_picture('prompt', 7, [client], Mock())
+            cf.assert_not_called()
+            client.models.generate_content.assert_not_called()
+            hf.return_value.text_to_image.assert_called_once()
 
     def test_missing_hf_token_no_unauthenticated_request(self):
-        with patch.dict(os.environ, {'HF_TOKEN':' '}), patch.object(assets.requests, 'post') as hf:
+        with patch.dict(os.environ, {'HF_TOKEN':' '}), patch.object(assets, 'InferenceClient') as hf:
             with self.assertRaisesRegex(RuntimeError, 'HF_TOKEN'):
                 assets.generate_picture('prompt', 7, [], Mock())
             hf.assert_not_called()

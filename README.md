@@ -4,11 +4,16 @@ Pipeline utama membuat Shorts dengan **3–4 ilustrasi AI per topik** dan motion
 
 1. Penulis/editor menyusun naskah, deskripsi ilustrasi, komponen fokus, kamera, dan overlay per adegan sebagai JSON.
 2. TTS menyimpan narasi dan timing kata/adegan ke checkpoint.
-3. Agen membuat `01_exterior.png`, `02_analogy.png`, `03_cutaway.png` dan, bila diminta naskah, `04_closeup.png` di `video_engine/public/assets/`. Master style dan palet dipilih konsisten per judul. Flux menerima seed deterministik; Gemini Image memakai penguncian prompt/palet.
+3. Agen membuat `01_exterior.png`, `02_analogy.png`, `03_cutaway.png` dan, bila diminta naskah, `04_closeup.png` di `video_engine/public/assets/`. Master style dan palet dipilih konsisten per judul. Hugging Face menerima seed bila didukung provider; semua generator memakai penguncian prompt/palet.
 4. Gemini Vision membaca **PNG cutaway yang sudah dicrop**: satu respons JSON berisi titik komponen (0–1 dari kiri atas) dan pemeriksaan teks bocor. Jika ada teks, maksimal satu gambar pengganti dibuat dan dicek lagi. Bila komponen tidak ditemukan, adegannya memakai badge tanpa panah/spotlight spekulatif. Bila percobaan kedua juga ditolak, render berhenti untuk peninjauan.
 5. Remotion menggerakkan kamera dan overlay menurut timing TTS. Transisi exterior → cutaway memakai sapuan sinar-X 18 frame + whoosh; pergantian gambar lain memakai crossfade. Subtitle dan citation badge tetap di koordinat layar.
 
-**Konfigurasi:** isi `GEMINI_API_KEY` (beberapa key boleh dipisah koma). Untuk setiap key, generator mencoba `gemini-3.1-flash-image` (ganti dengan `IMAGE_MODEL`), `gemini-3.1-flash-lite-image`, `gemini-2.5-flash-image`, lalu `gemini-3-pro-image`. Model duplikat dilewati. Jika semua pasangan model/key gagal, agen mencoba FLUX.1-schnell melalui Hugging Face Router. Isi `HF_TOKEN` dengan token yang diizinkan memanggil Inference Providers. Akses model, kredit gratis dan kuota tergantung akun/provider. Vision untuk pemeriksaan cutaway tetap memerlukan Gemini; gunakan `VISION_MODEL` bila perlu. Prompt/gambar dikirim ke provider yang digunakan.
+**Provider gambar (urutan prioritas):**
+1. Jika `CF_ACCOUNT_ID` dan `CF_API_TOKEN` terisi, coba FLUX.1-schnell di Cloudflare Workers AI. Bila gagal, lanjut ke provider berikutnya.
+2. Jika `SKIP_GEMINI_IMAGE=1`, lewati semua key dan model Gemini Image. Jika tidak, untuk setiap key di `GEMINI_API_KEY` (dipisah koma), coba `IMAGE_MODEL` atau `gemini-3.1-flash-image`, lalu `gemini-3.1-flash-lite-image`, `gemini-2.5-flash-image`, dan `gemini-3-pro-image`.
+3. Hugging Face memakai `InferenceClient(provider="auto")` dengan `HF_TOKEN` berizin Inference Providers. `HF_IMAGE_MODEL` bisa diganti (bawaan `black-forest-labs/FLUX.1-schnell`). Jika parameter gambar ditolak, coba sekali dengan ukuran bawaan provider. Gambar persegi dari Cloudflare/HF dipotong ke 1080×1920 sebelum Vision dan render.
+
+Flag tersebut tidak menonaktifkan Gemini Vision: pemeriksaan cutaway tetap membutuhkan `GEMINI_API_KEY`. Simpan token hanya di `.env`. Akses model, biaya dan kuota mengikuti akun/provider.
 
 **Jalankan:** `python main_agent.py --topik "pemanas air instan" --tanpa-upload`. Setelah kegagalan aset/Vision/render, jalankan `python main_agent.py --resume --tanpa-upload`. Checkpoint `cache/last_session.json` menyimpan path aset, checksum, hasil Vision dan status percobaan per gambar. Gambar utuh yang sudah lolos tidak dibuat lagi; pemeriksaan yang terputus memakai PNG yang sama. Jika gambar pengganti ditolak, periksa PNG sebelum memulai topik baru. Run tanpa `--resume` membersihkan empat nama PNG milik generator setelah naskah baru disimpan; aset pribadi dengan nama lain tidak dihapus.
 
