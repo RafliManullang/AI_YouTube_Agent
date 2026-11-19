@@ -290,3 +290,17 @@ Cara lama (memilih salah satu dari sekitar 10 gambar preset lalu mengganti tulis
 - Naskah dan editor dikerjakan Groq lebih dulu supaya kuota Gemini dipakai untuk menulis kanvas. Ubah dengan `TEXT_FIRST=gemini` di `.env`.
 - Banyak key: tulis dipisah koma, misalnya `GEMINI_API_KEY=kunci1,kunci2,kunci3`. Key dirotasi otomatis saat kena batas.
 - Jeda pintar: 429/503/504 menunggu sesuai petunjuk server ("try again in Xs"), kalau tidak ada 10 detik x percobaan. Model yang tidak ada (404) atau terlalu besar (413) langsung dilewati. `gemini-2.5-flash` dihapus dari daftar.
+
+## Melanjutkan render tanpa mengulang naskah dan suara
+
+Jika kanvas atau render gagal di `[4/5]`, jalankan:
+
+```sh
+python main_agent.py --resume --tanpa-upload
+```
+
+Di Windows bisa juga memakai `jalankan_agen.bat --resume --tanpa-upload`. Checkpoint `cache/last_session.json` ditulis setelah naskah siap, lalu diperbarui setelah TTS dengan waktu kata, jadwal adegan, durasi, dan nama audio di `video_engine/public/`. Jika baru naskah yang tersimpan, `--resume` mulai dari TTS. Jangan hapus atau timpa audio sesi tersebut. Menjalankan agen tanpa `--resume` membuat sesi baru; `--unggah-saja` tetap khusus untuk video yang sudah selesai. Sesi lama dari sebelum fitur ini tidak dapat dilanjutkan.
+
+Prompt kanvas standar maksimal 6.500 karakter; Groq memakai versi compact maksimal 4.900 karakter dan `max_tokens=3500`. Batas ini juga berlaku untuk revisi: jika kode lama tidak muat utuh, model menerima brief dan diagnostik untuk menulis ulang. Di `cache/debug_last_prompt.txt` ada nama sumber, jumlah karakter, dan prompt terakhir; `cache/debug_last_response.txt` berisi jawaban mentah atau status gagal. File lokal ini tidak masuk Git.
+
+Penulis kanvas Gemini memakai timeout 240 detik dan thinking rendah pada model Flash yang mendukungnya. Saat 503, agen langsung mencoba key lain; dua key berturut-turut terkena 503 menonaktifkan model itu untuk sesi kanvas. Error kuota 429 tidak membuka breaker. Untuk fallback opsional setelah Groq/Cerebras, isi `OPENROUTER_API_KEY` di `.env`. Bawaan `openrouter/free` merutekan ke model gratis; isi `OPENROUTER_MODEL` dengan ID model coding `:free` yang tersedia jika ingin memilih sendiri. Ketersediaan dan kuota tetap bergantung pada provider.

@@ -22,6 +22,7 @@ import time
 import random
 import tempfile
 import traceback
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -56,6 +57,8 @@ META_PATH = os.path.join(OUT_DIR, "catatan_video.json")  # judul, deskripsi, tag
 
 if load_dotenv:
     load_dotenv(os.path.join(BASE_DIR, ".env"))
+
+SESSION_PATH = Path(BASE_DIR) / "cache" / "last_session.json"
 
 END_PAD = 1.5  # detik jeda setelah suara selesai (45 bingkai pada 30 fps)
 
@@ -519,7 +522,7 @@ def call_openai_style(url, key, model, prompt, raw=False):
             {"role": "user", "content": prompt},
         ],
         "temperature": 0.6 if raw else 0.9,
-        "max_tokens": 16000 if raw else 8192,
+        "max_tokens": 3500 if url.startswith("https://api.groq.com/") else (16000 if raw else 8192),
     }
     if not raw:
         body["response_format"] = {"type": "json_object"}
@@ -586,7 +589,14 @@ def parse_wait_seconds(message):
     return None
 
 
-def call_llm_with_smart_wait(name, fn, tries=3, log=None):
+def unavailable(exc):
+    status = getattr(exc, "code", None)
+    if status is not None:
+        return str(status) == "503"
+    return bool(re.match(r"(?:503\b|UNAVAILABLE\b)", str(exc), re.I))
+
+
+def call_llm_with_smart_wait(name, fn, tries=3, log=None, rotate_on_503=False):
     """Panggil satu sumber LLM dengan jeda cerdas:
     - 404 / key salah / 413 (terlalu besar): langsung dilempar, jangan diulang.
     - 429: kalau server bilang cukup tunggu <= 25 detik, tunggu sebentar lalu ulang; kalau lebih lama, langsung pindah sumber lain
@@ -601,6 +611,8 @@ def call_llm_with_smart_wait(name, fn, tries=3, log=None):
         try:
             return fn()
         except Exception as e:
+            if rotate_on_503 and unavailable(e):
+                raise  # coba key berikutnya tanpa menunggu di key yang sama
             last = e
             msg = str(e)
             if any(x in msg for x in _FATAL_MARKS) and "429" not in msg:
@@ -622,34 +634,71 @@ def call_llm_with_smart_wait(name, fn, tries=3, log=None):
     raise last
 
 
-def build_text_sources(prompt, raw=False):
-    """Daftar sumber LLM berurutan. Pembagian tugas supaya kuota Gemini tidak habis untuk hal yang bisa dikerjakan model lain:
-    - naskah dan editor (raw=False): Groq dulu, lalu Cerebras, Gemini terakhir;
-    - penulis kanvas kode (raw=True): Gemini dulu (paling kuat menggambar), lalu Groq dan Cerebras.
-    Tiap provider bisa punya banyak key; key dirotasi otomatis. Tiap item: (nama, fungsi tanpa argumen yang mengembalikan teks)."""
+class CanvasSources:
+    """Daftar yang bisa diulang untuk revisi, tetapi tidak menawarkan key model yang sudah sibuk."""
+    def __init__(self, sources, blocked):
+        self.sources = sources
+        self.blocked = blocked
+
+    def __iter__(self):
+        for name, call in self.sources:
+            if name.partition(" #")[0] not in self.blocked:
+                yield name, call
+
+
+def llm_callers(raw=False):
+    """Bangun klien sekali; breaker dibagi semua key/putaran per sesi kanvas."""
     gem = []
+    blocked = set()
     if GEMINI_KEYS:
         from google import genai
         from google.genai import types
 
-        if raw:  # keluaran berupa kode, bukan JSON
-            config = types.GenerateContentConfig(temperature=0.6, http_options=types.HttpOptions(timeout=240000))
-        else:
-            config = types.GenerateContentConfig(response_mime_type="application/json", temperature=1.0,
-                                                 http_options=types.HttpOptions(timeout=120000))
-        clients = [genai.Client(api_key=k) for k in GEMINI_KEYS]
-        for model_name in GEMINI_MODELS:
-            for ki, client in enumerate(clients):
+        options = types.HttpOptions(timeout=240000 if raw else 120000)
+        if raw:
+            options.retry_options = types.HttpRetryOptions(attempts=1)
+        clients = [genai.Client(api_key=k, http_options=options) for k in GEMINI_KEYS]
+        last_busy_key = {}
+
+        def gemini_call(prompt, model, index, config, name):
+            try:
+                text = call_llm_with_smart_wait(name, lambda: clients[index].models.generate_content(
+                    model=model, contents=prompt, config=config).text, rotate_on_503=raw)
+            except Exception as exc:
+                if raw and unavailable(exc):
+                    if model in last_busy_key and last_busy_key[model] != index:
+                        blocked.add(f"Gemini {model}")
+                        info(f"  -> {model}: dua key berturut-turut 503; lewati model selama sesi kanvas.")
+                    last_busy_key[model] = index
+                else:
+                    last_busy_key.pop(model, None)
+                raise
+            last_busy_key.pop(model, None)
+            return text
+
+        for model in dict.fromkeys(GEMINI_MODELS):
+            params = {"temperature": 0.6 if raw else 1.0}
+            if not raw:
+                params["response_mime_type"] = "application/json"
+            elif model.startswith("gemini-3") and "flash" in model:
+                params["thinking_config"] = types.ThinkingConfig(thinking_level="LOW")
+            elif model.startswith("gemini-2.5-flash"):
+                params["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
+            config = types.GenerateContentConfig(**params)
+            for ki in range(len(clients)):
                 tag = f" #{ki + 1}" if len(clients) > 1 else ""
-                gem.append((
-                    f"Gemini {model_name}{tag}",
-                    lambda mn=model_name, c=client: c.models.generate_content(model=mn, contents=prompt, config=config).text,
-                ))
+                name = f"Gemini {model}{tag}"
+                gem.append((name, lambda p, m=model, i=ki, cfg=config, n=name: gemini_call(p, m, i, cfg, n)))
     backups = []
-    for name, url, keys, models in BACKUP_PROVIDERS:
+    providers = list(BACKUP_PROVIDERS)
+    if raw:
+        providers.append(("OpenRouter", "https://openrouter.ai/api/v1/chat/completions",
+                          split_keys(os.getenv("OPENROUTER_API_KEY")),
+                          [os.getenv("OPENROUTER_MODEL") or "openrouter/free"]))
+    for name, url, keys, models in providers:
         if not keys:
             continue
-        have = available_models(url, keys[0])
+        have = available_models(url, keys[0]) if name != "OpenRouter" else set()
         if have:
             usable = [x for x in models if x in have]
             if not usable:
@@ -660,15 +709,20 @@ def build_text_sources(prompt, raw=False):
                 _SKIP_LOGGED.add((name, tuple(skipped)))
                 info(f"  -> {name}: model {', '.join(skipped)} tidak tersedia untuk key ini, dilewati.")
             models = usable
-        for model_name in models:
+        for model_name in dict.fromkeys(models):
             for ki, key in enumerate(keys):
                 tag = f" #{ki + 1}" if len(keys) > 1 else ""
+                source = f"{name} {model_name}{tag}"
                 backups.append((
-                    f"{name} {model_name}{tag}",
-                    lambda u=url, k=key, mn=model_name: call_openai_style(u, k, mn, prompt, raw),
+                    source, lambda p, u=url, k=key, mn=model_name, n=source: call_llm_with_smart_wait(
+                        n, lambda: call_openai_style(u, k, mn, p, raw)),
                 ))
     ordered = (gem + backups) if (raw or os.getenv("TEXT_FIRST", "groq").strip().lower() == "gemini") else (backups + gem)
-    return [(n, (lambda n=n, f=f: call_llm_with_smart_wait(n, f))) for n, f in ordered]
+    return CanvasSources(ordered, blocked) if raw else ordered
+
+
+def build_text_sources(prompt, raw=False):
+    return [(n, lambda f=f: f(prompt)) for n, f in llm_callers(raw)]
 
 
 GREETINGS = ("halo", "hai", "hay", "selamat datang", "kali ini", "hari ini kita", "apa kabar", "teman-teman")
@@ -1286,15 +1340,6 @@ async def generate_voices(scenes):
     return words, duration, "voice.mp3"
 
 
-def llm_callers(raw=False):
-    """Daftar penulis LLM yang tersedia dalam bentuk (nama, fungsi(prompt)->teks), dipakai gerbang skema dan Director."""
-    try:
-        names = [n for n, _ in build_text_sources("x", raw)]
-    except Exception:
-        return []
-    return [(n, (lambda p, n=n: dict(build_text_sources(p, raw))[n]())) for n in names]
-
-
 def vision_caller():
     """Fungsi (prompt, [png]) -> teks memakai Gemini penglihat; None kalau tidak ada kunci Gemini (pemeriksaan visual dilewati)."""
     if not GEMINI_KEY or GEMINI_KEY == "ISI_KEY_DI_SINI":
@@ -1324,7 +1369,14 @@ def _norm_word(w):
     return re.sub(r"[^a-z0-9]", "", str(w or "").lower())
 
 
-def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", data_title="", screen=None):
+def render_timings(scenes, words, duration):
+    timings = svg_composer.build_timings(scenes, words)
+    timings[0]["startFrame"] = 0
+    timings[-1]["endFrame"] = max(timings[-1]["endFrame"], int(round(float(duration) * 30)))
+    return timings
+
+
+def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", data_title="", screen=None, timings=None):
     info("[4/5] Menjalankan Remotion (membuat video beranimasi)...")
     npm = shutil.which("npm")
     npx = shutil.which("npx")
@@ -1375,9 +1427,7 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
         info(f"  -> Musik latar bawaan: {music}.")
 
     # AI menulis satu kanvas mekanis khusus topik ini (svg_composer.py); gagal lolos pemeriksaan = render dibatalkan
-    timings = svg_composer.build_timings(scenes, words)
-    timings[0]["startFrame"] = 0
-    timings[-1]["endFrame"] = max(timings[-1]["endFrame"], int(round(float(duration) * 30)))
+    timings = timings or render_timings(scenes, words, duration)
     props["mechScenes"] = timings
     info("  -> AI menggambar ilustrasi mekanis khusus topik ini (satu kanvas dari awal sampai akhir)...")
     props = schema_gate.validate_or_repair(props, REMOTION_DIR, None, info)
@@ -1557,8 +1607,51 @@ def upload_video(video_path, content_data, privacy, publish_at=None):
 # ========================================================
 # EKSEKUTOR UTAMA
 # ========================================================
+def save_session(session):
+    SESSION_PATH.parent.mkdir(parents=True, exist_ok=True)
+    pending = SESSION_PATH.with_suffix(".tmp")
+    with pending.open("w", encoding="utf-8") as f:
+        json.dump(session, f, ensure_ascii=False)
+    pending.replace(SESSION_PATH)
+
+
+def prepare_session(resume, topic):
+    if resume:
+        try:
+            session = json.loads(SESSION_PATH.read_text(encoding="utf-8"))
+            data = session["data"]
+            if session["version"] != 1 or not data["scenes"]:
+                raise ValueError("format tidak sesuai")
+            if "voice" in session:
+                voice = session["voice"]
+                if (voice["audio_file"] not in ("voice.mp3", "voice.wav") or not voice["words"]
+                        or voice["duration"] <= 0 or len(voice["timings"]) != len(data["scenes"])):
+                    raise ValueError("data TTS tidak lengkap")
+                if (Path(PUBLIC_DIR) / voice["audio_file"]).stat().st_size == 0:
+                    raise ValueError("audio kosong")
+        except (OSError, KeyError, ValueError, TypeError) as exc:
+            raise RuntimeError(f"Checkpoint/audio tidak dapat dipakai: {exc}. Mulai ulang tanpa --resume.") from exc
+        info(f"  -> Melanjutkan sesi: {data['title']}")
+    else:
+        data = research_and_write(topic)
+        pacing.tag_urgency(data["scenes"])
+        session = {"version": 1, "data": data}
+        save_session(session)
+        info(f"  -> Topik dipilih: {data['title']} ({len(data['scenes'])} adegan)")
+        info(f"  -> Tema warna: {THEME_NAMES[data['theme_index']]}")
+
+    if "voice" not in session:
+        os.makedirs(PUBLIC_DIR, exist_ok=True)
+        words, duration, audio_file = asyncio.run(generate_voices(data["scenes"]))
+        session["voice"] = {"audio_file": audio_file, "duration": duration, "words": words,
+                            "timings": render_timings(data["scenes"], words, duration)}
+        save_session(session)
+    return data, session["voice"]
+
+
 def main():
     parser = argparse.ArgumentParser(description="AI YouTube Agent")
+    parser.add_argument("--resume", action="store_true", help="Lanjutkan checkpoint terakhir tanpa mengulang tahap yang sudah selesai")
     parser.add_argument("--tanpa-upload", action="store_true", help="Buat video saja, jangan diunggah")
     parser.add_argument("--unggah-saja", action="store_true",
                         help="Unggah video yang sudah jadi (hasil terakhir) tanpa membuat video baru")
@@ -1570,6 +1663,8 @@ def main():
         help="Status video di YouTube (bawaan: private)",
     )
     args = parser.parse_args()
+    if args.resume and (args.topik or args.unggah_saja):
+        parser.error("--resume tidak dapat digabung dengan --topik atau --unggah-saja")
 
     try:
         publish_at = next_publish_time(args.jadwal) if args.jadwal else None
@@ -1582,18 +1677,13 @@ def main():
             upload_video(VIDEO_PATH, notes, args.privasi, publish_at)
             return
 
-        data = research_and_write(args.topik)
-        info(f"  -> Topik dipilih: {data['title']} ({len(data['scenes'])} adegan)")
-        pacing.tag_urgency(data["scenes"])
-        info(f"  -> Tema warna: {THEME_NAMES[data['theme_index']]}")
-
-        os.makedirs(PUBLIC_DIR, exist_ok=True)
-        words, duration, audio_file = asyncio.run(generate_voices(data["scenes"]))
+        data, voice = prepare_session(args.resume, args.topik)
+        words, duration, audio_file = voice["words"], voice["duration"], voice["audio_file"]
         info(f"  -> Durasi video: {duration} detik, {len(words)} kata")
 
         final_video = render_remotion_video(
             words, data["scenes"], duration, data["theme_index"], data.get("music"), data.get("bg_seed", 0), audio_file, data["title"],
-            {k: data.get(k) for k in ("environment", "hook_question", "hook_highlight", "claim")}
+            {k: data.get(k) for k in ("environment", "hook_question", "hook_highlight", "claim")}, timings=voice["timings"]
         )
         info(f"  -> Video selesai: {final_video}")
         render_thumbnail(data, data["scenes"])

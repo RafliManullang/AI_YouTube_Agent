@@ -33,3 +33,6 @@ video_engine/public/photo_*.jpg
 
 # Ditulis ulang AI di setiap video (svg_composer.py)
 video_engine/src/generated/
+
+# Checkpoint lokal, prompt dan jawaban penulis kanvas
+/cache/
