@@ -1,7 +1,7 @@
 """
 AI YouTube Agent
-Alur kerja: riset topik + naskah per adegan (Gemini) -> suara + waktu tiap kata (Edge-TTS)
--> video latar gratis (Pexels, opsional) -> render video beranimasi (Remotion) -> unggah ke YouTube.
+Alur kerja: naskah dan storyboard -> TTS dan waktu kata -> ilustrasi AI + jangkar Vision
+-> koreografi Remotion -> unggah ke YouTube.
 
 Cara pakai (contoh):
     python main_agent.py                      # jalan penuh sampai unggah
@@ -27,9 +27,9 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
+import asset_generator
 import pacing
 import render_worker
-import schema_gate
 import svg_composer
 
 try:
@@ -418,20 +418,14 @@ kotak." dan penutup "Jadi, apa jadinya kalau jendela pesawat berbentuk kotak?". 
 di baliknya ada balok besi seberat mobil." dan penutup "Lalu kenapa lift tidak pernah jatuh?".
 {STRUCTURE_RULE}
 
-ATURAN VISUAL (WAJIB). Seluruh video adalah SATU ilustrasi mekanis potongan melintang (cutaway) dari SATU benda atau sistem utuh yang
-dibahas, digambar sebagai satu kanvas dari detik 0 sampai akhir. Bendanya TIDAK berganti-ganti: tiap adegan hanya menyorot bagian
-yang berbeda dari benda yang sama (kamera mendekat ke bagian itu, bagian itu bergerak). Karena itu:
-1. Pilih benda atau sistem utamanya dulu (contoh: diferensial mobil, nozel SPBU, setrika, detektor asap) dan susun adegan sebagai
-   perjalanan kamera di benda itu: sistem utuh, masalah, bagian kunci, cara bagian itu bekerja, klimaks, hasil.
-2. Tidak ada grafik batang, jam kecepatan, bola bernomor, tabung perbandingan, kartu teks, daftar poin, timeline, atau tanda tanya besar.
-   Angka cukup diucapkan; yang tampil di layar selalu bagian benda yang bergerak.
-3. Setiap adegan: "type" selalu "mechanism". "items" berisi 1 sampai 2 nama bagian benda yang DISEBUT di kalimat adegan itu
-   ("label" 1 sampai 3 kata berupa NAMA KOMPONEN FISIK seperti "pin tengah", "pegas ulir", "segel karet", bukan potongan kalimat; "value" kosong). Hanya nama itu yang akan ditulis di layar.
-4. "trigger" WAJIB diisi untuk setiap adegan: SATU kata persis seperti yang diucapkan narator di adegan itu, yaitu saat aksi klimaks
-   adegan terjadi di layar (contoh: "patah", "menekan", "membelok", "berhenti"). Sebelum kata itu bagian benda bergerak pelan.
-5. Perbandingan harus masuk akal secara fisika (lintasan luar lebih panjang dari lintasan dalam, benda berat lebih lambat, dan sebagainya).
-   Jangan menyebut benda yang tidak ada hubungannya dengan topik, dan jangan menerjemahkan kiasan secara harfiah.
-6. "art", "photo", dan "subject" tidak dipakai.
+STORYBOARD HYBRID: rencanakan 3–4 ilustrasi berulang dari satu topik, tanpa kode atau teks di gambar.
+assets: ID/view_type wajib 01_exterior/exterior, 02_analogy/analogy, 03_cutaway/cutaway; opsional 04_closeup/closeup.
+Isi prompt singkat dalam bahasa Inggris, spesifik ke alat/perumpamaan dalam naskah. Cutaway wajib memperlihatkan
+komponen fisik yang dibahas. Gunakan exterior di awal dan akhir, analogy untuk satu adegan "Ibarat", cutaway untuk
+bedah inti dan closeup opsional di klimaks. Setiap scene: asset_id, component (nama bagian yang ditunjuk),
+camera (fromScale/toScale 1..2.2, focusX/focusY 0..1), overlay (type flow_arrows/heat_pulse/badge_only,
+direction up/down/left/right, targetX 0..1080, targetY 0..1920, label singkat, accentColor #rrggbb).
+Isi items dengan 1–2 nama komponen nyata, type mechanism, trigger satu kata persis dari narasi untuk sinkronisasi aksi.
 BUNYI MOMEN PUNCAK ("sfx"): hanya satu bunyi di momen puncak adegan, harus cocok dengan kejadiannya. Pilihan: "clank" (logam beradu),
 "hiss" (desis udara), "zap" (listrik), "thud" (hantaman berat), "sizzle" (panas), "bubble" (cairan), "ding" (berhasil), "bell"
 (momen sejarah), "impact" (kejutan), "chain" (rantai), "swell" (tekanan besar), "creak" (derit struktur). Kosongkan ("") kalau tidak
@@ -482,8 +476,14 @@ Keluarkan HANYA JSON murni dengan format persis ini:
   "hook_question": "Kok bisa mati sendiri?",
   "hook_highlight": "mati sendiri",
   "claim": {{"source": "", "text": ""}},
+  "assets": [{{"id":"01_exterior","view_type":"exterior","prompt":"subject in its environment"}},
+             {{"id":"02_analogy","view_type":"analogy","prompt":"everyday analogy"}},
+             {{"id":"03_cutaway","view_type":"cutaway","prompt":"cross-section and named internal parts"}}],
   "scenes": [
     {{
+      "asset_id":"01_exterior", "component":"nama bagian",
+      "camera":{{"fromScale":1,"toScale":1.18,"focusX":0.5,"focusY":0.5}},
+      "overlay":{{"type":"badge_only","label":"BENDA UTUH"}},
       "lines": [{{"speaker": "flay", "text": "Kalimat yang diucapkan."}}],
       "title": "Judul adegan",
       "type": "mechanism",
@@ -726,7 +726,8 @@ def build_text_sources(prompt, raw=False):
 
 
 GREETINGS = ("halo", "hai", "hay", "selamat datang", "kali ini", "hari ini kita", "apa kabar", "teman-teman")
-DRAFT_SCENE_KEYS = ("lines", "title", "type", "tone", "points", "items", "number", "unit", "footage_query",
+HYBRID_SCENE_KEYS = ("asset_id", "component", "camera", "overlay")
+DRAFT_SCENE_KEYS = HYBRID_SCENE_KEYS + ("lines", "title", "type", "tone", "points", "items", "number", "unit", "footage_query",
                     "keywords", "variant", "mood", "weather", "sound", "mechanism", "sfx", "sim", "art", "subject", "photo", "trigger", "load", "force")
 
 
@@ -736,11 +737,11 @@ def polish_script(data, base_prompt):
     if os.getenv("EDITOR", "on").strip().lower() == "off":
         return data
     info("  -> Editor sedang menyempurnakan naskah (hook, titik balik, angka, cek fakta)...")
-    draft = {k: data[k] for k in ("title", "description", "tags", "category", "thumbnail_text", "music", "environment", "hook_question", "hook_highlight", "claim") if k in data}
+    draft = {k: data[k] for k in ("assets", "title", "description", "tags", "category", "thumbnail_text", "music", "environment", "hook_question", "hook_highlight", "claim") if k in data}
     draft["scenes"] = [{k: sc[k] for k in DRAFT_SCENE_KEYS if k in sc} for sc in data["scenes"]]
     editor_prompt = (
         "===== TUGAS KAMU: EDITOR NASKAH VIDEO SHORTS BAHASA INDONESIA =====\n"
-        "Aturan visual: semua visual simulasi mekanis atau diagram; DILARANG menambah benda yang tidak disebut di kalimat adegan; "
+        "Pertahankan daftar assets dan koreografi hybrid tiap adegan; cocokkan component dengan bagian yang diucapkan. "
         "kiasan jangan diterjemahkan harfiah; tipe \"footage\" tidak dipakai; kosongkan \"art\" dan \"photo\".\n"
         "Di bawah ini ada DRAF naskah. Kamu editor video viral yang sangat kritis. Tulis ulang "
         "draf itu menjadi versi yang jauh lebih menarik, dengan TOPIK YANG SAMA dan FORMAT JSON YANG SAMA PERSIS "
@@ -977,6 +978,7 @@ def finish_screen_fields(data):
 
 
 def validate_content(data):
+    data["assets"] = asset_generator.validate_assets(data.get("assets"))
     for key in ("title", "description", "tags", "scenes"):
         if key not in data:
             raise ValueError(f"JSON dari Gemini kekurangan kolom '{key}'.")
@@ -1015,6 +1017,7 @@ def validate_content(data):
         if not _numbers_in(force, narration):
             force = ""
         scenes.append({
+            **{k: raw[k] for k in HYBRID_SCENE_KEYS if k in raw},
             "load": load,
             "force": force,
             "sfx": sfx_raw if sfx_raw in KEY_SOUNDS else "",
@@ -1356,7 +1359,7 @@ def vision_caller():
         config = types.GenerateContentConfig(temperature=0.2, response_mime_type="application/json",
                                              http_options=types.HttpOptions(timeout=90000))
         last = None
-        for model_name in GEMINI_MODELS:
+        for model_name in dict.fromkeys(filter(None, [os.getenv("VISION_MODEL"), *GEMINI_MODELS, "gemini-2.5-flash"])):
             try:
                 return client.models.generate_content(model=model_name, contents=parts, config=config).text
             except Exception as e:  # coba model berikutnya
@@ -1376,7 +1379,7 @@ def render_timings(scenes, words, duration):
     return timings
 
 
-def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", data_title="", screen=None, timings=None):
+def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, timings=None, *, hybrid):
     info("[4/5] Menjalankan Remotion (membuat video beranimasi)...")
     npm = shutil.which("npm")
     npx = shutil.which("npx")
@@ -1426,15 +1429,11 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
         props["bgmUrl"] = f"bgm/{music}.wav"
         info(f"  -> Musik latar bawaan: {music}.")
 
-    # AI menulis satu kanvas mekanis khusus topik ini (svg_composer.py); gagal lolos pemeriksaan = render dibatalkan
-    timings = timings or render_timings(scenes, words, duration)
-    props["mechScenes"] = timings
-    info("  -> AI menggambar ilustrasi mekanis khusus topik ini (satu kanvas dari awal sampai akhir)...")
-    props = schema_gate.validate_or_repair(props, REMOTION_DIR, None, info)
-    svg_composer.compose(data_title, scenes, timings, llm_callers(raw=True), REMOTION_DIR, props, info, vision=vision_caller())
+    props["mechScenes"] = timings or render_timings(scenes, words, duration)
+    props["hybrid"] = hybrid
 
     # Semua data wajib lolos skema Zod, lalu render berjalan dengan pemulihan otomatis (render_worker.py)
-    render_worker.render(props, output_mp4, REMOTION_DIR, llm_callers(), info)
+    render_worker.render(props, output_mp4, REMOTION_DIR, None, info)
 
     if not os.path.exists(output_mp4) or os.path.getsize(output_mp4) < 10_000:
         raise RuntimeError("Video hasil render tidak ditemukan atau rusak.")
@@ -1637,6 +1636,7 @@ def prepare_session(resume, topic):
         pacing.tag_urgency(data["scenes"])
         session = {"version": 1, "data": data}
         save_session(session)
+        asset_generator.clear_assets(Path(PUBLIC_DIR) / "assets")
         info(f"  -> Topik dipilih: {data['title']} ({len(data['scenes'])} adegan)")
         info(f"  -> Tema warna: {THEME_NAMES[data['theme_index']]}")
 
@@ -1647,6 +1647,21 @@ def prepare_session(resume, topic):
                             "timings": render_timings(data["scenes"], words, duration)}
         save_session(session)
     return data, session["voice"]
+
+
+def prepare_hybrid(data, voice):
+    spec, shots = asset_generator.storyboard(data, voice["timings"])
+    components = list(dict.fromkeys(s["component"] for s in shots if s["asset_id"] == "03_cutaway"))
+    cache = data.setdefault("hybrid_cache", {})
+    client = None
+    if GEMINI_KEY:
+        from google import genai
+        client = genai.Client(api_key=GEMINI_KEY)
+    asset_map, anchors = asset_generator.generate_scene_assets(
+        spec, Path(PUBLIC_DIR) / "assets", data["title"], components, cache,
+        lambda: save_session({"version": 1, "data": data, "voice": voice}), client, vision_caller(), info)
+    asset_generator.apply_anchors(shots, anchors)
+    return {"assetMap": asset_map, "shots": shots}
 
 
 def main():
@@ -1681,9 +1696,11 @@ def main():
         words, duration, audio_file = voice["words"], voice["duration"], voice["audio_file"]
         info(f"  -> Durasi video: {duration} detik, {len(words)} kata")
 
+        info("[3/5] Menyiapkan ilustrasi hybrid dan mencari jangkar komponen...")
+        hybrid = prepare_hybrid(data, voice)
         final_video = render_remotion_video(
-            words, data["scenes"], duration, data["theme_index"], data.get("music"), data.get("bg_seed", 0), audio_file, data["title"],
-            {k: data.get(k) for k in ("environment", "hook_question", "hook_highlight", "claim")}, timings=voice["timings"]
+            words, data["scenes"], duration, data["theme_index"], data.get("music"), data.get("bg_seed", 0), audio_file,
+            {k: data.get(k) for k in ("environment", "hook_question", "hook_highlight", "claim")}, timings=voice["timings"], hybrid=hybrid
         )
         info(f"  -> Video selesai: {final_video}")
         render_thumbnail(data, data["scenes"])

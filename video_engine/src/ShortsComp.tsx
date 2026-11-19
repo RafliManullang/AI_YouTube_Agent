@@ -11,13 +11,11 @@ import {
   useVideoConfig,
 } from "remotion";
 import { Background } from "./Background";
-import { EnvBackground } from "./components/env/EnvBackground";
+import { HybridMechanism } from "./components/HybridMechanism";
 import { CitationBadge } from "./components/hud";
 import { Ambience, Sfx, SfxEnabled, SfxMap, SfxSeed, climaxSound } from "./Sfx";
 import { springIn } from "./utils/animation";
 import { Palette, ShortsProps, WordItem, paletteFor } from "./types";
-import * as GEN from "./generated/GeneratedMechanism";
-import { MechanismStage } from "./components/MechanismStage";
 
 export type { ShortsProps, WordItem } from "./types";
 
@@ -83,8 +81,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   sfxMap = {},
   clean = false,
   mechScenes = [],
-  environmentType,
-  plainBg = false,
+  hybrid,
   hookQuestion = "",
   hookHighlight = "",
   claim,
@@ -130,13 +127,6 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   mechScenes.forEach((m, i) => {
     if (frame >= m.startFrame) mi = i;
   });
-  const bpOf = (m?: (typeof mechScenes)[number]) => (m && (m.mode === "blueprint" || m.mode === "xray") ? 1 : 0);
-  const curM = mi >= 0 ? mechScenes[mi] : undefined;
-  const prevM = mi > 0 ? mechScenes[mi - 1] : curM;
-  const blueprint = curM
-    ? interpolate(frame - curM.startFrame, [0, 18], [bpOf(prevM), bpOf(curM)], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
-    : 0;
-
   // Kalimat tanya di kiri atas (detik 0 sampai 12) dengan kata kunci berwarna
   const hookWords = hookQuestion.split(/\s+/).filter(Boolean);
   const hl = hookHighlight.toLowerCase().split(/\s+/).filter(Boolean).map((x) => x.replace(/[^a-z0-9]/g, ""));
@@ -153,11 +143,8 @@ export const ShortsComp: React.FC<ShortsProps> = ({
     <SfxMap.Provider value={sfxMap}>
     <AbsoluteFill style={{ backgroundColor: "#0b0f19" }}>
       {/* Satu kanvas berkelanjutan dari detik 0 sampai akhir: benda yang sama, hanya kamera dan geraknya yang berubah */}
-      {mechScenes.length > 0 ? (
-        <>
-          {plainBg ? null : <EnvBackground type={environmentType} blueprint={blueprint} />}
-          <MechanismStage scenes={mechScenes} gen={GEN as any} />
-        </>
+      {hybrid && mi >= 0 ? (
+        <HybridMechanism plan={hybrid} timings={mechScenes} index={mi} clean={clean} />
       ) : (
         <Background palette={paletteFor(0, themeIndex)} />
       )}

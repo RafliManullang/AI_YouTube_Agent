@@ -1,3 +1,4 @@
+import type { HybridPlan } from "./schemas/sceneSchema";
 export type WordItem = {
   word: string;
   start: number;
@@ -142,6 +143,7 @@ export type MechTiming = {
 };
 
 export type ShortsProps = {
+  hybrid?: HybridPlan;
   plainBg?: boolean; // hanya untuk uji otomatis: tanpa latar lingkungan supaya gambar AI bisa diukur sendiri
   environmentType?: string; // salah satu dari ENV_TYPES: latar bergerak sesuai topik
   hookQuestion?: string; // kalimat tanya di kiri atas selama 12 detik pertama

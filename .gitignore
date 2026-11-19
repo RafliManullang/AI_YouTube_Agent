@@ -36,3 +36,7 @@ video_engine/src/generated/
 
 # Checkpoint lokal, prompt dan jawaban penulis kanvas
 /cache/
+
+# Ilustrasi PNG buatan provider, bukan aset sumber
+/video_engine/public/assets/
+/video_engine/thumb_bg_props.json

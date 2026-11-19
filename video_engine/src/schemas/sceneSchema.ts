@@ -154,12 +154,34 @@ export const mechTimingSchema = z.object({
   hud: z.object({ load: text(24).optional(), force: text(30).optional() }).optional(),
 });
 
+const assetId = z.enum(["01_exterior", "02_analogy", "03_cutaway", "04_closeup"]);
+const zoom = finite.min(1).max(2.2);
+const hybridSchema = z.object({
+  assetMap: z.partialRecord(assetId, z.string()),
+  shots: z.array(z.object({
+    asset_id: assetId, component: text(60), unlocated: z.boolean().optional(),
+    camera: z.object({fromScale: zoom, toScale: zoom, focusX: unit01, focusY: unit01}),
+    overlay: z.object({type: z.enum(["flow_arrows", "heat_pulse", "badge_only"]),
+      direction: z.enum(["up", "down", "left", "right"]), targetX: finite.min(0).max(1080),
+      targetY: finite.min(0).max(1920), accentColor: hex, label: text(32)}),
+  })).min(1).max(40),
+}).superRefine(({assetMap, shots}, ctx) => {
+  for (const [id, path] of Object.entries(assetMap)) {
+    if (path !== `assets/${id}.png`) ctx.addIssue({code: "custom", message: "Jalur aset tidak valid"});
+  }
+  shots.forEach((s, i) => {
+    if (!assetMap[s.asset_id]) ctx.addIssue({code: "custom", path: ["shots", i], message: "Aset tidak tersedia"});
+  });
+});
+export type HybridPlan = z.infer<typeof hybridSchema>;
+
 export const shortsPropsSchema = z.object({
   plainBg: z.boolean().optional(),
   environmentType: text(30).optional(),
   hookQuestion: text(90).optional(),
   hookHighlight: text(50).optional(),
   claim: z.object({ source: text(40), text: text(30) }).optional(),
+  hybrid: hybridSchema.optional(),
   mechScenes: z.array(mechTimingSchema).max(40).optional(),
   clean: z.boolean().optional(),
   thumbBg: text(120).optional(),
@@ -174,6 +196,9 @@ export const shortsPropsSchema = z.object({
   sfxMap: z.record(z.string(), finite.int().min(0).max(9)).optional(),
 }).superRefine((p, ctx) => {
   // adegan harus berurutan, tidak saling tumpang tindih, dan tidak melewati durasi video
+  if (p.hybrid && (p.hybrid.shots.length !== p.scenes.length || p.mechScenes?.length !== p.scenes.length)) {
+    ctx.addIssue({code: "custom", path: ["hybrid"], message: "Jumlah shot, timing dan adegan harus sama"});
+  }
   let prev = 0;
   p.scenes.forEach((s, i) => {
     if (s.start + 0.05 < prev) ctx.addIssue({ code: "custom", path: ["scenes", i, "start"], message: `adegan ${i} mulai sebelum adegan sebelumnya selesai` });
