@@ -11,6 +11,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import { Background } from "./Background";
+import { ModularMechanism } from "./mech/ModularMechanism";
 import { HybridMechanism } from "./components/HybridMechanism";
 import { CitationBadge } from "./components/hud";
 import { Ambience, Sfx, SfxEnabled, SfxMap, SfxSeed, climaxSound } from "./Sfx";
@@ -82,6 +83,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   clean = false,
   mechScenes = [],
   hybrid,
+  modular,
   hookQuestion = "",
   hookHighlight = "",
   claim,
@@ -143,7 +145,9 @@ export const ShortsComp: React.FC<ShortsProps> = ({
     <SfxMap.Provider value={sfxMap}>
     <AbsoluteFill style={{ backgroundColor: "#0b0f19" }}>
       {/* Satu kanvas berkelanjutan dari detik 0 sampai akhir: benda yang sama, hanya kamera dan geraknya yang berubah */}
-      {hybrid && mi >= 0 ? (
+      {modular && mi >= 0 ? (
+        <ModularMechanism plan={modular} timings={mechScenes} index={mi} clean={clean} />
+      ) : hybrid && mi >= 0 ? (
         <HybridMechanism plan={hybrid} timings={mechScenes} index={mi} clean={clean} />
       ) : (
         <Background palette={paletteFor(0, themeIndex)} />

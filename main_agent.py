@@ -1,6 +1,6 @@
 """
 AI YouTube Agent
-Alur kerja: naskah dan storyboard -> TTS dan waktu kata -> ilustrasi AI + jangkar Vision
+Alur kerja: naskah dan storyboard -> TTS dan waktu kata -> rig modular (atau gambar hybrid)
 -> koreografi Remotion -> unggah ke YouTube.
 
 Cara pakai (contoh):
@@ -27,6 +27,7 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
+import mech_rig
 import asset_generator
 import pacing
 import render_worker
@@ -1381,7 +1382,7 @@ def render_timings(scenes, words, duration):
     return timings
 
 
-def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, timings=None, *, hybrid):
+def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, timings=None, *, modular=None, hybrid=None):
     info("[4/5] Menjalankan Remotion (membuat video beranimasi)...")
     npm = shutil.which("npm")
     npx = shutil.which("npx")
@@ -1432,7 +1433,12 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
         info(f"  -> Musik latar bawaan: {music}.")
 
     props["mechScenes"] = timings or render_timings(scenes, words, duration)
-    props["hybrid"] = hybrid
+    if modular is not None:
+        props["modular"] = modular
+    elif hybrid is not None:
+        props["hybrid"] = hybrid
+    else:
+        raise ValueError("Rencana visual belum ada.")
 
     # Semua data wajib lolos skema Zod, lalu render berjalan dengan pemulihan otomatis (render_worker.py)
     render_worker.render(props, output_mp4, REMOTION_DIR, None, info)
@@ -1616,7 +1622,7 @@ def save_session(session):
     pending.replace(SESSION_PATH)
 
 
-def prepare_session(resume, topic):
+def prepare_session(resume, topic, *, visual_mode="modular"):
     if resume:
         try:
             session = json.loads(SESSION_PATH.read_text(encoding="utf-8"))
@@ -1638,7 +1644,8 @@ def prepare_session(resume, topic):
         pacing.tag_urgency(data["scenes"])
         session = {"version": 1, "data": data}
         save_session(session)
-        asset_generator.clear_assets(Path(PUBLIC_DIR) / "assets")
+        if visual_mode == "hybrid":
+            asset_generator.clear_assets(Path(PUBLIC_DIR) / "assets")
         info(f"  -> Topik dipilih: {data['title']} ({len(data['scenes'])} adegan)")
         info(f"  -> Tema warna: {THEME_NAMES[data['theme_index']]}")
 
@@ -1649,6 +1656,26 @@ def prepare_session(resume, topic):
                             "timings": render_timings(data["scenes"], words, duration)}
         save_session(session)
     return data, session["voice"]
+
+
+def prepare_modular(data, voice):
+    count = len(data["scenes"])
+    if "modular" in data:
+        try:
+            return mech_rig.validate(data["modular"], count)
+        except ValueError as exc:
+            info(f"  -> Rig checkpoint tidak valid ({exc}); merakit ulang.")
+    sources = build_text_sources(mech_rig.build_prompt(data))
+    for name, call in sorted(sources, key=lambda pair: not pair[0].startswith("Groq ")):
+        try:
+            plan = mech_rig.validate(extract_json(call()), count)
+        except Exception as exc:
+            info(f"  -> Perakit {name} dilewati: {str(exc)[:140]}")
+            continue
+        data["modular"] = plan
+        save_session({"version": 1, "data": data, "voice": voice})
+        return plan
+    raise RuntimeError("Rig modular tidak tersedia. Periksa provider teks lalu gunakan --resume.")
 
 
 def prepare_hybrid(data, voice):
@@ -1670,6 +1697,7 @@ def prepare_hybrid(data, voice):
 
 def main():
     parser = argparse.ArgumentParser(description="AI YouTube Agent")
+    parser.add_argument("--visual", choices=("modular", "hybrid"), default="modular", help="Mesin visual (bawaan: modular)")
     parser.add_argument("--resume", action="store_true", help="Lanjutkan checkpoint terakhir tanpa mengulang tahap yang sudah selesai")
     parser.add_argument("--tanpa-upload", action="store_true", help="Buat video saja, jangan diunggah")
     parser.add_argument("--unggah-saja", action="store_true",
@@ -1696,15 +1724,19 @@ def main():
             upload_video(VIDEO_PATH, notes, args.privasi, publish_at)
             return
 
-        data, voice = prepare_session(args.resume, args.topik)
+        data, voice = prepare_session(args.resume, args.topik, visual_mode=args.visual)
         words, duration, audio_file = voice["words"], voice["duration"], voice["audio_file"]
         info(f"  -> Durasi video: {duration} detik, {len(words)} kata")
 
-        info("[3/5] Menyiapkan ilustrasi hybrid dan mencari jangkar komponen...")
-        hybrid = prepare_hybrid(data, voice)
+        if args.visual == "hybrid":
+            info("[3/5] Menyiapkan ilustrasi hybrid dan mencari jangkar komponen...")
+            visual = {"hybrid": prepare_hybrid(data, voice)}
+        else:
+            info("[3/5] Merakit rig mekanis dari naskah...")
+            visual = {"modular": prepare_modular(data, voice)}
         final_video = render_remotion_video(
             words, data["scenes"], duration, data["theme_index"], data.get("music"), data.get("bg_seed", 0), audio_file,
-            {k: data.get(k) for k in ("environment", "hook_question", "hook_highlight", "claim")}, timings=voice["timings"], hybrid=hybrid
+            {k: data.get(k) for k in ("environment", "hook_question", "hook_highlight", "claim")}, timings=voice["timings"], **visual
         )
         info(f"  -> Video selesai: {final_video}")
         render_thumbnail(data, data["scenes"])
