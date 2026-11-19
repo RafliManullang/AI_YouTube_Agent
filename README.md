@@ -10,6 +10,14 @@ Remotion menggambar casing, tangki, piston, heater, katup, turbin, chamber, pega
 - **Mulai topik baru:** `python main_agent.py --topik "mesin kopi pod" --tanpa-upload`.
 - **Pratinjau contoh tanpa API:** dari folder `video_engine`, jalankan `npm ci`, lalu `npx remotion studio src/index.ts --props=examples/pod-modular.json` dan pilih `ShortsComp`. Contoh mesin kopi berdurasi 8 detik, tanpa narasi.
 
+### Siluet, suasana, dan analogi per adegan
+
+Perakit memilih `mech_rig.archetype`: `appliance_box`, `aerodynamic_wing` (airfoil dengan dua laju aliran), `cylinder_tube`, `disc_rotary`, atau `open_frame` (tanpa selubung). Untuk bentuk khas topik, utamakan satu node `custom_shape`: tetap beri `id,x,y,w,h`, lalu `viewBox` lokal seperti `"0 0 400 200"` dan 1–5 `paths` (disarankan 2–5). Tiap path hanya berisi `d` dan `fill` heksadesimal, tanpa markup. Pakai segmen absolut `M L H V Q C Z`, satu set koordinat per perintah, nilai 0–400. Siluet ini menggantikan casing, di belakang pipa dan blok mekanis yang beranimasi.
+
+`mech_rig.atmosphere` mengatur `bgTop`, `bgBottom`, `accent` (`#rrggbb`), `gridStyle` (`blueprint`, `radial_glow`, `clean`) dan `particle` (`wind_lines`, `bubbles`, `sparks`, `steam`, `dots`). Tidak ada preset kategori yang mengunci kombinasi warna. Batasi objek analogi dengan `visibleScenes`, misalnya `[3]` hanya untuk adegan keempat (indeks mulai 0). Tanpa daftar ini, node tersedia di semua adegan. Kamera tidak boleh menargetkan node tersembunyi.
+
+Contoh tanpa API: dari `video_engine`, jalankan `npx remotion studio src/index.ts --props=examples/wing-modular.json`. Saat `--resume`, rig lama tanpa archetype/suasana dirakit ulang sekali memakai naskah dan audio checkpoint; rig baru yang valid langsung dipakai.
+
 ## Mode opsional: gambar hybrid (`--visual hybrid`)
 
 Pipeline hybrid membuat Shorts dengan **3–4 ilustrasi AI per topik** dan motion graphics Remotion. Anatomi benda tidak lagi dibuat dengan meminta LLM menulis TSX. Bagian riwayat tahap di bawah juga mendokumentasikan mesin visual versi lama.

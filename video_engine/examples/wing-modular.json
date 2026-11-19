@@ -1,0 +1,198 @@
+{
+  "audioUrl": "",
+  "sfx": false,
+  "durationInSeconds": 8,
+  "words": [],
+  "scenes": [
+    {
+      "type": "mechanism",
+      "title": "Profil sayap",
+      "points": [],
+      "start": 0.0,
+      "end": 1.6
+    },
+    {
+      "type": "mechanism",
+      "title": "Aliran di atas sayap",
+      "points": [],
+      "start": 1.6,
+      "end": 3.2
+    },
+    {
+      "type": "mechanism",
+      "title": "Aktuator flap",
+      "points": [],
+      "start": 3.2,
+      "end": 4.8
+    },
+    {
+      "type": "mechanism",
+      "title": "Bandingkan dengan kertas",
+      "points": [],
+      "start": 4.8,
+      "end": 6.4
+    },
+    {
+      "type": "mechanism",
+      "title": "Kembali ke sayap",
+      "points": [],
+      "start": 6.4,
+      "end": 8.0
+    }
+  ],
+  "mechScenes": [
+    {
+      "sceneIndex": 0,
+      "startFrame": 0,
+      "endFrame": 48,
+      "triggerFrame": 9,
+      "focusTarget": "wing",
+      "labels": []
+    },
+    {
+      "sceneIndex": 1,
+      "startFrame": 48,
+      "endFrame": 96,
+      "triggerFrame": 57,
+      "focusTarget": "wing",
+      "labels": []
+    },
+    {
+      "sceneIndex": 2,
+      "startFrame": 96,
+      "endFrame": 144,
+      "triggerFrame": 105,
+      "focusTarget": "rod",
+      "labels": []
+    },
+    {
+      "sceneIndex": 3,
+      "startFrame": 144,
+      "endFrame": 192,
+      "triggerFrame": 153,
+      "focusTarget": "paper",
+      "labels": []
+    },
+    {
+      "sceneIndex": 4,
+      "startFrame": 192,
+      "endFrame": 240,
+      "triggerFrame": 201,
+      "focusTarget": "wing",
+      "labels": []
+    }
+  ],
+  "modular": {
+    "mech_rig": {
+      "archetype": "aerodynamic_wing",
+      "atmosphere": {
+        "bgTop": "#387eac",
+        "bgBottom": "#10283d",
+        "gridStyle": "radial_glow",
+        "particle": "wind_lines",
+        "accent": "#b5edff"
+      },
+      "nodes": [
+        {
+          "id": "wing",
+          "type": "custom_shape",
+          "label": "Profil sayap",
+          "x": 540,
+          "y": 840,
+          "w": 942,
+          "h": 380,
+          "visibleScenes": [
+            0,
+            1,
+            2,
+            4
+          ],
+          "viewBox": "0 0 400 200",
+          "paths": [
+            {
+              "d": "M12 112 C19 85 70 42 142 65 C203 81 287 108 390 110 Q285 115 164 125 C82 133 18 143 12 112 Z",
+              "fill": "#c6dce7"
+            },
+            {
+              "d": "M13 113 Q42 127 135 115 Q256 102 382 110 Q281 116 164 125 C79 135 24 139 13 113 Z",
+              "fill": "#7092ac"
+            },
+            {
+              "d": "M47 85 Q93 54 139 70 Q151 75 167 79 Q107 64 47 85 Z",
+              "fill": "#f1fbff"
+            },
+            {
+              "d": "M294 106 L385 110 L299 117 L290 115 Z",
+              "fill": "#eea957"
+            }
+          ]
+        },
+        {
+          "id": "rod",
+          "type": "piston",
+          "x": 790,
+          "y": 844,
+          "w": 60,
+          "h": 85,
+          "label": "Aktuator flap",
+          "visibleScenes": [
+            2
+          ]
+        },
+        {
+          "id": "paper",
+          "type": "context_object",
+          "variant": "paper",
+          "x": 530,
+          "y": 820,
+          "w": 390,
+          "h": 330,
+          "label": "Analogi kertas",
+          "visibleScenes": [
+            3
+          ]
+        }
+      ],
+      "pipes": []
+    },
+    "scene_states": [
+      {
+        "sceneIndex": 0,
+        "focusNode": "wing",
+        "zoom": 1,
+        "cutaway": 0,
+        "active": {}
+      },
+      {
+        "sceneIndex": 1,
+        "focusNode": "wing",
+        "zoom": 1.14,
+        "cutaway": 0,
+        "active": {}
+      },
+      {
+        "sceneIndex": 2,
+        "focusNode": "rod",
+        "zoom": 1.7,
+        "cutaway": 1,
+        "active": {
+          "rod": 1
+        }
+      },
+      {
+        "sceneIndex": 3,
+        "focusNode": "paper",
+        "zoom": 1.12,
+        "cutaway": 0,
+        "active": {}
+      },
+      {
+        "sceneIndex": 4,
+        "focusNode": "wing",
+        "zoom": 1,
+        "cutaway": 0,
+        "active": {}
+      }
+    ]
+  }
+}

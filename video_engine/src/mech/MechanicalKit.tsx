@@ -1,7 +1,7 @@
 import React from "react";
 import { interpolateColors } from "remotion";
 import { CoilSpring, GearWheel, INK } from "../components/MechanicalPrimitives";
-import type { MechNode, MechPipe } from "./rigSchema";
+import type { Archetype, MechNode, MechPipe } from "./rigSchema";
 
 // Draw in a local 100×100 box; the rig owns position and dimensions. All SVG is authored here.
 const shell = "M12 86V19Q12 10 20 8L75 4Q83 4 87 12L94 29V81Q94 88 87 90L22 95Q12 95 12 86Z";
@@ -111,16 +111,35 @@ function Context({
   }
 }
 
+// Flow bands bend around the upper surface. Use different dash velocities above and below.
+function Slipstream({ frame }: { frame: number }) {
+  return (
+    <g fill="none" stroke="#b9f4ff" strokeWidth="1" opacity=".85">
+      {[-13, -6, 6, 13].map((offset, i) => (
+        <path
+          key={offset}
+          transform={`translate(0 ${offset})`}
+          d={offset < 0 ? "M-5 53Q13 53 26 36Q39 22 65 40T105 50" : "M-5 57Q22 55 40 64T105 55"}
+          strokeDasharray="6 4"
+          strokeDashoffset={-frame * (i < 2 ? 0.85 : 0.38)}
+        />
+      ))}
+    </g>
+  );
+}
+
 export function RenderMechNode({
   node,
   act,
   frame,
   phase,
+  archetype = "appliance_box",
 }: {
   node: MechNode;
   act: number;
   frame: number;
   phase: number;
+  archetype?: Archetype;
 }) {
   const id = `kit-${node.id}`,
     metal = `url(#${id}-metal)`,
@@ -130,7 +149,57 @@ export function RenderMechNode({
   const hot = interpolateColors(act, [0, 0.5, 1], ["#97a6ae", "#e99039", "#ff4923"]);
   let art: React.ReactNode;
   switch (node.type) {
+    case "custom_shape":
+      art = (
+        <>
+          {archetype === "aerodynamic_wing" && <Slipstream frame={frame} />}
+          <svg width="100" height="100" viewBox={node.viewBox} preserveAspectRatio="none">
+            {node.paths!.map(({ d, fill }, i) => (
+              <path key={i} d={d} fill={fill} stroke={INK} strokeWidth="2" />
+            ))}
+          </svg>
+        </>
+      );
+      break;
     case "casing":
+      if (archetype === "open_frame") return null;
+      if (archetype === "aerodynamic_wing") {
+        art = (
+          <>
+            <Slipstream frame={frame} />
+            <path d="M3 55Q18 9 57 37Q77 51 98 53Q66 55 36 62Q11 69 3 55Z" fill={metal} />
+            <path d="M6 56Q37 57 67 51" fill="none" strokeWidth="1" />
+          </>
+        );
+        break;
+      }
+      if (archetype === "cylinder_tube") {
+        art = (
+          <>
+            <rect x="7" y="28" width="76" height="45" rx="12" fill={metal} />
+            <path d="M8 27h9v47H8zM72 27h8v47h-8z" fill={coat} />
+            <rect x="81" y="43" width="17" height="15" rx="2" fill={metal} />
+            <path d="M23 38h42" stroke="#f0fffc" />
+          </>
+        );
+        break;
+      }
+      if (archetype === "disc_rotary") {
+        art = (
+          <g transform={`rotate(${frame * 0.6 + phase * 3} 50 50)`}>
+            <circle cx="50" cy="50" r="46" fill={metal} />
+            <circle cx="50" cy="50" r="30" fill={coat} />
+            <circle cx="50" cy="50" r="10" fill="#263844" />
+            {[0, 60, 120, 180, 240, 300].map((a) => (
+              <g key={a} transform={`rotate(${a} 50 50)`}>
+                <path d="M48 9l7 8" />
+                <circle cx="50" cy="25" r="3" fill="#233542" />
+              </g>
+            ))}
+          </g>
+        );
+        break;
+      }
       art = (
         <>
           <path d={shell} fill={coat} />
