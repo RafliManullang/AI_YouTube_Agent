@@ -48,12 +48,12 @@ class HybridTests(unittest.TestCase):
         voice = {'timings': agent.render_timings(data['scenes'], [], 5)}
         text = json.dumps({'has_garbled_text': True, 'anchors': {}})
         clean = json.dumps({'has_garbled_text': False, 'anchors': {'coil':[.3,.7]}})
-        vision = Mock(side_effect=[RuntimeError('quota'), text, clean])
+        vision = Mock(side_effect=[KeyboardInterrupt(), text, clean])
         with tempfile.TemporaryDirectory() as tmp, patch.object(agent,'PUBLIC_DIR',tmp), \
                 patch.object(agent,'SESSION_PATH',Path(tmp)/'last_session.json'), patch.object(agent,'GEMINI_KEYS',[]), \
                 patch.object(agent,'vision_caller',return_value=vision), \
                 patch.object(assets,'generate_picture',side_effect=[b'ext',b'analogy',b'cut',b'new cut',b'close',b'ext']) as gen:
-            with self.assertRaisesRegex(RuntimeError,'quota'):
+            with self.assertRaises(KeyboardInterrupt):
                 agent.prepare_hybrid(data,voice)
             def resume():
                 checkpoint = json.loads(agent.SESSION_PATH.read_text())
@@ -73,6 +73,32 @@ class HybridTests(unittest.TestCase):
             self.assertEqual(plan,resume())
             self.assertEqual(gen.call_count,6)
             self.assertEqual(vision.call_count,3)
+
+    def test_vision_model_fallback(self):
+        with patch.object(agent, 'GEMINI_KEY', 'test'), patch.dict(os.environ, {'VISION_MODEL': ''}), \
+                patch('google.genai.Client') as client:
+            generate = client.return_value.models.generate_content
+            generate.side_effect = [RuntimeError('404 NOT_FOUND'), Mock(text='ok')]
+            self.assertEqual(agent.vision_caller()('prompt', [b'png']), 'ok')
+            self.assertEqual([c.kwargs['model'] for c in generate.call_args_list],
+                             ['gemini-3.8-flash', 'gemini-3.6-flash'])
+
+    @patch.object(assets.time, 'sleep')
+    def test_vision_unavailable_keeps_cutaway_on_resume(self, sleep):
+        for vision in [None, Mock(side_effect=RuntimeError('503 UNAVAILABLE'))]:
+            with self.subTest(vision=vision), tempfile.TemporaryDirectory() as tmp, \
+                    patch.object(assets, 'generate_picture', return_value=b'png') as gen:
+                cache, log = {}, Mock()
+                for _ in range(2):
+                    asset_map, anchors = assets.generate_scene_assets(
+                        spec(), Path(tmp), 'lift', ['gear'], cache, Mock(), vision=vision, log=log)
+                    self.assertEqual(asset_map['03_cutaway'], 'assets/03_cutaway.png')
+                    self.assertEqual(anchors, {})
+                self.assertTrue(cache['images']['03_cutaway']['vision']['skipped'])
+                self.assertTrue(any('Vision dilewati' in c.args[0] for c in log.call_args_list))
+                self.assertEqual(gen.call_count, len(spec()))
+                if vision:
+                    vision.assert_called_once()
 
     @patch.object(assets.time, "sleep")
     def test_rejection_persists_and_missing_anchor_disables_pointer(self, sleep):

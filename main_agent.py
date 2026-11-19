@@ -86,6 +86,8 @@ GEMINI_MODELS = [
     ] if m
 ]
 
+VISION_MODELS = ("gemini-3.8-flash", "gemini-3.6-flash")
+
 VOICE = os.getenv("VOICE", "id-ID-ArdiNeural")  # suara cowok; cewek: id-ID-GadisNeural
 VOICE_RATE = os.getenv("VOICE_RATE", "+15%")
 # Suara narator: "auto" memakai Gemini TTS (lebih natural) kalau ada key Gemini, dan Edge-TTS kalau gagal.
@@ -1359,7 +1361,7 @@ def vision_caller():
         config = types.GenerateContentConfig(temperature=0.2, response_mime_type="application/json",
                                              http_options=types.HttpOptions(timeout=90000))
         last = None
-        for model_name in dict.fromkeys(filter(None, [os.getenv("VISION_MODEL"), *GEMINI_MODELS, "gemini-2.5-flash"])):
+        for model_name in dict.fromkeys(filter(None, [os.getenv("VISION_MODEL"), *VISION_MODELS])):
             try:
                 return client.models.generate_content(model=model_name, contents=parts, config=config).text
             except Exception as e:  # coba model berikutnya

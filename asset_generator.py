@@ -157,14 +157,14 @@ def generate_picture(prompt, seed, clients, log):
 
 def locate(vision, png, components):
     if not vision:
-        raise RuntimeError('Vision untuk validasi cutaway membutuhkan GEMINI_API_KEY. Lanjutkan dengan --resume.')
+        raise RuntimeError('Vision tidak tersedia; periksa GEMINI_API_KEY dan SDK Gemini.')
     prompt = ('Cari titik tengah komponen berikut pada gambar: ' + json.dumps(components, ensure_ascii=False) +
               '. Abaikan komponen yang tidak terlihat, jangan menebak. JSON saja: '
               '{"has_garbled_text":boolean,"anchors":{"nama persis":[x,y]}}. '
               'x,y ternormalisasi 0..1 dari kiri atas. Tandai teks/huruf/angka tercetak yang bocor.')
     obj = json.loads(vision(prompt, [png]))
     if not isinstance(obj, dict) or type(obj.get('has_garbled_text')) is not bool or not isinstance(obj.get('anchors'), dict):
-        raise ValueError('JSON Vision tidak valid; ulangi dengan --resume.')
+        raise ValueError('JSON Vision tidak valid.')
     anchors = {}
     for name in components:
         xy = obj['anchors'].get(name)
@@ -180,8 +180,6 @@ def generate_scene_assets(spec, directory, title, components, cache, checkpoint,
     seed = topic_seed(title)
     asset_map = cache.setdefault('assetMap', {})
     records = cache.setdefault('images', {})
-    if vision is None and not records.get('03_cutaway', {}).get('vision'):
-        raise RuntimeError('GEMINI_API_KEY diperlukan untuk memeriksa cutaway. Gunakan --resume setelah key siap.')
     generated = False
     for item in spec:
         key, view = item['id'], item['view_type']
@@ -211,7 +209,12 @@ def generate_scene_assets(spec, directory, title, components, cache, checkpoint,
                 record.pop('vision', None)
                 checkpoint()  # Vision gagal? Pertahankan kandidat tanpa membayar gambar lagi.
             if view == 'cutaway' and 'vision' not in record:
-                record['vision'] = locate(vision, png, components)
+                try:
+                    record['vision'] = locate(vision, png, components)
+                except Exception as exc:
+                    detail = re.sub(r'AIza[\w-]+', '[redacted]', str(exc))
+                    log(f'  -> Vision dilewati ({detail[:200]}), memakai koordinat bawaan. Teks gambar belum diperiksa.')
+                    record['vision'] = {'anchors': {}, 'has_garbled_text': False, 'skipped': True}
                 checkpoint()
                 continue
             break
