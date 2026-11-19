@@ -2,23 +2,64 @@
 
 import re
 
-NODE_TYPES = ("casing", "tank", "piston", "heater", "valve", "turbine", "chamber", "spring", "context_object")
+NODE_TYPES = (
+    "casing",
+    "tank",
+    "piston",
+    "heater",
+    "valve",
+    "turbine",
+    "chamber",
+    "spring",
+    "context_object",
+    "custom_shape",
+)
 CONTEXT = ("cup", "plate", "tire", "hand", "shower", "paper")
 
 
-def build_prompt(data):
-    brief = """Rakit ilustrasi mekanis topik ini. Hanya JSON ringkas (target ~1500 karakter), tanpa kode:
-{"mech_rig":{"nodes":[{"id":"body","type":"casing","x":540,"y":860,"w":620,"h":740,"label":"BENDA"}],"pipes":[{"id":"p1","points":[[350,700],[540,700]],"color":"#38bdf8"}]},"scene_states":[{"sceneIndex":0,"focusNode":"body","zoom":1,"cutaway":0,"active":{}}]}
-Pilih 4–8 blok yang benar-benar menjelaskan alat ini: casing,tank,piston,heater,valve,turbine,chamber,spring,context_object (variant: cup/plate/tire/hand/shower/paper). Label Indonesia singkat. Semua id unik. Pusat node dan titik pipa x 180..900, y 420..1280; w/h 24..1000. Tata bagian dalam casing tanpa saling menutupi, konteks di luar. Ujung pipa menyentuh port bagian yang dihubungkan, urut arah aliran. Satu state per adegan, urut dari 0; focusNode=id node, zoom 1..2.2, cutaway 0..1. Buka/tutup dengan casing utuh, bedah saat membahas isi. active:{id node/pipa:nilai 0..1}; isi hanya yang bekerja (tank/cup=level, heater=panas)."""
+ARCHETYPES = ("appliance_box", "aerodynamic_wing", "cylinder_tube", "disc_rotary", "open_frame")
+GRIDS = ("blueprint", "radial_glow", "clean")
+PARTICLES = ("wind_lines", "bubbles", "sparks", "steam", "dots")
+
+
+def valid_path(d):
+    # Subset SVG absolut. Bukan markup, CSS, atau ekspresi yang dievaluasi renderer.
+    if not isinstance(d, str) or len(d) > 360 or not re.fullmatch(r"M[MLHVQCZ0-9., ]+", d):
+        return False
+    arity = {"M": 2, "L": 2, "H": 1, "V": 1, "Q": 4, "C": 6, "Z": 0}
+    for cmd, args in re.findall(r"([MLHVQCZ])([^MLHVQCZ]*)", d):
+        raw = args.strip()
+        if raw.startswith(",") or raw.endswith(",") or re.search(r", *,", raw):
+            return False
+        values = raw.replace(",", " ").split()
+        if len(values) != arity[cmd] or any(
+            not re.fullmatch(r"[0-9]{1,3}(?:\.[0-9]{1,3})?", v) or float(v) > 400 for v in values
+        ):
+            return False
+    return any(cmd in d for cmd in "LHVQC")
+
+
+def valid_color(value):
+    return isinstance(value, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", value)
+
+
+def build_prompt(data, timings=()):
+    brief = """Rakit JSON (bukan TSX/markup): {"mech_rig":{"archetype":"aerodynamic_wing","atmosphere":{"bgTop":"#0c4a6e","bgBottom":"#020617","accent":"#38bdf8","gridStyle":"clean","particle":"wind_lines"},"nodes":[],"pipes":[]},"scene_states":[]}.
+Pilih archetype sesuai fisika: appliance_box alat rumah, aerodynamic_wing sayap, cylinder_tube pompa, disc_rotary cakram, open_frame tanpa bodi. Warna bebas #rrggbb; gridStyle blueprint/radial_glow/clean; particle wind_lines/bubbles/sparks/steam/dots.
+Utamakan SATU node custom_shape sebagai siluet khas topik, 2–5 paths [{"d":"M0 50 Q70 0 200 50 L0 50 Z","fill":"#cbd5e1"}], viewBox "0 0 400 200" (ukuran 1..400). Hanya MLHVQCZ absolut, satu segmen per perintah, koordinat 0..400. Jangan tambah casing kotak di belakangnya. Jika tidak perlu custom, casing memakai archetype. Tempel tank/piston/heater/valve/turbine/chamber/spring di atas siluet. context_object variant cup/plate/tire/hand/shower/paper; analogi WAJIB visibleScenes:[indeks analogi saja].
+Node {id,type,x,y,w,h,label}; pusat dan titik pipa x180..900 y420..1280, w/h24..1000. Pipa {id,points:[[x,y],[x,y]],color}, ujung menyentuh komponen. ID unik. Satu state per adegan berurutan {sceneIndex,focusNode,zoom,cutaway,active:{id:nilai}}; fokus node terlihat, zoom 1..2.2, cutaway/aktif 0..1. JSON ringkas."""
     # Sertakan setiap adegan bahkan saat resume dengan naskah panjang. Batasi byte UTF-8, bukan token perkiraan.
     title = data["title"].encode()[:110].decode(errors="ignore")
-    rows = [f"{i}: {s.get('title', '')} — {s.get('narration', '')}" for i, s in enumerate(data["scenes"])]
+    rows = []
+    for i, s in enumerate(data["scenes"]):
+        analogy = "[analogi] " if i < len(timings) and timings[i].get("mode") == "analogi" else ""
+        rows.append(f"{i}: {analogy}{s.get('title', '')} — {s.get('narration', '')}")
     head = f"{brief}\nTopik: {title}\n"
     budget = (2000 - len(head.encode())) // max(1, len(rows)) - 1
     return head + "\n".join(row.encode()[:budget].decode(errors="ignore") for row in rows)
 
 
-def validate(plan, count):
+def validate(plan, count, *, require_style=False):
     def require(ok, message):
         if not ok:
             raise ValueError("Rig modular: " + message)
@@ -28,6 +69,17 @@ def validate(plan, count):
 
     require(isinstance(plan, dict) and isinstance(plan.get("mech_rig"), dict), "mech_rig bukan objek")
     rig = plan["mech_rig"]
+    if require_style or "archetype" in rig:
+        require(rig.get("archetype") in ARCHETYPES, "archetype tidak valid")
+    if require_style or "atmosphere" in rig:
+        atm = rig.get("atmosphere")
+        require(
+            isinstance(atm, dict)
+            and all(valid_color(atm.get(k)) for k in ("bgTop", "bgBottom", "accent"))
+            and atm.get("gridStyle") in GRIDS
+            and atm.get("particle") in PARTICLES,
+            "atmosphere tidak valid",
+        )
     nodes, pipes, states = rig.get("nodes"), rig.get("pipes"), plan.get("scene_states")
     require(isinstance(nodes, list) and 1 <= len(nodes) <= 16, "butuh 1–16 node")
     require(isinstance(pipes, list) and len(pipes) <= 20, "pipes tidak valid")
@@ -50,6 +102,30 @@ def validate(plan, count):
         )
     for n in nodes:
         node_ids.add(n["id"])
+        if "visibleScenes" in n:
+            visible = n["visibleScenes"]
+            require(
+                isinstance(visible, list)
+                and 1 <= len(visible) <= count
+                and all(type(i) is int and 0 <= i < count for i in visible)
+                and len(set(visible)) == len(visible),
+                "visibleScenes tidak valid",
+            )
+        if n.get("type") == "custom_shape":
+            box = re.fullmatch(r"0 0 ([1-9][0-9]{0,2}) ([1-9][0-9]{0,2})", str(n.get("viewBox")))
+            require(box and all(int(v) <= 400 for v in box.groups()), "viewBox tidak valid")
+            paths = n.get("paths")
+            require(
+                isinstance(paths, list)
+                and 1 <= len(paths) <= 5
+                and all(
+                    isinstance(p, dict) and valid_path(p.get("d")) and valid_color(p.get("fill"))
+                    for p in paths
+                ),
+                "paths tidak valid",
+            )
+        else:
+            require("paths" not in n and "viewBox" not in n, "paths khusus custom_shape")
         require(n.get("type") in NODE_TYPES, "tipe node tidak dikenal")
         require(
             num(n.get("x"), 180, 900) and num(n.get("y"), 420, 1280), f"pusat {n['id']} di luar area aman"
@@ -62,6 +138,8 @@ def validate(plan, count):
             ("variant" not in n and n["type"] != "context_object") or n.get("variant") in CONTEXT,
             "variant konteks tidak dikenal",
         )
+    require(sum(n["type"] == "custom_shape" for n in nodes) <= 1, "maksimal satu siluet utama")
+    visibility = {n["id"]: n.get("visibleScenes", range(count)) for n in nodes}
     for p in pipes:
         pts = p.get("points")
         require(
@@ -79,10 +157,14 @@ def validate(plan, count):
             "urutan state salah",
         )
         require(isinstance(s.get("focusNode"), str) and s["focusNode"] in node_ids, "focusNode bukan id node")
+        require(i in visibility[s["focusNode"]], "focusNode tersembunyi pada adegan ini")
         require(num(s.get("zoom"), 1, 2.2) and num(s.get("cutaway"), 0, 1), "zoom/cutaway tidak valid")
         require(
             isinstance(s.get("active"), dict)
             and all(k in ids and num(v, 0, 1) for k, v in s["active"].items()),
             "id atau nilai active tidak valid",
         )
-    return {"mech_rig": {"nodes": nodes, "pipes": pipes}, "scene_states": states}
+    return {
+        "mech_rig": {k: rig[k] for k in ("nodes", "pipes", "archetype", "atmosphere") if k in rig},
+        "scene_states": states,
+    }

@@ -1662,13 +1662,13 @@ def prepare_modular(data, voice):
     count = len(data["scenes"])
     if "modular" in data:
         try:
-            return mech_rig.validate(data["modular"], count)
+            return mech_rig.validate(data["modular"], count, require_style=True)
         except ValueError as exc:
             info(f"  -> Rig checkpoint tidak valid ({exc}); merakit ulang.")
-    sources = build_text_sources(mech_rig.build_prompt(data))
+    sources = build_text_sources(mech_rig.build_prompt(data, voice["timings"]))
     for name, call in sorted(sources, key=lambda pair: not pair[0].startswith("Groq ")):
         try:
-            plan = mech_rig.validate(extract_json(call()), count)
+            plan = mech_rig.validate(extract_json(call()), count, require_style=True)
         except Exception as exc:
             info(f"  -> Perakit {name} dilewati: {str(exc)[:140]}")
             continue

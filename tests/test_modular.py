@@ -41,7 +41,40 @@ class RigTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 mech_rig.validate(bad, 4)
 
+    def test_wing_contract_and_bounded_geometry(self):
+        plan = json.loads(EXAMPLE.with_name("wing-modular.json").read_text())["modular"]
+        self.assertEqual(mech_rig.validate(plan, 5, require_style=True), plan)
+        self.assertIn("3: [analogi]", mech_rig.build_prompt(self.data, [{}, {}, {}, {"mode": "analogi"}]))
+        for mutate in [
+            lambda r: r.update(archetype="unknown"),
+            lambda r: r["atmosphere"].update(particle="unsupported"),
+            lambda r: r["atmosphere"].update(accent="url(#x)"),
+            lambda r: r["nodes"][0].update(viewBox="0 0 0 900"),
+            lambda r: r["nodes"][0]["paths"][0].update(d="<script>"),
+            lambda r: r["nodes"][0]["paths"][0].update(d="M12 112 Q200 399"),
+            lambda r: r["nodes"][0]["paths"][0].update(d="M12 112 L401 0"),
+            lambda r: r["nodes"][0].update(paths=r["nodes"][0]["paths"] * 2),
+            lambda r: r["nodes"][-1].update(visibleScenes=[5]),
+            lambda r: r["nodes"][-1].update(visibleScenes=[0]),  # focus tersembunyi di adegan 3
+        ]:
+            bad = copy.deepcopy(plan)
+            mutate(bad["mech_rig"])
+            with self.assertRaises(ValueError):
+                mech_rig.validate(bad, 5)
+
     def test_groq_first_and_checkpoint_reuse(self):
+        # Migrasi checkpoint lama hanya sekali. Naskah dan audio tetap sama.
+        self.data["modular"] = copy.deepcopy(self.plan)
+        self.plan["mech_rig"].update(
+            archetype="appliance_box",
+            atmosphere={
+                "bgTop": "#9d623e",
+                "bgBottom": "#332d35",
+                "accent": "#ffca8f",
+                "gridStyle": "clean",
+                "particle": "steam",
+            },
+        )
         groq = Mock(return_value=json.dumps(self.plan))
         gem = Mock()
         voice = {"timings": self.props["mechScenes"]}

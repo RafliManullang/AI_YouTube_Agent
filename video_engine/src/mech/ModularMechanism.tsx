@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { MechTiming } from "../types";
+import { RigAtmosphere } from "./RigAtmosphere";
 import { RenderMechNode, RenderMechPipe } from "./MechanicalKit";
 import type { ModularPlan } from "./rigSchema";
 
@@ -33,6 +34,10 @@ export const ModularMechanism: React.FC<{
   const { nodes, pipes } = plan.mech_rig,
     now = plan.scene_states[index],
     prev = plan.scene_states[Math.max(index - 1, 0)];
+  const { archetype = "appliance_box", atmosphere } = plan.mech_rig;
+  const visible = nodes.filter((n) => !n.visibleScenes || n.visibleScenes.includes(index));
+  const hero = visible.find((n) => n.type === "custom_shape");
+  const exposed = !!hero || archetype === "open_frame";
   const t = spring({
     frame: Math.max(0, frame - timings[index].startFrame),
     fps,
@@ -57,8 +62,9 @@ export const ModularMechanism: React.FC<{
   const nodeArt = (n: typeof to) => (
     <RenderMechNode
       node={n}
+      archetype={archetype}
       act={act(n.id, n.type === "tank" || n.variant === "cup" ? levelT : t)}
-      phase={n.type === "turbine" ? phase(n.id) : 0}
+      phase={n.type === "turbine" || archetype === "disc_rotary" ? phase(n.id) : 0}
       frame={frame}
     />
   );
@@ -67,50 +73,58 @@ export const ModularMechanism: React.FC<{
   return (
     <AbsoluteFill style={{ background: "#102c38" }}>
       <svg width="100%" height="100%" viewBox="0 0 1080 1920" fontFamily="Arial,sans-serif">
-        <defs>
-          <radialGradient id="rig-room" cx="53%" cy="41%" r="70%">
-            <stop stopColor="#a4bbb4" />
-            <stop offset=".59" stopColor="#587d84" />
-            <stop offset="1" stopColor="#243b48" />
-          </radialGradient>
-          <radialGradient id="rig-blue" cx="52%" cy="44%" r="62%">
-            <stop stopColor="#226577" />
-            <stop offset="1" stopColor="#0b2335" />
-          </radialGradient>
-          <pattern id="rig-grid" width="44" height="44" patternUnits="userSpaceOnUse">
-            <path d="M44 0H0V44" fill="none" stroke="#dafcf2" strokeWidth="1" />
-            <circle r="2.2" fill="#ddffed" />
-          </pattern>
-        </defs>
-        <rect width="1080" height="1920" fill="url(#rig-room)" />
-        <rect width="1080" height="1920" fill="url(#rig-blue)" opacity={cut} />
-        <rect width="1080" height="1920" fill="url(#rig-grid)" opacity={0.07 + 0.12 * cut} />
+        {atmosphere ? (
+          <RigAtmosphere style={atmosphere} frame={frame} />
+        ) : (
+          <>
+            <defs>
+              <radialGradient id="rig-room" cx="53%" cy="41%" r="70%">
+                <stop stopColor="#a4bbb4" />
+                <stop offset=".59" stopColor="#587d84" />
+                <stop offset="1" stopColor="#243b48" />
+              </radialGradient>
+              <radialGradient id="rig-blue" cx="52%" cy="44%" r="62%">
+                <stop stopColor="#226577" />
+                <stop offset="1" stopColor="#0b2335" />
+              </radialGradient>
+              <pattern id="rig-grid" width="44" height="44" patternUnits="userSpaceOnUse">
+                <path d="M44 0H0V44" fill="none" stroke="#dafcf2" strokeWidth="1" />
+                <circle r="2.2" fill="#ddffed" />
+              </pattern>
+            </defs>
+            <rect width="1080" height="1920" fill="url(#rig-room)" />
+            <rect width="1080" height="1920" fill="url(#rig-blue)" opacity={cut} />
+            <rect width="1080" height="1920" fill="url(#rig-grid)" opacity={0.07 + 0.12 * cut} />
+          </>
+        )}
         <g transform={`translate(${540 - cx * zoom} ${860 - cy * zoom}) scale(${zoom})`}>
-          <g opacity={cut}>
+          {hero && <g opacity={1 - 0.38 * cut}>{nodeArt(hero)}</g>}
+          <g opacity={exposed ? 1 : cut}>
             {pipes.map((p) => (
               <RenderMechPipe key={p.id} pipe={p} flow={act(p.id)} phase={phase(p.id)} />
             ))}
           </g>
-          {nodes
-            .filter((n) => n.type !== "casing" && n.type !== "context_object")
+          {visible
+            .filter((n) => n.type !== "casing" && n.type !== "custom_shape" && n.type !== "context_object")
             .map((n) => {
-              const lit = (focus: typeof to) => (focus.type === "casing" || focus.id === n.id ? 1 : 0.51);
+              const lit = (focus: typeof to) =>
+                focus.type === "custom_shape" || focus.type === "casing" || focus.id === n.id ? 1 : 0.51;
               return (
-                <g key={n.id} opacity={cut * Math.max(act(n.id), mix(lit(from), lit(to), t))}>
+                <g key={n.id} opacity={(exposed ? 1 : cut) * Math.max(act(n.id), mix(lit(from), lit(to), t))}>
                   {nodeArt(n)}
                 </g>
               );
             })}
-          {nodes
-            .filter((n) => n.type === "casing")
+          {visible
+            .filter((n) => !hero && n.type === "casing")
             .map((n) => (
               <g key={n.id} opacity={1 - 0.91 * cut}>
                 {nodeArt(n)}
               </g>
             ))}
           {/* A dispensing recess, indexed to the real cup instead of painted at a guessed position. */}
-          {nodes
-            .filter((n) => n.variant === "cup")
+          {visible
+            .filter((n) => !hero && archetype === "appliance_box" && n.variant === "cup")
             .map((n) => (
               <g
                 key={n.id}
@@ -126,7 +140,7 @@ export const ModularMechanism: React.FC<{
                 <path d="M-63 52L-48 39H44L60 49V57H-63Z" fill="#a6bab9" />
               </g>
             ))}
-          {nodes
+          {visible
             .filter((n) => n.type === "context_object")
             .map((n) => (
               <g key={n.id}>{nodeArt(n)}</g>
@@ -138,7 +152,7 @@ export const ModularMechanism: React.FC<{
               <path
                 d={`M${targetX} ${targetY} L${targetX - 32} ${targetY + 32} L96 1174`}
                 fill="none"
-                stroke="#b7fcdb"
+                stroke={atmosphere?.accent ?? "#b7fcdb"}
                 strokeWidth="3"
                 opacity={0.75 * cut}
               />
@@ -153,7 +167,7 @@ export const ModularMechanism: React.FC<{
               stroke="#90d9be"
               strokeWidth="2"
             />
-            <rect x="79" y="1174" width="5" height="36" rx="2" fill="#ffbd64" />
+            <rect x="79" y="1174" width="5" height="36" rx="2" fill={atmosphere?.accent ?? "#ffbd64"} />
             <text
               x="98"
               y="1204"
