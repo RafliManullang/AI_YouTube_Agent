@@ -1,12 +1,16 @@
 # AI YouTube Agent
 
-Agen ini membuat video YouTube Shorts sendiri, dari cari topik sampai diunggah:
+Pipeline utama membuat Shorts dengan **3–4 ilustrasi AI per topik** dan motion graphics Remotion. Anatomi benda tidak lagi dibuat dengan meminta LLM menulis TSX. Bagian riwayat tahap di bawah juga mendokumentasikan mesin visual versi lama.
 
-1. Gemini memilih topik (cara kerja benda, fakta sains, atau cerita sejarah) dan menulis naskah.
-2. Edge-TTS mengubah naskah jadi suara Bahasa Indonesia, gratis, plus waktu tiap kata.
-3. Gemini juga menentukan visual tiap adegan (diagram alur, mind map, atau angka yang menghitung naik), dan Pixabay atau Pexels (gratis, opsional) memberi video latar yang bergerak.
-4. Remotion menyatukan semuanya dengan suara dan teks kinetik jadi video, dengan latar berwarna yang terus bergerak.
-5. Video diunggah ke YouTube.
+1. Penulis/editor menyusun naskah, deskripsi ilustrasi, komponen fokus, kamera, dan overlay per adegan sebagai JSON.
+2. TTS menyimpan narasi dan timing kata/adegan ke checkpoint.
+3. Agen membuat `01_exterior.png`, `02_analogy.png`, `03_cutaway.png` dan, bila diminta naskah, `04_closeup.png` di `video_engine/public/assets/`. Master style dan palet dipilih konsisten per judul. Flux menerima seed deterministik; Imagen melalui Gemini Developer API tidak mendukung parameter seed dan memakai penguncian prompt/palet.
+4. Gemini Vision membaca **PNG cutaway yang sudah dicrop**: satu respons JSON berisi titik komponen (0–1 dari kiri atas) dan pemeriksaan teks bocor. Jika ada teks, maksimal satu gambar pengganti dibuat dan dicek lagi. Bila komponen tidak ditemukan, adegannya memakai badge tanpa panah/spotlight spekulatif. Bila percobaan kedua juga ditolak, render berhenti untuk peninjauan.
+5. Remotion menggerakkan kamera dan overlay menurut timing TTS. Transisi exterior → cutaway memakai sapuan sinar-X 18 frame + whoosh; pergantian gambar lain memakai crossfade. Subtitle dan citation badge tetap di koordinat layar.
+
+**Konfigurasi:** isi `GEMINI_API_KEY` untuk Vision dan akses Imagen. `IMAGEN_MODEL` dan `VISION_MODEL` dapat disesuaikan dengan model yang tersedia di akun. Jika Imagen gagal, agen mencoba Flux melalui Pollinations (dengan `POLLINATIONS_API_KEY` bila endpoint publik tidak tersedia). Akses, biaya dan kuota mengikuti provider; fallback tidak menjamin layanan gratis. Prompt/gambar dikirim ke provider yang digunakan.
+
+**Jalankan:** `python main_agent.py --topik "pemanas air instan" --tanpa-upload`. Setelah kegagalan aset/Vision/render, jalankan `python main_agent.py --resume --tanpa-upload`. Checkpoint `cache/last_session.json` menyimpan path aset, checksum, hasil Vision dan status percobaan per gambar. Gambar utuh yang sudah lolos tidak dibuat lagi; pemeriksaan yang terputus memakai PNG yang sama. Jika gambar pengganti ditolak, periksa PNG sebelum memulai topik baru. Run tanpa `--resume` membersihkan empat nama PNG milik generator setelah naskah baru disimpan; aset pribadi dengan nama lain tidak dihapus.
 
 ## Isi videonya
 
@@ -293,7 +297,7 @@ Cara lama (memilih salah satu dari sekitar 10 gambar preset lalu mengganti tulis
 
 ## Melanjutkan render tanpa mengulang naskah dan suara
 
-Jika kanvas atau render gagal di `[4/5]`, jalankan:
+Jika pembuatan aset di `[3/5]` atau render di `[4/5]` gagal, jalankan:
 
 ```sh
 python main_agent.py --resume --tanpa-upload
@@ -301,6 +305,6 @@ python main_agent.py --resume --tanpa-upload
 
 Di Windows bisa juga memakai `jalankan_agen.bat --resume --tanpa-upload`. Checkpoint `cache/last_session.json` ditulis setelah naskah siap, lalu diperbarui setelah TTS dengan waktu kata, jadwal adegan, durasi, dan nama audio di `video_engine/public/`. Jika baru naskah yang tersimpan, `--resume` mulai dari TTS. Jangan hapus atau timpa audio sesi tersebut. Menjalankan agen tanpa `--resume` membuat sesi baru; `--unggah-saja` tetap khusus untuk video yang sudah selesai. Sesi lama dari sebelum fitur ini tidak dapat dilanjutkan.
 
-Prompt kanvas standar maksimal 6.500 karakter; Groq memakai versi compact maksimal 4.900 karakter dan `max_tokens=3500`. Batas ini juga berlaku untuk revisi: jika kode lama tidak muat utuh, model menerima brief dan diagnostik untuk menulis ulang. Di `cache/debug_last_prompt.txt` ada nama sumber, jumlah karakter, dan prompt terakhir; `cache/debug_last_response.txt` berisi jawaban mentah atau status gagal. File lokal ini tidak masuk Git.
+**Catatan mesin SVG lama (bukan jalur hybrid):** Prompt kanvas standar maksimal 6.500 karakter; Groq memakai versi compact maksimal 4.900 karakter dan `max_tokens=3500`. Batas ini juga berlaku untuk revisi: jika kode lama tidak muat utuh, model menerima brief dan diagnostik untuk menulis ulang. Di `cache/debug_last_prompt.txt` ada nama sumber, jumlah karakter, dan prompt terakhir; `cache/debug_last_response.txt` berisi jawaban mentah atau status gagal. File lokal ini tidak masuk Git.
 
 Penulis kanvas Gemini memakai timeout 240 detik dan thinking rendah pada model Flash yang mendukungnya. Saat 503, agen langsung mencoba key lain; dua key berturut-turut terkena 503 menonaktifkan model itu untuk sesi kanvas. Error kuota 429 tidak membuka breaker. Untuk fallback opsional setelah Groq/Cerebras, isi `OPENROUTER_API_KEY` di `.env`. Bawaan `openrouter/free` merutekan ke model gratis; isi `OPENROUTER_MODEL` dengan ID model coding `:free` yang tersedia jika ingin memilih sendiri. Ketersediaan dan kuota tetap bergantung pada provider.
