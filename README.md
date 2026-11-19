@@ -1,6 +1,18 @@
 # AI YouTube Agent
 
-Pipeline utama membuat Shorts dengan **3–4 ilustrasi AI per topik** dan motion graphics Remotion. Anatomi benda tidak lagi dibuat dengan meminta LLM menulis TSX. Bagian riwayat tahap di bawah juga mendokumentasikan mesin visual versi lama.
+## Mode bawaan: LEGO Mekanis
+
+Tahap naskah dan TTS tetap sama. Pada `[3/5]`, agen mengirim ringkasan adegan (prompt maksimal 2.000 byte) ke penulis JSON, dengan prioritas Groq. Satu respons valid cukup untuk seluruh video. Model hanya merakit `mech_rig` (node dan pipa) dan `scene_states` (fokus, zoom, cutaway, nilai aktif); tidak menulis TSX. Panjang respons, waktu dan kuota tetap bergantung pada jumlah adegan dan provider.
+
+Remotion menggambar casing, tangki, piston, heater, katup, turbin, chamber, pegas, pipa dan objek konteks dengan komponen lokal. Kamera memakai pusat komponen yang sama dengan gambarnya; audio, subtitle dan citation badge tetap mengikuti timing TTS. **Mode ini tidak memanggil generator gambar atau Vision.** Sebelum render, koordinat pusat/titik pipa, ID unik, referensi fokus/aktif dan jumlah state diperiksa. Rig valid disimpan di `cache/last_session.json` bersama naskah/audio.
+
+- **Lanjutkan video sebelumnya dengan rig baru:** `jalankan_agen.bat --resume --tanpa-upload`. Jika checkpoint hanya punya aset hybrid, rig dibuat sekali tanpa mengulang TTS. Jika sudah ada rig valid, tidak ada panggilan LLM tahap 3.
+- **Mulai topik baru:** `python main_agent.py --topik "mesin kopi pod" --tanpa-upload`.
+- **Pratinjau contoh tanpa API:** dari folder `video_engine`, jalankan `npm ci`, lalu `npx remotion studio src/index.ts --props=examples/pod-modular.json` dan pilih `ShortsComp`. Contoh mesin kopi berdurasi 8 detik, tanpa narasi.
+
+## Mode opsional: gambar hybrid (`--visual hybrid`)
+
+Pipeline hybrid membuat Shorts dengan **3–4 ilustrasi AI per topik** dan motion graphics Remotion. Anatomi benda tidak lagi dibuat dengan meminta LLM menulis TSX. Bagian riwayat tahap di bawah juga mendokumentasikan mesin visual versi lama.
 
 1. Penulis/editor menyusun naskah, deskripsi ilustrasi, komponen fokus, kamera, dan overlay per adegan sebagai JSON.
 2. TTS menyimpan narasi dan timing kata/adegan ke checkpoint.
@@ -15,7 +27,7 @@ Pipeline utama membuat Shorts dengan **3–4 ilustrasi AI per topik** dan motion
 
 Flag tersebut tidak menonaktifkan Gemini Vision: jika ada `GEMINI_API_KEY`, pemeriksaan cutaway mencoba `VISION_MODEL` (opsional), lalu `gemini-3.8-flash` dan `gemini-3.6-flash` tanpa duplikat. Bila Vision tidak tersedia atau gagal, checkpoint menandai pemeriksaan dilewati: gambar tetap dipakai tanpa verifikasi teks, kamera fokus ke tengah, dan overlay cutaway hanya berupa badge. Simpan token hanya di `.env`. Akses model, biaya dan kuota mengikuti akun/provider.
 
-**Jalankan:** `python main_agent.py --topik "pemanas air instan" --tanpa-upload`. Setelah kegagalan aset/Vision/render, jalankan `python main_agent.py --resume --tanpa-upload`. Checkpoint `cache/last_session.json` menyimpan path aset, checksum, hasil Vision dan status percobaan per gambar. Gambar utuh yang sudah lolos tidak dibuat lagi; pemeriksaan yang terputus memakai PNG yang sama. Jika gambar pengganti ditolak, periksa PNG sebelum memulai topik baru. Run tanpa `--resume` membersihkan empat nama PNG milik generator setelah naskah baru disimpan; aset pribadi dengan nama lain tidak dihapus.
+**Jalankan:** `python main_agent.py --visual hybrid --topik "pemanas air instan" --tanpa-upload`. Setelah kegagalan aset/Vision/render, jalankan `python main_agent.py --visual hybrid --resume --tanpa-upload`. Checkpoint `cache/last_session.json` menyimpan path aset, checksum, hasil Vision dan status percobaan per gambar. Gambar utuh yang sudah lolos tidak dibuat lagi; pemeriksaan yang terputus memakai PNG yang sama. Jika gambar pengganti ditolak, periksa PNG sebelum memulai topik baru. Run tanpa `--resume` membersihkan empat nama PNG milik generator setelah naskah baru disimpan; aset pribadi dengan nama lain tidak dihapus.
 
 ## Isi videonya
 

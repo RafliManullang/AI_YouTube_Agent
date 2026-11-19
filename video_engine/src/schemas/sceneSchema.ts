@@ -1,6 +1,7 @@
 // Skema kaku untuk semua data yang masuk ke Remotion.
 // Data mentah dari LLM TIDAK BOLEH diteruskan ke render sebelum lolos skema ini (lihat src/cli/validateProps.ts
 // dan schema_gate.py). Berkas ini sengaja hanya mengimpor zod supaya bisa dijalankan juga lewat Node langsung.
+import { modularSchema } from "../mech/rigSchema.ts";
 import { z } from "zod";
 
 const finite = z.number().finite();
@@ -181,6 +182,7 @@ export const shortsPropsSchema = z.object({
   hookQuestion: text(90).optional(),
   hookHighlight: text(50).optional(),
   claim: z.object({ source: text(40), text: text(30) }).optional(),
+  modular: modularSchema.optional(),
   hybrid: hybridSchema.optional(),
   mechScenes: z.array(mechTimingSchema).max(40).optional(),
   clean: z.boolean().optional(),
@@ -196,6 +198,9 @@ export const shortsPropsSchema = z.object({
   sfxMap: z.record(z.string(), finite.int().min(0).max(9)).optional(),
 }).superRefine((p, ctx) => {
   // adegan harus berurutan, tidak saling tumpang tindih, dan tidak melewati durasi video
+  if (p.modular && (p.modular.scene_states.length !== p.scenes.length || p.mechScenes?.length !== p.scenes.length)) {
+    ctx.addIssue({code: "custom", path: ["modular"], message: "Jumlah state, timing dan adegan harus sama"});
+  }
   if (p.hybrid && (p.hybrid.shots.length !== p.scenes.length || p.mechScenes?.length !== p.scenes.length)) {
     ctx.addIssue({code: "custom", path: ["hybrid"], message: "Jumlah shot, timing dan adegan harus sama"});
   }

@@ -1,3 +1,4 @@
+import type { ModularPlan } from "./mech/rigSchema";
 import type { HybridPlan } from "./schemas/sceneSchema";
 export type WordItem = {
   word: string;
@@ -143,6 +144,7 @@ export type MechTiming = {
 };
 
 export type ShortsProps = {
+  modular?: ModularPlan;
   hybrid?: HybridPlan;
   plainBg?: boolean; // hanya untuk uji otomatis: tanpa latar lingkungan supaya gambar AI bisa diukur sendiri
   environmentType?: string; // salah satu dari ENV_TYPES: latar bergerak sesuai topik
