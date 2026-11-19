@@ -7,7 +7,7 @@ import type { MechTiming } from "../types";
 // kamera, pergantian tampilan, label, panah gaya, beban, tanda silang, dan kaca pembesar dikerjakan di sini
 // supaya hasilnya rapi walaupun model penulis kodenya kecil.
 
-export type ViewProps = { trig: number; sceneIndex: number; local: number; mode: string; focus: string };
+export type ViewProps = { trig: number; sceneIndex: number; local: number; mode: string; focus: string; forceLevel: number; isDamaged: boolean };
 type Pt = { x: number; y: number };
 export type GeneratedModule = {
   Exterior?: React.ComponentType<ViewProps>;
@@ -75,7 +75,11 @@ export const MechanismStage: React.FC<{ scenes: MechTiming[]; gen: GeneratedModu
   const Ext = gen.Exterior;
   const Ana = gen.Analogy;
   const Cut = gen.Cutaway;
-  const vp: ViewProps = { trig, sceneIndex: idx, local, mode, focus: cur.anchor || "whole" };
+  const vp: ViewProps = {
+    trig, sceneIndex: idx, local, mode, focus: cur.anchor || "whole",
+    forceLevel: active?.forceLevel ?? 1,
+    isDamaged: !!active?.isDamaged,
+  };
   const noView = !Ext && !Ana && !Cut;
   const heat = interpolateColors(trig, [0, 1], ["#38bdf8", "#f97316"]);
 

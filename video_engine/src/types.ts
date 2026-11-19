@@ -137,6 +137,8 @@ export type MechTiming = {
   mode?: "konteks" | "analogi" | "xray" | "blueprint"; // tampilan adegan: benda utuh di tempat aslinya, menembus cangkang (sinar-X), atau mekanisme inti (cetak biru)
   negationFrame?: number; // bingkai kata penyangkal ("bukan", "tanpa"); -1 kalau tidak ada
   hud?: { load?: string; force?: string }; // beban yang ditahan dan label panah gaya untuk adegan ini
+  forceLevel?: number; // keyword-to-motion mapper: 2.0 kalau narasi adegan ini menyebut kata tekanan/beban, 1.0 kalau tidak
+  isDamaged?: boolean; // keyword-to-motion mapper: true kalau narasi adegan ini menyebut kata rusak/bocor/patah/retak
 };
 
 export type ShortsProps = {
