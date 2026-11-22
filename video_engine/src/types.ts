@@ -1,169 +1,44 @@
-import type { ModularPlan } from "./mech/rigSchema";
-import type { HybridPlan } from "./schemas/sceneSchema";
 export type WordItem = {
   word: string;
   start: number;
   end: number;
-  who?: string; // siapa yang bicara ("shela", "flay", atau "narator")
-  emphasis?: boolean; // kata kunci yang ditonjolkan di subtitle
+  who?: string;
+  emphasis?: boolean;
 };
 
-export type SceneType =
-  | "flow"
-  | "mindmap"
-  | "counter"
-  | "timeline"
-  | "barchart"
-  | "compare"
-  | "gauge"
-  | "footage"
-  | "cutaway" // potongan melintang / tembus pandang
-  | "microscale" // zoom dari benda utuh ke tingkat mikro
-  | "story" // ilustrasi buku cerita dengan karakter berekspresi
-  | "mechanism"; // animasi cara kerja benda (lift, roda gigi, piston, ...)
-
-export type MechanismName =
-  | "katrol_lift"
-  | "roda_gigi"
-  | "piston"
-  | "tuas"
-  | "aliran"
-  | "panas"
-  | "rangkaian"
-  | "tekanan"
-  | "nozel_bensin"
-  | "roda_kerucut";
-
-export type ClipData = {
-  file: string; // nama file video di folder public
-  start: number; // detik, relatif terhadap awal adegan
-  end: number;
-  seconds: number; // panjang klip asli
-};
-
-// Suara latar tiap adegan (angin, deru mesin, dan seterusnya)
-export type AmbienceName = "angin" | "gesekan" | "benturan" | "mesin" | "air" | "hening";
-
-// Dipakai oleh timeline (label = tahun, value = kejadian), barchart (label = nama, value = angka),
-// dan compare (label = judul sisi, value = isi)
-export type SceneItem = {
-  label: string;
-  value: string | number;
-};
-
-export type Vec3 = [number, number, number];
-export type SimObject = {
-  id: string;
-  shape: "box" | "cylinder" | "sphere" | "cone" | "torus" | "tube" | "gear" | "plate" | "rope" | "text";
-  text?: string; // shape text: tulisan 3D (size: tinggi huruf, ketebalan)
-  pivot?: Vec3; // titik putar terhadap pusat benda (untuk rotate)
-  pos: Vec3;
-  size: Vec3; // box/plate: lebar,tinggi,tebal; cylinder/tube/cone: radius,tinggi,-; sphere: radius; torus: radius besar,radius kecil; gear: radius,tebal,jumlah gigi
-  rot?: Vec3; // derajat
-  color?: string;
-  material?: "metal" | "glass" | "liquid" | "rubber" | "glow" | "plastic" | "rust";
-  opacity?: number;
-  label?: string;
-  link?: [string, string]; // rope: dihubungkan dari benda pertama ke benda kedua
-  linkOff?: [Vec3, Vec3]; // rope: pergeseran titik ujung terhadap pusat tiap benda
-};
-export type SimMotion = {
-  target: string;
-  kind: "move" | "spin" | "pulse" | "color" | "rotate" | "grow" | "appear" | "count";
-  to?: Vec3; // untuk move: posisi akhir
-  axis?: "x" | "y" | "z"; // untuk spin
-  speed?: number; // putaran per detik (spin) atau denyut per detik (pulse)
-  t0?: number; // mulai (0 sampai 1 dari panjang adegan)
-  t1?: number; // selesai
-  value?: number; // untuk count: angka akhir yang dihitung naik
-  suffix?: string; // untuk count: satuan di belakang angka
-  angle?: number; // untuk rotate: sudut akhir (derajat) pada sumbu axis
-  color?: string; // untuk color: warna akhir
-  loop?: boolean; // move bolak-balik
-  ease?: "spring"; // grow dengan hentakan pegas
-};
-export type SimFlow = {
-  path: Vec3[];
-  color?: string;
-  count?: number;
-  size?: number;
-  speed?: number; // siklus per detik
-  kind?: "water" | "mud" | "oil" | "light"; // jenis aliran (kalau kosong dibaca dari warna)
-  t0?: number;
-  t1?: number;
-};
-export type ComponentUse = import("./schemas/sceneSchema").ComponentUse;
-export type SimSpec = {
-  objects: SimObject[];
-  components?: ComponentUse[]; // komponen terverifikasi dari src/components/library
-  trigger?: number; // bagian adegan (0..1) saat kata pemicu diucapkan
-  motions?: SimMotion[];
-  flows?: SimFlow[];
-  floor?: number; // tinggi lantai (y) bila ingin ada alas bergaris
-  cutaway?: boolean; // belah benda: sisi depan dibuang supaya bagian dalam terlihat
-  cam?: { dist?: number; height?: number; orbit?: number; target?: Vec3; fov?: number };
-};
-
+// Satu adegan = satu klip hasil kurasi pengguna di public/clips (lihat storyboard_exporter.py).
 export type SceneData = {
-  sim?: SimSpec | null; // spesifikasi animasi 3D (opsional)
-  type: SceneType;
-  title: string;
-  points: string[];
-  items?: SceneItem[];
-  number?: number;
-  unit?: string;
-  start: number; // detik
-  end: number; // detik
-  video?: string; // nama file video latar di folder public (opsional)
-  videoSeconds?: number; // panjang klip video latar (detik)
-  artUrls?: string[];
-  model?: string; // berkas model 3D (.glb) di folder public
-  sfx?: string; // bunyi momen puncak (clank, hiss, zap, ...)
-  clips?: ClipData[]; // beberapa klip bergantian dalam satu adegan (satu per kalimat)
-  variant?: "device" | "ground"; // untuk cutaway
-  mechanism?: MechanismName | ""; // untuk mechanism
-  mood?: "senang" | "takut" | "kaget" | "sedih" | "tegang" | "bangga"; // untuk story
-  weather?: "cerah" | "hujan" | "salju" | "badai" | "malam" | "kabut"; // untuk story
-  sound?: AmbienceName;
-  urgency?: "high" | "normal" | "low"; // tingkat kepentingan adegan (irama)
-  transition?: { kind: "fade" | "slide" | "zoom" | "whip"; seconds: number }; // gaya dan lama perpindahan masuk
-};
-
-export type MechTiming = {
-  sceneIndex: number;
+  id: string; // "scene_01", "scene_02", ...
+  narration: string;
+  visualPrompt: string; // prompt visual Bahasa Inggris untuk membuat klip adegan ini
+  clipPath: string; // "clips/scene_01.mp4" atau "clips/scene_01.png"; "" = belum ada klip
   startFrame: number;
-  endFrame: number;
-  triggerFrame: number;
-  focusTarget: string;
-  labels: string[];
-  mode?: "konteks" | "analogi" | "xray" | "blueprint"; // tampilan adegan: benda utuh di tempat aslinya, menembus cangkang (sinar-X), atau mekanisme inti (cetak biru)
-  negationFrame?: number; // bingkai kata penyangkal ("bukan", "tanpa"); -1 kalau tidak ada
-  hud?: { load?: string; force?: string }; // beban yang ditahan dan label panah gaya untuk adegan ini
-  forceLevel?: number; // keyword-to-motion mapper: 2.0 kalau narasi adegan ini menyebut kata tekanan/beban, 1.0 kalau tidak
-  isDamaged?: boolean; // keyword-to-motion mapper: true kalau narasi adegan ini menyebut kata rusak/bocor/patah/retak
+  durationInFrames: number;
+  sfx?: string;
 };
 
 export type ShortsProps = {
-  modular?: ModularPlan;
-  hybrid?: HybridPlan;
-  plainBg?: boolean; // hanya untuk uji otomatis: tanpa latar lingkungan supaya gambar AI bisa diukur sendiri
-  environmentType?: string; // salah satu dari ENV_TYPES: latar bergerak sesuai topik
-  hookQuestion?: string; // kalimat tanya di kiri atas selama 12 detik pertama
-  hookHighlight?: string; // kata kunci pada kalimat tanya yang diberi warna
-  claim?: { source: string; text: string }; // angka klaim fisik beserta sumbernya
-  mechScenes?: MechTiming[]; // jadwal adegan untuk kanvas tunggal buatan AI (generated/GeneratedMechanism.tsx)
-  clean?: boolean; // tanpa judul, label, dan subtitle (untuk latar thumbnail)
-  thumbBg?: string;
   audioUrl: string;
   bgmUrl?: string;
   scenes: SceneData[];
   words: WordItem[];
   durationInSeconds: number;
-  themeIndex?: number; // pilihan tema warna (lihat THEMES)
-  sfx?: boolean; // efek suara, bawaan menyala
-  bgSeed?: number; // angka acak supaya gaya latar beda tiap video
-  sfxMap?: Record<string, number>; // pilihan variasi bunyi per jenis efek (beda dari video sebelumnya)
+  hookQuestion?: string;
+  hookHighlight?: string;
+  clean?: boolean; // tanpa judul/subtitle (untuk latar thumbnail)
+  sfx?: boolean;
+  bgSeed?: number;
+  sfxMap?: Record<string, number>;
 };
+
+export type ClipData = {
+  file: string;
+  start: number;
+  end: number;
+  seconds: number;
+};
+
+export type AmbienceName = "angin" | "gesekan" | "benturan" | "mesin" | "air" | "hening";
 
 export type ThumbnailProps = {
   text: string;

@@ -62,10 +62,9 @@ const BY_MECHANISM: Record<string, SfxName> = {
   loop_induksi: "swell",
   mobil_dongkrak: "clank",
 };
-export const climaxSound = (scene: { sfx?: string; mechanism?: string; type?: string }): SfxName => {
+export const climaxSound = (scene: { sfx?: string }): SfxName => {
   if (scene.sfx && (KEY_SOUNDS as string[]).includes(scene.sfx)) return scene.sfx as SfxName;
-  if (scene.mechanism && BY_MECHANISM[scene.mechanism]) return BY_MECHANISM[scene.mechanism];
-  return scene.type === "story" ? "bell" : "impact";
+  return "impact";
 };
 
 const VARIANTS = ["", "_b", "_c", "_d"];

@@ -1,0 +1,12 @@
+{
+  "audioUrl": "",
+  "sfx": true,
+  "hookQuestion": "Kok bisa mati sendiri?",
+  "hookHighlight": "mati sendiri",
+  "durationInSeconds": 12,
+  "words": [],
+  "scenes": [
+    {"id": "scene_01", "narration": "Contoh narasi adegan pertama.", "visualPrompt": "Photorealistic vertical 9:16 shot of the object in its real environment, cinematic light, slow push-in", "clipPath": "", "startFrame": 0, "durationInFrames": 180},
+    {"id": "scene_02", "narration": "Contoh narasi adegan kedua.", "visualPrompt": "Photorealistic vertical 9:16 close-up of the key moving part in action", "clipPath": "", "startFrame": 180, "durationInFrames": 180, "sfx": "clank"}
+  ]
+}

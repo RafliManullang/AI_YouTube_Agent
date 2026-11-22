@@ -1,41 +1,31 @@
 # AI YouTube Agent
 
-## Mode bawaan: LEGO Mekanis
+## Mode bawaan: auto-editor per adegan (dua tahap, semi-otomatis)
 
-Tahap naskah dan TTS tetap sama. Pada `[3/5]`, agen mengirim ringkasan adegan (prompt maksimal 2.000 byte) ke penulis JSON, dengan prioritas Groq. Satu respons valid cukup untuk seluruh video. Model hanya merakit `mech_rig` (node dan pipa) dan `scene_states` (fokus, zoom, cutaway, nilai aktif); tidak menulis TSX. Panjang respons, waktu dan kuota tetap bergantung pada jumlah adegan dan provider.
+Sistem **tidak lagi menyuruh LLM menggambar animasi** — tidak ada kode SVG/TSX dari LLM, tidak ada
+generator gambar gratisan, tidak ada rig modular/hybrid. LLM hanya menulis naskah dan, per adegan,
+satu `visualPrompt` Bahasa Inggris yang konkret. Visual dibuat/dikurasi sendiri oleh pengguna.
 
-Remotion menggambar casing, tangki, piston, heater, katup, turbin, chamber, pegas, pipa dan objek konteks dengan komponen lokal. Kamera memakai pusat komponen yang sama dengan gambarnya; audio, subtitle dan citation badge tetap mengikuti timing TTS. **Mode ini tidak memanggil generator gambar atau Vision.** Sebelum render, koordinat pusat/titik pipa, ID unik, referensi fokus/aktif dan jumlah state diperiksa. Rig valid disimpan di `cache/last_session.json` bersama naskah/audio.
+**Tahap 1 — naskah, suara, daftar klip:**
+`jalankan_agen.bat --tahap 1 --topik "mesin kopi pod" --tanpa-upload`
+Menghasilkan naskah, audio TTS, timing subtitle, lalu mengekspor `video_engine/out/storyboard.txt`
+dan `storyboard.html`: daftar 5–6+ prompt visual Bahasa Inggris beserta durasi tiap adegan.
 
-- **Lanjutkan video sebelumnya dengan rig baru:** `jalankan_agen.bat --resume --tanpa-upload`. Jika checkpoint hanya punya aset hybrid, rig dibuat sekali tanpa mengulang TTS. Jika sudah ada rig valid, tidak ada panggilan LLM tahap 3.
-- **Mulai topik baru:** `python main_agent.py --topik "mesin kopi pod" --tanpa-upload`.
-- **Pratinjau contoh tanpa API:** dari folder `video_engine`, jalankan `npm ci`, lalu `npx remotion studio src/index.ts --props=examples/pod-modular.json` dan pilih `ShortsComp`. Contoh mesin kopi berdurasi 8 detik, tanpa narasi.
+**Di antara tahap:** buat/kurasi klip tiap adegan dengan tool AI video/gambar pilihanmu (cek langsung
+dengan mata), lalu simpan sebagai `video_engine/public/clips/scene_01.mp4`, `scene_02.mp4`, ...
+(atau `.png`/`.jpg` resolusi tinggi untuk adegan statis).
 
-### Siluet, suasana, dan analogi per adegan
+**Tahap 2 — rakit video:**
+`jalankan_agen.bat --tahap 2 --resume --tanpa-upload`
+`SceneClipLayer` memutar klip per adegan (cover 9:16, transisi pudar 6 frame) sinkron dengan durasi
+TTS; HUD yang dipertahankan hanya judul pembuka, subtitle per kata, dan SFX transisi. Tanpa `--tahap`,
+agen menjalankan tahap 1 lalu otomatis lanjut ke tahap 2 bila semua klip sudah ada; bila belum,
+agen berhenti dan memberi tahu klip mana yang masih kosong.
 
-Perakit memilih `mech_rig.archetype`: `appliance_box`, `aerodynamic_wing` (airfoil dengan dua laju aliran), `cylinder_tube`, `disc_rotary`, atau `open_frame` (tanpa selubung). Untuk bentuk khas topik, utamakan satu node `custom_shape`: tetap beri `id,x,y,w,h`, lalu `viewBox` lokal seperti `"0 0 400 200"` dan 1–5 `paths` (disarankan 2–5). Tiap path hanya berisi `d` dan `fill` heksadesimal, tanpa markup. Pakai segmen absolut `M L H V Q C Z`, satu set koordinat per perintah, nilai 0–400. Siluet ini menggantikan casing, di belakang pipa dan blok mekanis yang beranimasi.
+- **Lanjutkan sesi sebelumnya:** `jalankan_agen.bat --resume --tanpa-upload` (naskah/TTS tidak diulang).
+- **Pratinjau tanpa API:** dari `video_engine`, `npm ci` lalu `npx remotion studio src/index.ts --props=examples/clips-example.json`, pilih `ShortsComp`. Adegan tanpa klip tampil sebagai placeholder berisi prompt-nya.
 
-`mech_rig.atmosphere` mengatur `bgTop`, `bgBottom`, `accent` (`#rrggbb`), `gridStyle` (`blueprint`, `radial_glow`, `clean`) dan `particle` (`wind_lines`, `bubbles`, `sparks`, `steam`, `dots`). Tidak ada preset kategori yang mengunci kombinasi warna. Batasi objek analogi dengan `visibleScenes`, misalnya `[3]` hanya untuk adegan keempat (indeks mulai 0). Tanpa daftar ini, node tersedia di semua adegan. Kamera tidak boleh menargetkan node tersembunyi.
-
-Contoh tanpa API: dari `video_engine`, jalankan `npx remotion studio src/index.ts --props=examples/wing-modular.json`. Saat `--resume`, rig lama tanpa archetype/suasana dirakit ulang sekali memakai naskah dan audio checkpoint; rig baru yang valid langsung dipakai.
-
-## Mode opsional: gambar hybrid (`--visual hybrid`)
-
-Pipeline hybrid membuat Shorts dengan **3–4 ilustrasi AI per topik** dan motion graphics Remotion. Anatomi benda tidak lagi dibuat dengan meminta LLM menulis TSX. Bagian riwayat tahap di bawah juga mendokumentasikan mesin visual versi lama.
-
-1. Penulis/editor menyusun naskah, deskripsi ilustrasi, komponen fokus, kamera, dan overlay per adegan sebagai JSON.
-2. TTS menyimpan narasi dan timing kata/adegan ke checkpoint.
-3. Agen membuat `01_exterior.png`, `02_analogy.png`, `03_cutaway.png` dan, bila diminta naskah, `04_closeup.png` di `video_engine/public/assets/`. Master style dan palet dipilih konsisten per judul. Hugging Face menerima seed bila didukung provider; semua generator memakai penguncian prompt/palet.
-4. Gemini Vision membaca **PNG cutaway yang sudah dicrop**: satu respons JSON berisi titik komponen (0–1 dari kiri atas) dan pemeriksaan teks bocor. Jika ada teks, maksimal satu gambar pengganti dibuat dan dicek lagi. Bila komponen tidak ditemukan, adegannya memakai badge tanpa panah/spotlight spekulatif. Bila percobaan kedua juga ditolak, render berhenti untuk peninjauan.
-5. Remotion menggerakkan kamera dan overlay menurut timing TTS. Transisi exterior → cutaway memakai sapuan sinar-X 18 frame + whoosh; pergantian gambar lain memakai crossfade. Subtitle dan citation badge tetap di koordinat layar.
-
-**Provider gambar (urutan prioritas):**
-1. Jika `CF_ACCOUNT_ID` dan `CF_API_TOKEN` terisi, coba FLUX.1-schnell di Cloudflare Workers AI. Bila gagal, lanjut ke provider berikutnya.
-2. Jika `SKIP_GEMINI_IMAGE=1`, lewati semua key dan model Gemini Image. Jika tidak, untuk setiap key di `GEMINI_API_KEY` (dipisah koma), coba `IMAGE_MODEL` atau `gemini-3.1-flash-image`, lalu `gemini-3.1-flash-lite-image`, `gemini-2.5-flash-image`, dan `gemini-3-pro-image`.
-3. Hugging Face memakai `InferenceClient(provider="auto")` dengan `HF_TOKEN` berizin Inference Providers. `HF_IMAGE_MODEL` bisa diganti (bawaan `black-forest-labs/FLUX.1-schnell`). Jika parameter gambar ditolak, coba sekali dengan ukuran bawaan provider. Gambar persegi dari Cloudflare/HF dipotong ke 1080×1920 sebelum Vision dan render.
-
-Flag tersebut tidak menonaktifkan Gemini Vision: jika ada `GEMINI_API_KEY`, pemeriksaan cutaway mencoba `VISION_MODEL` (opsional), lalu `gemini-3.8-flash` dan `gemini-3.6-flash` tanpa duplikat. Bila Vision tidak tersedia atau gagal, checkpoint menandai pemeriksaan dilewati: gambar tetap dipakai tanpa verifikasi teks, kamera fokus ke tengah, dan overlay cutaway hanya berupa badge. Simpan token hanya di `.env`. Akses model, biaya dan kuota mengikuti akun/provider.
-
-**Jalankan:** `python main_agent.py --visual hybrid --topik "pemanas air instan" --tanpa-upload`. Setelah kegagalan aset/Vision/render, jalankan `python main_agent.py --visual hybrid --resume --tanpa-upload`. Checkpoint `cache/last_session.json` menyimpan path aset, checksum, hasil Vision dan status percobaan per gambar. Gambar utuh yang sudah lolos tidak dibuat lagi; pemeriksaan yang terputus memakai PNG yang sama. Jika gambar pengganti ditolak, periksa PNG sebelum memulai topik baru. Run tanpa `--resume` membersihkan empat nama PNG milik generator setelah naskah baru disimpan; aset pribadi dengan nama lain tidak dihapus.
+Bagian riwayat tahap di bawah adalah catatan historis mesin visual lama yang sudah dinonaktifkan.
 
 ## Isi videonya
 
