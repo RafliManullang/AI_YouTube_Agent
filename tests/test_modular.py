@@ -55,7 +55,7 @@ class RigTests(unittest.TestCase):
             lambda r: r["nodes"][0]["paths"][0].update(d="M12 112 L401 0"),
             lambda r: r["nodes"][0].update(paths=r["nodes"][0]["paths"] * 2),
             lambda r: r["nodes"][-1].update(visibleScenes=[5]),
-            lambda r: r["nodes"][-1].update(visibleScenes=[0]),  # focus tersembunyi di adegan 3
+            lambda r: next(n for n in r["nodes"] if n["id"] == "paper").update(visibleScenes=[0]),  # focus tersembunyi di adegan 3
         ]:
             bad = copy.deepcopy(plan)
             mutate(bad["mech_rig"])
@@ -92,3 +92,45 @@ class RigTests(unittest.TestCase):
             groq.assert_called_once()
             gem.assert_not_called()
             sources.assert_called_once()
+
+
+def toilet_plan():
+    nodes = [
+        {"id": "tankbody", "type": "casing", "x": 540, "y": 850, "w": 620, "h": 760, "label": "Tangki toilet"},
+        {"id": "water", "type": "tank", "x": 380, "y": 780, "w": 200, "h": 320, "label": "Air tangki"},
+        {"id": "btn", "type": "push_button", "x": 380, "y": 540, "w": 120, "h": 110, "label": "Tombol flush"},
+        {"id": "ball", "type": "float_ball", "x": 470, "y": 720, "w": 130, "h": 170, "label": "Pelampung"},
+        {"id": "flapper", "type": "valve", "x": 640, "y": 800, "w": 130, "h": 120, "label": "Katup flapper"},
+        {"id": "siphon", "type": "siphon_pipe", "x": 660, "y": 1010, "w": 200, "h": 220, "label": "Sifon"},
+    ]
+    states = [
+        {"sceneIndex": 0, "focusNode": "tankbody", "zoom": 1, "cutaway": 0, "active": {}},
+        {"sceneIndex": 1, "focusNode": "btn", "zoom": 1.6, "cutaway": 1, "active": {"btn": 1}},
+        {"sceneIndex": 2, "focusNode": "ball", "zoom": 1.5, "cutaway": 1, "active": {"ball": 0.8, "flapper": 0.9}},
+        {"sceneIndex": 3, "focusNode": "siphon", "zoom": 1.4, "cutaway": 0.9, "active": {"siphon": 1}},
+    ]
+    return {"mech_rig": {"archetype": "bottle_tank", "nodes": nodes, "pipes": []}, "scene_states": states}
+
+
+class AntiWeirdTests(unittest.TestCase):
+    def test_toilet_rig_with_new_components_passes(self):
+        self.assertEqual(mech_rig.validate(toilet_plan(), 4)["mech_rig"]["archetype"], "bottle_tank")
+        self.assertIn("push_button", mech_rig.build_prompt({"title": "Toilet", "scenes": []}))
+
+    def test_tiny_floating_and_lazy_zoom_rejected(self):
+        for change in [
+            lambda p: p["mech_rig"]["nodes"][2].update(w=40, h=40),          # tombol sekecil titik
+            lambda p: p["mech_rig"]["nodes"][4].update(x=880, y=460),          # katup melayang di pojok luar bodi
+            lambda p: p["scene_states"][1].update(zoom=1.1),                   # adegan inti tidak mendekat
+        ]:
+            bad = copy.deepcopy(toilet_plan())
+            change(bad)
+            with self.assertRaises(ValueError):
+                mech_rig.validate(bad, 4)
+
+    def test_comment_cta_stripped_from_closing(self):
+        scenes = [{"lines": [{"speaker": "flay", "text": "Jadi begitu cara flush bekerja. Tulis pendapatmu di komentar!"}]}]
+        agent.strip_comment_cta(scenes)
+        self.assertNotIn("komentar", scenes[0]["narration"])
+        self.assertIn("flush", scenes[0]["narration"])
+        self.assertIn("AKURASI MEKANIS WAJIB", agent.build_prompt("toilet duduk", []))

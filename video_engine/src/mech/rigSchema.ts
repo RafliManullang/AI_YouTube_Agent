@@ -60,6 +60,9 @@ const node = z
       "chamber",
       "spring",
       "lever",
+      "push_button",
+      "float_ball",
+      "siphon_pipe",
       "bimetal",
       "sensor",
       "filter",
@@ -127,7 +130,21 @@ export const modularSchema = z
       )
         ctx.addIssue({ code: "custom", message: "visibleScenes tidak valid" });
     });
+    const bodies = nodes.filter((n) => n.type === "casing" || n.type === "custom_shape");
+    const endpoints = pipes.flatMap((p) => p.points);
+    nodes.forEach((n) => {
+      if (n.type !== "casing" && n.type !== "custom_shape" && n.type !== "context_object" && (n.w < 85 || n.h < 85))
+        ctx.addIssue({ code: "custom", message: `Komponen kerja ${n.id} terlalu kecil (w/h minimal 85)` });
+      if (n.type !== "casing" && n.type !== "custom_shape" && n.type !== "context_object") {
+        const inside = bodies.some((b) => Math.abs(n.x - b.x) <= b.w / 2 + 20 && Math.abs(n.y - b.y) <= b.h / 2 + 20);
+        const attached = endpoints.some(([ex, ey]) => Math.abs(n.x - ex) <= 90 && Math.abs(n.y - ey) <= 90);
+        if (!inside && !attached)
+          ctx.addIssue({ code: "custom", message: `Komponen ${n.id} melayang di luar bodi dan tidak terhubung pipa` });
+      }
+    });
     scene_states.forEach((s, i) => {
+      if (s.cutaway >= 0.5 && (s.zoom < 1.35 || s.zoom > 1.9))
+        ctx.addIssue({ code: "custom", path: ["scene_states", i], message: "Adegan inti wajib zoom 1.35..1.9" });
       if (
         s.sceneIndex !== i ||
         !nodes.some((n) => n.id === s.focusNode && (!n.visibleScenes || n.visibleScenes.includes(i))) ||

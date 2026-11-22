@@ -18,6 +18,14 @@ Perakit memilih `mech_rig.archetype`: `appliance_box`, `aerodynamic_wing` (airfo
 
 Contoh tanpa API: dari `video_engine`, jalankan `npx remotion studio src/index.ts --props=examples/wing-modular.json`. Saat `--resume`, rig lama tanpa archetype/suasana dirakit ulang sekali memakai naskah dan audio checkpoint; rig baru yang valid langsung dipakai.
 
+### Wujud asli di pembuka, komponen aksi, dan gerbang anti-aneh
+
+Mode modular kini menampilkan **satu gambar benda asli** (`assets/01_exterior.png`, dibuat `asset_generator.generate_exterior` lewat provider gambar yang sudah ada; matikan dengan `EXTERIOR=off`) selama cutaway masih rendah — babak pertama dan penutup memperlihatkan benda yang dikenali penonton, lalu gambar memudar menampakkan jeroan modular. Gagal membuat gambar tidak menghentikan render; siluet archetype tetap tampil.
+
+Komponen baru di `MechanicalKit.tsx`: `push_button` (tombol besar yang benar-benar turun saat aktif, lengkap panah tekan), `float_ball` (bola pelampung + lengan yang naik mengikuti permukaan air), dan `siphon_pipe` (pipa leher angsa S/U dengan aliran bergerak). Prompt perakit hanya boleh memakai komponen yang benar-benar ada di benda aslinya.
+
+Gerbang anti-aneh di `mech_rig.validate()` (dan skema Zod): komponen kerja wajib w/h minimal 85 (tidak ada lagi tombol sekecil titik), adegan inti (`cutaway>=0.5`) wajib zoom 1.35–1.9, dan komponen internal harus berada di dalam bodi atau menempel ujung pipa (anti melayang). Prompt naskah juga ditegakkan kode: hanya komponen fisik nyata, arah aliran harus benar, dan kalimat ajakan komentar otomatis dibuang dari penutup (`strip_comment_cta`).
+
 ## Mode opsional: gambar hybrid (`--visual hybrid`)
 
 Pipeline hybrid membuat Shorts dengan **3–4 ilustrasi AI per topik** dan motion graphics Remotion. Anatomi benda tidak lagi dibuat dengan meminta LLM menulis TSX. Bagian riwayat tahap di bawah juga mendokumentasikan mesin visual versi lama.

@@ -145,6 +145,7 @@ export type MechTiming = {
 
 export type ShortsProps = {
   modular?: ModularPlan;
+  exterior?: string; // gambar benda asli (assets/01_exterior.png) untuk pembuka/penutup modular
   hybrid?: HybridPlan;
   plainBg?: boolean; // hanya untuk uji otomatis: tanpa latar lingkungan supaya gambar AI bisa diukur sendiri
   environmentType?: string; // salah satu dari ENV_TYPES: latar bergerak sesuai topik

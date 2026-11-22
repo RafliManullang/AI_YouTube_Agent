@@ -84,6 +84,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   mechScenes = [],
   hybrid,
   modular,
+  exterior,
   hookQuestion = "",
   hookHighlight = "",
   claim,
@@ -146,7 +147,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
     <AbsoluteFill style={{ backgroundColor: "#0b0f19" }}>
       {/* Satu kanvas berkelanjutan dari detik 0 sampai akhir: benda yang sama, hanya kamera dan geraknya yang berubah */}
       {modular && mi >= 0 ? (
-        <ModularMechanism plan={modular} timings={mechScenes} index={mi} clean={clean} />
+        <ModularMechanism plan={modular} timings={mechScenes} index={mi} clean={clean} exterior={exterior} />
       ) : hybrid && mi >= 0 ? (
         <HybridMechanism plan={hybrid} timings={mechScenes} index={mi} clean={clean} />
       ) : (
