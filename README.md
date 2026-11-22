@@ -15,6 +15,14 @@ dan `storyboard.html`: daftar 5–6+ prompt visual Bahasa Inggris beserta durasi
 dengan mata), lalu simpan sebagai `video_engine/public/clips/scene_01.mp4`, `scene_02.mp4`, ...
 (atau `.png`/`.jpg` resolusi tinggi untuk adegan statis).
 
+**Pengisian klip otomatis (`clip_fetcher.py`):** bila tidak memakai `--tahap 1`, agen otomatis mengisi
+klip yang belum ada sebelum render, dengan prioritas sesuai key di `.env`: `FAL_KEY` (gambar AI 9:16
+via Flux, berbayar) → `GEMINI_API_KEY` (Imagen 9:16, butuh billing aktif) → `PEXELS_API_KEY` /
+`PIXABAY_API_KEY` (video stok vertikal gratis). Jadi `jalankan_agen.bat --tanpa-upload` langsung jalan
+sampai `shorts_final.mp4` tanpa berhenti, selama minimal satu key visual terisi. Run baru (bukan
+`--resume`) membersihkan klip `scene_*` sisa topik sebelumnya terlebih dahulu; mode manual tetap bisa:
+taruh klip sendiri di folder yang sama dan klip yang sudah ada tidak akan ditimpa.
+
 **Tahap 2 — rakit video:**
 `jalankan_agen.bat --tahap 2 --resume --tanpa-upload`
 `SceneClipLayer` memutar klip per adegan (cover 9:16, transisi pudar 6 frame) sinkron dengan durasi
