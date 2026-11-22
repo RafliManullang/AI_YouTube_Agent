@@ -348,12 +348,11 @@ def build_prompt(forced_topic, done_titles):
         topic_rule = f"Topik wajib: {forced_topic}."
     else:
         topic_rule = (
-            "Pilih satu topik secara acak dari tiga kelompok ini:\n"
-            "    1. Cara kerja benda atau infrastruktur sehari-hari (contoh: cara kerja lift gedung, "
-            "konstruksi MRT bawah tanah, mekanisme rice cooker).\n"
-            "    2. Fakta sains dan teknik di balik benda atau fenomena fisik (contoh: ilmu di balik "
-            "dinding batu bata, kenapa gergaji medis tidak melukai kulit).\n"
-            "    3. Cerita sejarah dan kisah nyata yang unik (contoh: kisah bertahan hidup, budaya unik)."
+            "Pilih satu topik secara acak, HANYA dari benda yang punya rantai mekanis/fluida/termal/listrik "
+            "yang jelas dan bisa digambar kit mekanis (tangki, katup, pemanas, tuas, pegas, pompa, saklar, "
+            "pelampung, sifon, roda gigi). Contoh aman: cara kerja flush toilet, setrika uap, rice cooker, "
+            "pompa air, kunci pintu, rem cakram, kipas angin, dongkrak hidrolik. DILARANG topik abstrak, "
+            "sejarah murni, biologi tanpa mekanisme, atau fenomena tanpa komponen fisik yang bergerak."
         )
     topic_rule += (
         "\nSUDUT PANDANG TOPIK (penting): jangan topik dasar yang semua orang sudah tahu. Pilih sudut yang bikin "
@@ -472,6 +471,12 @@ Per adegan (boleh kosong): "load" adalah beban atau tekanan yang ditahan kompone
 label panah gaya (contoh "4x tekanan") kalau adegan itu membahas kenaikan tekanan, suhu, kecepatan, atau tegangan. Kosongkan kalau
 angkanya tidak diucapkan di adegan itu.
 
+BLUEPRINT MEKANIS (tulis SEBELUM adegan, kunci untuk naskah DAN gambar): "mechanism_blueprint" berisi
+"components": daftar 4-5 komponen fisik ASLI benda itu (nama Indonesia sederhana, contoh toilet:
+["tombol flush","katup flapper","pelampung","tangki air","sifon"]) dan "chain": 3-5 mata rantai sebab-akibat
+singkat ("tombol ditekan -> flapper terangkat -> air turun karena gravitasi -> sifon menyedot ke pembuangan").
+Narasi HANYA boleh menyebut komponen dalam daftar ini; gambar juga akan memakai daftar yang sama persis.
+
 Keluarkan HANYA JSON murni dengan format persis ini:
 {{
   "title": "Judul menarik maksimal 60 karakter",
@@ -487,6 +492,7 @@ Keluarkan HANYA JSON murni dengan format persis ini:
   "assets": [{{"id":"01_exterior","view_type":"exterior","prompt":"subject in its environment"}},
              {{"id":"02_analogy","view_type":"analogy","prompt":"everyday analogy"}},
              {{"id":"03_cutaway","view_type":"cutaway","prompt":"cross-section and named internal parts"}}],
+  "mechanism_blueprint": {{"components": ["komponen asli 1", "komponen asli 2", "komponen asli 3", "komponen asli 4"], "chain": ["A menekan B", "B membuka C", "air mengalir ke D"]}},
   "scenes": [
     {{
       "asset_id":"01_exterior", "component":"nama bagian",
@@ -1083,6 +1089,14 @@ def validate_content(data):
     fix_opener(scenes)
     enforce_loop(scenes)
     strip_comment_cta(scenes)
+    bp = data.get("mechanism_blueprint") if isinstance(data.get("mechanism_blueprint"), dict) else {}
+    components = [clean_text(c, 40) for c in (bp.get("components") or []) if clean_text(c, 40)][:5]
+    if len(components) < 3:  # naskah lama tanpa blueprint: turunkan dari label komponen adegan
+        components = list(dict.fromkeys(p for sc in scenes for p in sc["points"] if p))[:5]
+    data["mechanism_blueprint"] = {
+        "components": components,
+        "chain": [clean_text(c, 90) for c in (bp.get("chain") or []) if clean_text(c, 90)][:5],
+    }
     data["scenes"] = scenes
     data["full_script"] = " ".join(s["narration"] for s in scenes)
     if len(data["full_script"].split()) < 20:
@@ -1405,21 +1419,8 @@ def render_timings(scenes, words, duration):
     return timings
 
 
-def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, timings=None, *, modular=None, hybrid=None, exterior=None):
-    info("[4/5] Menjalankan Remotion (membuat video beranimasi)...")
-    npm = shutil.which("npm")
-    npx = shutil.which("npx")
-    if not npm or not npx:
-        raise RuntimeError("Node.js belum terpasang. Unduh dari https://nodejs.org lalu jalankan ulang.")
-
-    # Pasang paket Node yang belum ada (termasuk paket baru setelah git pull)
-    render_worker.ensure_deps(REMOTION_DIR, info)
-
-    os.makedirs(OUT_DIR, exist_ok=True)
-    output_mp4 = os.path.join(OUT_DIR, "shorts_final.mp4")
-    if os.path.exists(output_mp4):
-        os.remove(output_mp4)
-
+def assemble_props(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, timings=None, *, modular=None, hybrid=None, exterior=None):
+    """Satu-satunya tempat props Remotion disusun (dipakai render penuh dan gerbang Vision)."""
     props = {
         "audioUrl": audio_file,
         "scenes": [
@@ -1444,17 +1445,12 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
         "hookHighlight": (screen or {}).get("hook_highlight") or "",
         **({"claim": screen["claim"]} if (screen or {}).get("claim", {}).get("text") else {}),
         "sfxMap": pick_sfx_map(),
-        # Efek suara bisa dimatikan dengan menulis SFX=off di file .env
         "sfx": os.getenv("SFX", "on").strip().lower() != "off",
     }
-    # Musik latar: taruh file bgm.mp3 di video_engine/public, otomatis dipakai dengan volume pelan
     if os.path.exists(os.path.join(PUBLIC_DIR, "bgm.mp3")):
         props["bgmUrl"] = "bgm.mp3"
-        info("  -> Musik latar bgm.mp3 ditemukan dan dipakai.")
     elif music and os.getenv("BGM", "on").strip().lower() != "off" and os.path.exists(os.path.join(PUBLIC_DIR, "bgm", f"{music}.wav")):
         props["bgmUrl"] = f"bgm/{music}.wav"
-        info(f"  -> Musik latar bawaan: {music}.")
-
     props["mechScenes"] = timings or render_timings(scenes, words, duration)
     if exterior:
         props["exterior"] = exterior
@@ -1464,10 +1460,21 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
         props["hybrid"] = hybrid
     else:
         raise ValueError("Rencana visual belum ada.")
+    return props
 
-    # Semua data wajib lolos skema Zod, lalu render berjalan dengan pemulihan otomatis (render_worker.py)
+
+def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, timings=None, *, modular=None, hybrid=None, exterior=None):
+    info("[4/5] Menjalankan Remotion (membuat video beranimasi)...")
+    if not shutil.which("npm") or not shutil.which("npx"):
+        raise RuntimeError("Node.js belum terpasang. Unduh dari https://nodejs.org lalu jalankan ulang.")
+    render_worker.ensure_deps(REMOTION_DIR, info)
+    os.makedirs(OUT_DIR, exist_ok=True)
+    output_mp4 = os.path.join(OUT_DIR, "shorts_final.mp4")
+    if os.path.exists(output_mp4):
+        os.remove(output_mp4)
+    props = assemble_props(words, scenes, duration, theme_index, music, bg_seed, audio_file, screen, timings,
+                           modular=modular, hybrid=hybrid, exterior=exterior)
     render_worker.render(props, output_mp4, REMOTION_DIR, None, info)
-
     if not os.path.exists(output_mp4) or os.path.getsize(output_mp4) < 10_000:
         raise RuntimeError("Video hasil render tidak ditemukan atau rusak.")
     normalize_loudness(output_mp4)
@@ -1683,6 +1690,47 @@ def prepare_session(resume, topic, *, visual_mode="modular"):
     return data, session["voice"]
 
 
+def vision_gate(props, data, voice):
+    """Render 3 still (babak awal/tengah/akhir) dan minta Gemini Vision memeriksa.
+
+    Mengembalikan rig hasil revisi satu kali bila Vision menolak, selain itu None.
+    Semua kegagalan infrastruktur (tidak ada key, still gagal) = lewati gerbang.
+    """
+    if os.getenv("VISION_GATE", "on").strip().lower() == "off" or "modular" not in props:
+        return None
+    vision = vision_caller()
+    if not vision:
+        return None
+    try:
+        timings = props["mechScenes"]
+        picks = [timings[0], timings[len(timings) // 2], timings[-1]]
+        frames = [min(t["endFrame"] - 1, t["triggerFrame"] + 12) for t in picks]
+        props_path = os.path.join(REMOTION_DIR, "gate_props.json")
+        with open(props_path, "w", encoding="utf-8") as f:
+            json.dump(props, f, ensure_ascii=False)
+        pngs = []
+        for i, fr in enumerate(frames):
+            out = os.path.join(OUT_DIR, f"gate_{i}.png")
+            subprocess.run([shutil.which("npx"), "remotion", "still", "src/index.ts", "ShortsComp", out,
+                            "--props=gate_props.json", f"--frame={fr}", "--image-format=png"],
+                           cwd=REMOTION_DIR, check=True, capture_output=True, timeout=300)
+            pngs.append(Path(out).read_bytes())
+        answer = vision(
+            "Periksa 3 frame video edukasi mekanis ini. Jawab JSON saja: "
+            '{"ok":boolean,"issues":["..."]}. ok=false hanya bila: benda luar tidak dikenali, '
+            "ada komponen/label bertabrakan atau keluar layar, atau susunan pipa/komponen tidak masuk akal.", pngs)
+        verdict = extract_json(answer)
+        if verdict.get("ok"):
+            info("  -> Gerbang Vision: 3 frame lolos pemeriksaan.")
+            return None
+        info(f"  -> Gerbang Vision menolak ({str(verdict.get('issues'))[:160]}); meminta revisi rig satu kali...")
+    except Exception as exc:
+        info(f"  -> Gerbang Vision dilewati ({str(exc)[:100]}).")
+        return None
+    data.pop("modular", None)
+    return prepare_modular(data, voice)
+
+
 def prepare_modular(data, voice):
     count = len(data["scenes"])
     if "modular" in data:
@@ -1782,6 +1830,14 @@ def main():
             exterior = prepare_exterior(data, voice)
             if exterior:
                 visual["exterior"] = exterior
+        if args.visual != "hybrid":
+            gate_props = assemble_props(
+                words, data["scenes"], duration, data["theme_index"], data.get("music"), data.get("bg_seed", 0), audio_file,
+                {k: data.get(k) for k in ("environment", "hook_question", "hook_highlight", "claim")},
+                timings=voice["timings"], **visual)
+            revised = vision_gate(gate_props, data, voice)
+            if revised is not None:
+                visual["modular"] = revised
         final_video = render_remotion_video(
             words, data["scenes"], duration, data["theme_index"], data.get("music"), data.get("bg_seed", 0), audio_file,
             {k: data.get(k) for k in ("environment", "hook_question", "hook_highlight", "claim")}, timings=voice["timings"], **visual

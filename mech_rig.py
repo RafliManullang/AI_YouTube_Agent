@@ -61,9 +61,9 @@ def valid_color(value):
 
 def build_prompt(data, timings=()):
     brief = """Rakit JSON (bukan TSX/markup): {"mech_rig":{"archetype":"bottle_tank","atmosphere":{"bgTop":"#0c4a6e","bgBottom":"#020617","accent":"#38bdf8","gridStyle":"blueprint","particle":"bubbles"},"nodes":[],"pipes":[]},"scene_states":[]}.
-Pilih archetype bodi paling pas: bottle_tank tangki/toilet/ketel, dome_pot panci/rice cooker, handle_nozzle nozel/pegangan, cylinder_tube pompa/silinder, disc_rotary roda/rem/turbin, appliance_box mesin kotak, aerodynamic_wing sayap, open_frame rangka terbuka. Warna #rrggbb unik per topik; gridStyle blueprint/radial_glow/clean; particle wind_lines/bubbles/sparks/steam/dots.
-WAJIB rakit 5–9 node nyata: 1 node casing besar di tengah + 4–8 komponen kerja (tank,piston,heater,valve,turbine,chamber,spring,lever,push_button,float_ball,siphon_pipe,bimetal,sensor,filter) yang tersusun rapi DI DALAM casing (pusat komponen harus masuk area casing atau menyentuh ujung pipa; tidak boleh melayang di luar bodi), plus 2–6 pipes jika ada aliran. JANGAN cuma pakai 1 custom_shape kosong. Hanya pakai komponen yang BENAR-BENAR ADA di benda aslinya (toilet: push_button,float_ball,valve,siphon_pipe,tank; jangan mengarang piston/turbin). context_object variant cup/plate/tire/hand/shower/paper; analogi WAJIB visibleScenes:[indeks analogi saja].
-Node {id,type,x,y,w,h,label}; pusat dan titik pipa x180..900 y420..1280, w/h24..1000, KHUSUS komponen kerja (semua kecuali casing/custom_shape/context_object) w dan h MINIMAL 85 supaya terlihat jelas. Pipa {id,points:[[x,y],[x,y]],color}, ujung menyentuh komponen. ID unik.
+Archetype: bottle_tank tangki/toilet, dome_pot panci, handle_nozzle nozel, cylinder_tube pompa, disc_rotary roda/rem, appliance_box mesin kotak, aerodynamic_wing sayap, open_frame rangka. Warna #rrggbb unik per topik; gridStyle blueprint/radial_glow/clean; particle wind_lines/bubbles/sparks/steam/dots.
+WAJIB rakit 5–9 node nyata: 1 node casing besar di tengah + 4–8 komponen kerja (tank,piston,heater,valve,turbine,chamber,spring,lever,push_button,float_ball,siphon_pipe,bimetal,sensor,filter) rapi DI DALAM casing (pusat di dalam bodi atau menempel ujung pipa; anti melayang), plus 2–6 pipes bila ada aliran. JANGAN cuma pakai 1 custom_shape kosong. Hanya komponen ASLI benda itu (toilet: push_button,float_ball,valve,siphon_pipe,tank; tanpa piston karangan). context_object variant cup/plate/tire/hand/shower/paper; analogi WAJIB visibleScenes:[indeks analogi saja].
+Node {id,type,x,y,w,h,label}; pusat dan titik pipa x180..900 y420..1280, w/h24..1000, komponen kerja (selain casing/custom_shape/context_object) w/h MINIMAL 85. Pipa {id,points:[[x,y],[x,y]],color}, ujung menyentuh komponen. ID unik.
 Satu state per adegan berurutan {sceneIndex,focusNode,zoom,cutaway,active:{id:nilai}}: adegan 0 & terakhir cutaway 0..0.2 (bodi utuh), adegan tengah cutaway 0.85..1 (X-ray) DAN zoom 1.35..1.9 supaya komponen yang dibahas memenuhi layar. WAJIB ganti focusNode (minimal 3 node berbeda) dan ubah nilai active (0..1) mengikuti komponen/pipa yang sedang beraksi. JSON ringkas."""
     # Sertakan setiap adegan bahkan saat resume dengan naskah panjang. Batasi byte UTF-8, bukan token perkiraan.
     title = data["title"].encode()[:110].decode(errors="ignore")
@@ -71,7 +71,10 @@ Satu state per adegan berurutan {sceneIndex,focusNode,zoom,cutaway,active:{id:ni
     for i, s in enumerate(data["scenes"]):
         analogy = "[analogi] " if i < len(timings) and timings[i].get("mode") == "analogi" else ""
         rows.append(f"{i}: {analogy}{s.get('title', '')} — {s.get('narration', '')}")
-    head = f"{brief}\nTopik: {title}\n"
+    bp = data.get("mechanism_blueprint") or {}
+    locks = ", ".join(bp.get("components") or []) or "-"
+    chains = " -> ".join(bp.get("chain") or []) or "-"
+    head = f"{brief}\nTopik: {title}\nBLUEPRINT TERKUNCI (label node persis nama ini, tanpa komponen kerja lain): {locks}. Rantai: {chains}\n"
     budget = (2000 - len(head.encode())) // max(1, len(rows)) - 1
     return head + "\n".join(row.encode()[:budget].decode(errors="ignore") for row in rows)
 

@@ -134,3 +134,36 @@ class AntiWeirdTests(unittest.TestCase):
         self.assertNotIn("komentar", scenes[0]["narration"])
         self.assertIn("flush", scenes[0]["narration"])
         self.assertIn("AKURASI MEKANIS WAJIB", agent.build_prompt("toilet duduk", []))
+
+
+class BlueprintAndGateTests(unittest.TestCase):
+    def test_blueprint_locked_into_rig_prompt_and_topic_rule(self):
+        data = {"title": "Toilet", "scenes": [],
+                "mechanism_blueprint": {"components": ["tombol flush", "sifon"], "chain": ["tombol -> sifon"]}}
+        prompt = mech_rig.build_prompt(data)
+        self.assertIn("BLUEPRINT TERKUNCI", prompt)
+        self.assertIn("tombol flush", prompt)
+        self.assertIn("rantai mekanis/fluida/termal/listrik", agent.build_prompt(None, []))
+        self.assertIn("mechanism_blueprint", agent.build_prompt("toilet", []))
+
+    def test_vision_gate_revises_once_when_rejected(self):
+        data = {"title": "Toilet", "scenes": [], "modular": {"lama": True}}
+        props = {"modular": {}, "mechScenes": [
+            {"startFrame": 0, "endFrame": 60, "triggerFrame": 20},
+            {"startFrame": 60, "endFrame": 120, "triggerFrame": 80},
+            {"startFrame": 120, "endFrame": 180, "triggerFrame": 140}]}
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(agent, "REMOTION_DIR", tmp), patch.object(agent, "OUT_DIR", tmp), \
+                patch.object(agent, "vision_caller", return_value=lambda prompt, pngs: '{"ok": false, "issues": ["komponen bertabrakan"]}'), \
+                patch.object(agent.subprocess, "run") as run, \
+                patch.object(agent, "prepare_modular", return_value={"rig": "baru"}) as prep:
+            def fake_run(*a, **k):
+                Path(a[0][5]).write_bytes(b"png")
+            run.side_effect = fake_run
+            self.assertEqual(agent.vision_gate(props, data, {}), {"rig": "baru"})
+            prep.assert_called_once()
+            self.assertNotIn("modular", data)
+
+    def test_vision_gate_skips_without_vision(self):
+        with patch.object(agent, "vision_caller", return_value=None):
+            self.assertIsNone(agent.vision_gate({"modular": {}, "mechScenes": []}, {}, {}))
