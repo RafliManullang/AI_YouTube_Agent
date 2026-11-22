@@ -56,7 +56,14 @@ export const ModularMechanism: React.FC<{
     durationInFrames: Math.max(1, Math.round(0.8 * (timings[index].endFrame - timings[index].startFrame))),
     config: { damping: 22, overshootClamping: true },
   });
-  const act = (id: string, amount = t) => mix(prev.active[id] ?? 0, now.active[id] ?? 0, amount);
+  // Gerak active & bunyi puncak mulai di frame kata pemicu (triggerFrame dari timestamp TTS),
+  // bukan di awal adegan — narator menyebut "katup terbuka" tepat saat katupnya bergerak.
+  const tAct = spring({
+    frame: Math.max(0, frame - Math.max(timings[index].startFrame, timings[index].triggerFrame)),
+    fps,
+    config: { stiffness: 130, damping: 17, mass: 0.8, overshootClamping: true },
+  });
+  const act = (id: string, amount = tAct) => mix(prev.active[id] ?? 0, now.active[id] ?? 0, amount);
   const phase = (id: string) => drivePhase(id, plan, timings, index, frame);
   const targetX = 540 + (to.x - cx) * zoom,
     targetY = 860 + (to.y - cy) * zoom;
@@ -64,7 +71,7 @@ export const ModularMechanism: React.FC<{
     <RenderMechNode
       node={n}
       archetype={archetype}
-      act={act(n.id, n.type === "tank" || n.variant === "cup" ? levelT : t)}
+      act={act(n.id, n.type === "tank" || n.variant === "cup" ? levelT : tAct)}
       phase={n.type === "turbine" || archetype === "disc_rotary" ? phase(n.id) : 0}
       frame={frame}
     />
@@ -108,11 +115,18 @@ export const ModularMechanism: React.FC<{
           {visible
             .filter((n) => n.type !== "casing" && n.type !== "custom_shape" && n.type !== "context_object")
             .map((n) => {
+              const isFocus = to.id === n.id;
               const lit = (focus: typeof to) =>
-                focus.type === "custom_shape" || focus.type === "casing" || focus.id === n.id ? 1 : 0.51;
+                focus.type === "custom_shape" || focus.type === "casing" || focus.id === n.id ? 1 : 0.38;
               return (
-                <g key={n.id} opacity={(exposed ? 1 : cut) * Math.max(act(n.id), mix(lit(from), lit(to), t))}>
+                <g
+                  key={n.id}
+                  opacity={(exposed ? 1 : cut) * Math.max(act(n.id), mix(lit(from), lit(to), t))}
+                  style={isFocus ? { filter: "drop-shadow(0 0 10px rgba(255,214,120,0.95))" } : undefined}
+                >
                   {nodeArt(n)}
+                  {/* Label bergantian: titik kecil hanya untuk komponen yang sedang aktif selain fokus. */}
+                  {!isFocus && act(n.id) >= 0.5 ? <circle cx={n.x} cy={n.y - n.h / 2 - 14} r="7" fill="#ffd678" stroke="#0f172a" strokeWidth="2" /> : null}
                 </g>
               );
             })}
@@ -147,6 +161,50 @@ export const ModularMechanism: React.FC<{
               <g key={n.id}>{nodeArt(n)}</g>
             ))}
         </g>
+        {(() => {
+          // Micro-juice: getaran 2-3px sesaat setelah kata pemicu pada adegan berdampak besar.
+          const sinceTrig = frame - timings[index].triggerFrame;
+          const shake = (now.active[to.id] ?? 0) >= 0.8 && sinceTrig >= 0 && sinceTrig < 9 ? Math.sin(sinceTrig * 2.4) * (3 - sinceTrig / 3) : 0;
+          const kind = to.type === "heater" || to.type === "bimetal" || to.type === "sensor" ? "heat"
+            : to.type === "siphon_pipe" || to.type === "tank" || to.type === "float_ball" ? "flow" : "push";
+          const arrowColor = kind === "heat" ? "#fb923c" : kind === "flow" ? "#38bdf8" : "#f87171";
+          const STATUS: Record<string, [string, string]> = {
+            push_button: ["DITEKAN", "SIAGA"], valve: ["TERBUKA", "TERTUTUP"], heater: ["MEMANAS", "DINGIN"],
+            tank: ["TERISI", "PENUH"], float_ball: ["NAIK", "TURUN"], siphon_pipe: ["MENYEDOT", "DIAM"],
+          };
+          const statusText = STATUS[to.type] ? STATUS[to.type][(now.active[to.id] ?? 0) >= 0.5 ? 0 : 1] : (now.active[to.id] ?? 0) >= 0.5 ? "AKTIF" : "SIAGA";
+          return (
+            <g transform={`translate(${shake} 0)`}>
+              {kind === "heat" ? (
+                <path d={`M${targetX} ${targetY - 90}v-56m0 0l-13 15m13 -15l13 15`} stroke={arrowColor} strokeWidth="9" fill="none" strokeLinecap="round" opacity={0.35 + 0.65 * act(to.id)} />
+              ) : kind === "flow" ? (
+                <path d={`M${targetX - 64} ${targetY - 70}q64 -34 128 0m0 0l-4 -17m4 17l-18 -8`} stroke={arrowColor} strokeWidth="9" fill="none" strokeLinecap="round" opacity={0.35 + 0.65 * act(to.id)} />
+              ) : (
+                <path d={`M${targetX} ${targetY - 130}v56m0 0l-13 -15m13 15l13 -15`} stroke={arrowColor} strokeWidth="9" fill="none" strokeLinecap="round" opacity={0.35 + 0.65 * act(to.id)} />
+              )}
+              {/* Partikel lokal keluar dari komponen fokus, bukan dari latar. */}
+              {Array.from({ length: 6 }, (_, i) => {
+                const rise = (frame * (1 + i * 0.17) + i * 23) % 90;
+                return <circle key={i} cx={targetX + Math.sin(i * 2.7 + frame / 9) * 26} cy={targetY - rise} r={kind === "heat" ? 4 : 5}
+                  fill={kind === "flow" ? "#bae6fd" : "#ffe1b0"} opacity={act(to.id) * (1 - rise / 90) * 0.9} />;
+              })}
+              {!clean && (
+                <g>
+                  {(() => {
+                    const txt = `${(to.label || to.id).toUpperCase().slice(0, 12)}: ${statusText}`;
+                    const w = 40 + txt.length * 17.5;
+                    return (
+                      <>
+                        <rect x={1052 - w} y="128" width={w} height="58" rx="12" fill="#102632" stroke="#90d9be" strokeWidth="2" opacity="0.92" />
+                        <text x={1070 - w} y="166" fill="#effbf6" fontSize="24" fontWeight="bold">{txt}</text>
+                      </>
+                    );
+                  })()}
+                </g>
+              )}
+            </g>
+          );
+        })()}
         {!clean && (
           <g opacity={index === 0 ? 1 : t}>
             {cut > 0.05 && (
