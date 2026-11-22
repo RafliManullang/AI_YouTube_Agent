@@ -29,6 +29,7 @@ from datetime import datetime, timedelta, timezone
 import requests
 
 import storyboard_exporter
+import clip_fetcher
 import pacing
 import render_worker
 
@@ -1594,6 +1595,10 @@ def main():
         # Tahap 1: ekspor daftar klip yang dibutuhkan (prompt EN + durasi per adegan).
         info("[3/5] Mengekspor storyboard (daftar klip per adegan)...")
         clips_dir = Path(PUBLIC_DIR) / "clips"
+        if args.tahap != 1:
+            if not args.resume:
+                clip_fetcher.clear_clips(clips_dir)
+            clip_fetcher.fill_clips(data["scenes"], clips_dir, log=info)
         plan = storyboard_exporter.build_clip_plan(data["scenes"], clips_dir)
         txt_path, html_path = storyboard_exporter.write_storyboard(data["scenes"], plan, Path(OUT_DIR), data["title"])
         voice["clip_plan"] = plan
