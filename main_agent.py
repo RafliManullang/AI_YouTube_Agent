@@ -1,7 +1,8 @@
 """
 AI YouTube Agent
-Alur kerja: naskah dan storyboard -> TTS dan waktu kata -> rig modular (atau gambar hybrid)
--> koreografi Remotion -> unggah ke YouTube.
+Alur kerja dua tahap: (1) naskah + prompt visual per adegan -> TTS dan waktu kata
+-> storyboard diekspor; (2) setelah klip per adegan ditaruh di video_engine/public/clips/,
+Remotion merakit video (auto-editor) -> unggah ke YouTube.
 
 Cara pakai (contoh):
     python main_agent.py                      # jalan penuh sampai unggah
@@ -27,11 +28,9 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-import mech_rig
-import asset_generator
+import storyboard_exporter
 import pacing
 import render_worker
-import svg_composer
 
 try:
     from dotenv import load_dotenv
@@ -308,11 +307,11 @@ def render_thumb_background(scenes):
     try:
         with open(props_path, "r", encoding="utf-8") as f:
             props = json.load(f)
-        cands = props.get("mechScenes") or []
+        cands = props.get("scenes") or []
         if not cands:
             return None
-        sc = cands[min(2, len(cands) - 1)]
-        frame = min(sc["endFrame"] - 1, sc["triggerFrame"] + 18)
+        sc = cands[min(1, len(cands) - 1)]
+        frame = int(sc.get("startFrame", 0)) + max(1, int(sc.get("durationInFrames", 30)) // 2)
         props["clean"] = True
         with open(os.path.join(REMOTION_DIR, "thumb_bg_props.json"), "w", encoding="utf-8") as f:
             json.dump(props, f, ensure_ascii=False)
@@ -421,14 +420,12 @@ kotak." dan penutup "Jadi, apa jadinya kalau jendela pesawat berbentuk kotak?". 
 di baliknya ada balok besi seberat mobil." dan penutup "Lalu kenapa lift tidak pernah jatuh?".
 {STRUCTURE_RULE}
 
-STORYBOARD HYBRID: rencanakan 3–4 ilustrasi berulang dari satu topik, tanpa kode atau teks di gambar.
-assets: ID/view_type wajib 01_exterior/exterior, 02_analogy/analogy, 03_cutaway/cutaway; opsional 04_closeup/closeup.
-Isi prompt singkat dalam bahasa Inggris, spesifik ke alat/perumpamaan dalam naskah. Cutaway wajib memperlihatkan
-komponen fisik yang dibahas. Gunakan exterior di awal dan akhir, analogy untuk satu adegan "Ibarat", cutaway untuk
-bedah inti dan closeup opsional di klimaks. Setiap scene: asset_id, component (nama bagian yang ditunjuk),
-camera (fromScale/toScale 1..2.2, focusX/focusY 0..1), overlay (type flow_arrows/heat_pulse/badge_only,
-direction up/down/left/right, targetX 0..1080, targetY 0..1920, label singkat, accentColor #rrggbb).
-Isi items dengan 1–2 nama komponen nyata, type mechanism, trigger satu kata persis dari narasi untuk sinkronisasi aksi.
+PROMPT VISUAL PER ADEGAN ("visualPrompt"): satu prompt Bahasa Inggris yang konkret dan bisa langsung
+dipakai di generator video/gambar AI: subjek spesifik, aksi/gerakan kamera, lingkungan, pencahayaan, gaya
+(photorealistic / cinematic), format vertikal 9:16. Bukan koordinat, bukan JSON gambar, bukan kode. Contoh:
+"Photorealistic vertical 9:16 close-up of a dishwasher spray arm rotating and spraying water jets inside a
+stainless steel dishwasher, bright kitchen light, slow push-in camera". Satu prompt per adegan, cocok dengan
+kalimat yang diucapkan pada adegan itu.
 BUNYI MOMEN PUNCAK ("sfx"): hanya satu bunyi di momen puncak adegan, harus cocok dengan kejadiannya. Pilihan: "clank" (logam beradu),
 "hiss" (desis udara), "zap" (listrik), "thud" (hantaman berat), "sizzle" (panas), "bubble" (cairan), "ding" (berhasil), "bell"
 (momen sejarah), "impact" (kejutan), "chain" (rantai), "swell" (tekanan besar), "creak" (derit struktur). Kosongkan ("") kalau tidak
@@ -453,20 +450,9 @@ pertanyaan pancingan PENUTUP MELINGKAR sudah cukup sebagai penutup, jangan ditam
 "category" salah satu dari: "CARA KERJA", "FAKTA SAINS", "KISAH NYATA".
 "thumbnail_text" adalah 2 sampai 4 kata huruf besar yang memancing penasaran, boleh diakhiri tanda tanya, tanpa emoji.
 
-LATAR DAN LAPISAN LAYAR:
-"environment" pilih SATU sesuai tempat benda bekerja: "outdoor_motion" (kendaraan, transportasi, aerodinamika), "domestic_room" (alat rumah
-tangga, elektronik rumah, korek, setrika, AC, regulator, detektor), "industrial_pipe" (pompa, katup air, konstruksi, bendungan, listrik),
-"micro_circuit" (chip, sensor, baterai, sinyal, gelombang), "anatomical_fluid" (medis, tubuh manusia, biologi, kimia), "deep_pressure"
-(kapal selam, hidrolik berat, antariksa).
+LAPISAN LAYAR:
 "hook_question" adalah kalimat tanya pendek 3 sampai 6 kata yang tampil besar di layar selama 12 detik pertama (contoh "Kok bisa mati sendiri?",
 "Apa yang menahan?"), senada dengan kalimat pembuka. "hook_highlight" berisi 1 sampai 2 kata dari kalimat tanya itu yang diberi warna.
-"claim" adalah SATU klaim fisik berangka yang DIUCAPKAN di naskah beserta lembaga sumbernya, contoh {{"source": "SAE", "text": "±290 km/jam"}}.
-Isi hanya kalau kamu YAKIN angka dan sumbernya benar (lembaga nyata seperti SAE, IEEE, BSN, FAA, NASA, WHO). Kalau ragu, kosongkan
-keduanya. Dilarang mengarang sumber.
-Per adegan (boleh kosong): "load" adalah beban atau tekanan yang ditahan komponen dan diucapkan di adegan itu (contoh "2 TON"); "force" adalah
-label panah gaya (contoh "4x tekanan") kalau adegan itu membahas kenaikan tekanan, suhu, kecepatan, atau tegangan. Kosongkan kalau
-angkanya tidak diucapkan di adegan itu.
-
 Keluarkan HANYA JSON murni dengan format persis ini:
 {{
   "title": "Judul menarik maksimal 60 karakter",
@@ -475,29 +461,18 @@ Keluarkan HANYA JSON murni dengan format persis ini:
   "category": "CARA KERJA",
   "thumbnail_text": "KOK BISA JATUH?",
   "music": "misterius",
-  "environment": "domestic_room",
   "hook_question": "Kok bisa mati sendiri?",
   "hook_highlight": "mati sendiri",
   "claim": {{"source": "", "text": ""}},
-  "assets": [{{"id":"01_exterior","view_type":"exterior","prompt":"subject in its environment"}},
-             {{"id":"02_analogy","view_type":"analogy","prompt":"everyday analogy"}},
-             {{"id":"03_cutaway","view_type":"cutaway","prompt":"cross-section and named internal parts"}}],
   "scenes": [
     {{
-      "asset_id":"01_exterior", "component":"nama bagian",
-      "camera":{{"fromScale":1,"toScale":1.18,"focusX":0.5,"focusY":0.5}},
-      "overlay":{{"type":"badge_only","label":"BENDA UTUH"}},
+      "visualPrompt":"Photorealistic vertical 9:16 shot of the object and the exact action narrated in this scene, cinematic light, slow push-in",
       "lines": [{{"speaker": "flay", "text": "Kalimat yang diucapkan."}}],
       "title": "Judul adegan",
-      "type": "mechanism",
       "tone": "semangat",
-      "items": [{{"label": "bagian benda", "value": ""}}],
       "keywords": ["kata kunci"],
-      "trigger": "kata",
       "sound": "mesin",
-      "sfx": "clank",
-      "load": "",
-      "force": ""
+      "sfx": "clank"
     }}
   ]
 }}
@@ -729,9 +704,7 @@ def build_text_sources(prompt, raw=False):
 
 
 GREETINGS = ("halo", "hai", "hay", "selamat datang", "kali ini", "hari ini kita", "apa kabar", "teman-teman")
-HYBRID_SCENE_KEYS = ("asset_id", "component", "camera", "overlay")
-DRAFT_SCENE_KEYS = HYBRID_SCENE_KEYS + ("lines", "title", "type", "tone", "points", "items", "number", "unit", "footage_query",
-                    "keywords", "variant", "mood", "weather", "sound", "mechanism", "sfx", "sim", "art", "subject", "photo", "trigger", "load", "force")
+DRAFT_SCENE_KEYS = ("lines", "title", "tone", "visualPrompt", "keywords", "sound", "sfx")
 
 
 def polish_script(data, base_prompt):
@@ -740,12 +713,12 @@ def polish_script(data, base_prompt):
     if os.getenv("EDITOR", "on").strip().lower() == "off":
         return data
     info("  -> Editor sedang menyempurnakan naskah (hook, titik balik, angka, cek fakta)...")
-    draft = {k: data[k] for k in ("assets", "title", "description", "tags", "category", "thumbnail_text", "music", "environment", "hook_question", "hook_highlight", "claim") if k in data}
+    draft = {k: data[k] for k in ("title", "description", "tags", "category", "thumbnail_text", "music", "environment", "hook_question", "hook_highlight", "claim") if k in data}
     draft["scenes"] = [{k: sc[k] for k in DRAFT_SCENE_KEYS if k in sc} for sc in data["scenes"]]
     editor_prompt = (
         "===== TUGAS KAMU: EDITOR NASKAH VIDEO SHORTS BAHASA INDONESIA =====\n"
-        "Pertahankan daftar assets dan koreografi hybrid tiap adegan; cocokkan component dengan bagian yang diucapkan. "
-        "kiasan jangan diterjemahkan harfiah; tipe \"footage\" tidak dipakai; kosongkan \"art\" dan \"photo\".\n"
+        "Pertahankan visualPrompt tiap adegan (prompt visual Bahasa Inggris yang konkret); sesuaikan bila narasinya berubah. "
+
         "Di bawah ini ada DRAF naskah. Kamu editor video viral yang sangat kritis. Tulis ulang "
         "draf itu menjadi versi yang jauh lebih menarik, dengan TOPIK YANG SAMA dan FORMAT JSON YANG SAMA PERSIS "
         "seperti DRAF (semua kolom tiap adegan tetap ada; jumlah adegan 8 sampai 10, total ucapan 105 sampai 118 kata, maksimal mutlak 120).\n"
@@ -981,7 +954,6 @@ def finish_screen_fields(data):
 
 
 def validate_content(data):
-    data["assets"] = asset_generator.validate_assets(data.get("assets"))
     for key in ("title", "description", "tags", "scenes"):
         if key not in data:
             raise ValueError(f"JSON dari Gemini kekurangan kolom '{key}'.")
@@ -1003,37 +975,24 @@ def validate_content(data):
         narration = " ".join(l["text"] for l in lines)
         if len(narration.split()) < 4:
             continue
-        items = [
-            {"label": clean_text(it.get("label"), 24), "value": ""}
-            for it in (raw.get("items") or [])
-            if isinstance(it, dict) and clean_text(it.get("label"), 24)
-        ][:2]
         title = clean_text(raw.get("title"), 40) or "Tahukah kamu"
         tone = raw.get("tone") if raw.get("tone") in TONES else None
         sound = str(raw.get("sound") or "").strip().lower()
         keywords = [clean_text(k, 30) for k in (raw.get("keywords") or []) if str(k).strip()][:3]
         sfx_raw = str(raw.get("sfx") or "").strip().lower()
-        load = clean_text(raw.get("load"), 18).upper()
-        force = clean_text(raw.get("force"), 24)
-        if not _numbers_in(load, narration):
-            load = ""
-        if not _numbers_in(force, narration):
-            force = ""
+        visual = clean_text(raw.get("visualPrompt") or raw.get("visual_prompt"), 500)
+        if not visual:
+            visual = f"Photorealistic vertical 9:16 shot: {title}. {narration}"
         scenes.append({
-            **{k: raw[k] for k in HYBRID_SCENE_KEYS if k in raw},
-            "load": load,
-            "force": force,
+            "id": f"scene_{len(scenes) + 1:02d}",
+            "visualPrompt": visual,
             "sfx": sfx_raw if sfx_raw in KEY_SOUNDS else "",
-            "trigger": clean_text(raw.get("trigger"), 30).lower(),
             "keywords": keywords,
             "narration": narration,
             "lines": lines,
             "sound": sound if sound in AMBIENCES else "hening",
             "title": title,
-            "type": "mechanism",
             "tone": tone,
-            "points": [i["label"] for i in items] or [title],
-            "items": items,
         })
 
     if len(scenes) < 3:
@@ -1048,15 +1007,6 @@ def validate_content(data):
                 scene["tone"] = "tegas"
             else:
                 scene["tone"] = "santai" if i % 2 else "semangat"
-
-    # Adegan pembuka sebaiknya rekaman asli (hook). Kalau videonya tidak ada, nanti diturunkan otomatis.
-    for scene in scenes:
-        if scene["type"] == "footage" and not scene.get("footage_query"):
-            scene["type"] = "mindmap" if len(scene["points"]) >= 2 else "flow"
-    # cadangan: adegan tanpa kueri footage memakai kueri giliran bicara pertamanya yang punya kueri
-    for scene in scenes:
-        if not scene.get("footage_query"):
-            scene["footage_query"] = next((l["footage_query"] for l in scene["lines"] if l.get("footage_query")), "")
 
     fix_opener(scenes)
     enforce_loop(scenes)
@@ -1346,103 +1296,54 @@ async def generate_voices(scenes):
     return words, duration, "voice.mp3"
 
 
-def vision_caller():
-    """Fungsi (prompt, [png]) -> teks memakai Gemini penglihat; None kalau tidak ada kunci Gemini (pemeriksaan visual dilewati)."""
-    if not GEMINI_KEY or GEMINI_KEY == "ISI_KEY_DI_SINI":
-        return None
-    try:
-        from google import genai
-        from google.genai import types
-    except Exception:
-        return None
-    client = genai.Client(api_key=GEMINI_KEY)
-
-    def call(prompt, images):
-        parts = [types.Part.from_bytes(data=b, mime_type="image/png") for b in images] + [prompt]
-        config = types.GenerateContentConfig(temperature=0.2, response_mime_type="application/json",
-                                             http_options=types.HttpOptions(timeout=90000))
-        last = None
-        for model_name in dict.fromkeys(filter(None, [os.getenv("VISION_MODEL"), *VISION_MODELS])):
-            try:
-                return client.models.generate_content(model=model_name, contents=parts, config=config).text
-            except Exception as e:  # coba model berikutnya
-                last = e
-        raise RuntimeError(str(last)[:120] if last else "tidak ada model Gemini")
-    return call
-
-
 def _norm_word(w):
     return re.sub(r"[^a-z0-9]", "", str(w or "").lower())
 
 
-def render_timings(scenes, words, duration):
-    timings = svg_composer.build_timings(scenes, words)
-    timings[0]["startFrame"] = 0
-    timings[-1]["endFrame"] = max(timings[-1]["endFrame"], int(round(float(duration) * 30)))
-    return timings
+def render_timings(scenes, words=None, duration=None):
+    """Rencana klip per adegan (frame mulai + durasi) dari timing TTS. Kata tidak lagi dipakai."""
+    return storyboard_exporter.build_clip_plan(scenes, Path(PUBLIC_DIR) / "clips")
 
 
-def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, timings=None, *, modular=None, hybrid=None):
-    info("[4/5] Menjalankan Remotion (membuat video beranimasi)...")
-    npm = shutil.which("npm")
-    npx = shutil.which("npx")
-    if not npm or not npx:
+def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, clip_plan=None):
+    info("[4/5] Menjalankan Remotion (merakit klip per adegan menjadi video)...")
+    if not shutil.which("npm") or not shutil.which("npx"):
         raise RuntimeError("Node.js belum terpasang. Unduh dari https://nodejs.org lalu jalankan ulang.")
-
-    # Pasang paket Node yang belum ada (termasuk paket baru setelah git pull)
     render_worker.ensure_deps(REMOTION_DIR, info)
-
     os.makedirs(OUT_DIR, exist_ok=True)
     output_mp4 = os.path.join(OUT_DIR, "shorts_final.mp4")
     if os.path.exists(output_mp4):
         os.remove(output_mp4)
-
+    plan = clip_plan or render_timings(scenes)
+    by_index = {p["sceneIndex"]: p for p in plan}
     props = {
         "audioUrl": audio_file,
         "scenes": [
             {
-                "type": "mechanism",
-                "title": s["title"],
-                "points": s["points"],
-                "items": s.get("items") or [],
-                "start": s["start"],
-                "end": s["end"],
-                "sound": s.get("sound", "hening"),
-                **({"sfx": s["sfx"]} if s.get("sfx") else {}),
+                "id": scene.get("id") or f"scene_{i + 1:02d}",
+                "narration": scene["narration"],
+                "visualPrompt": scene.get("visualPrompt") or "",
+                "clipPath": by_index.get(i, {}).get("clipPath", ""),
+                "startFrame": by_index.get(i, {}).get("startFrame", int(round(float(scene.get("start") or 0) * 30))),
+                "durationInFrames": by_index.get(i, {}).get("durationInFrames", 90),
+                **({"sfx": scene["sfx"]} if scene.get("sfx") else {}),
             }
-            for s in scenes
+            for i, scene in enumerate(scenes)
         ],
         "words": words,
         "durationInSeconds": duration,
-        "themeIndex": theme_index,
-        "bgSeed": bg_seed,
-        "environmentType": (screen or {}).get("environment") or "domestic_room",
         "hookQuestion": (screen or {}).get("hook_question") or "",
         "hookHighlight": (screen or {}).get("hook_highlight") or "",
-        **({"claim": screen["claim"]} if (screen or {}).get("claim", {}).get("text") else {}),
         "sfxMap": pick_sfx_map(),
-        # Efek suara bisa dimatikan dengan menulis SFX=off di file .env
         "sfx": os.getenv("SFX", "on").strip().lower() != "off",
     }
-    # Musik latar: taruh file bgm.mp3 di video_engine/public, otomatis dipakai dengan volume pelan
     if os.path.exists(os.path.join(PUBLIC_DIR, "bgm.mp3")):
         props["bgmUrl"] = "bgm.mp3"
         info("  -> Musik latar bgm.mp3 ditemukan dan dipakai.")
     elif music and os.getenv("BGM", "on").strip().lower() != "off" and os.path.exists(os.path.join(PUBLIC_DIR, "bgm", f"{music}.wav")):
         props["bgmUrl"] = f"bgm/{music}.wav"
         info(f"  -> Musik latar bawaan: {music}.")
-
-    props["mechScenes"] = timings or render_timings(scenes, words, duration)
-    if modular is not None:
-        props["modular"] = modular
-    elif hybrid is not None:
-        props["hybrid"] = hybrid
-    else:
-        raise ValueError("Rencana visual belum ada.")
-
-    # Semua data wajib lolos skema Zod, lalu render berjalan dengan pemulihan otomatis (render_worker.py)
     render_worker.render(props, output_mp4, REMOTION_DIR, None, info)
-
     if not os.path.exists(output_mp4) or os.path.getsize(output_mp4) < 10_000:
         raise RuntimeError("Video hasil render tidak ditemukan atau rusak.")
     normalize_loudness(output_mp4)
@@ -1622,7 +1523,7 @@ def save_session(session):
     pending.replace(SESSION_PATH)
 
 
-def prepare_session(resume, topic, *, visual_mode="modular"):
+def prepare_session(resume, topic):
     if resume:
         try:
             session = json.loads(SESSION_PATH.read_text(encoding="utf-8"))
@@ -1632,7 +1533,7 @@ def prepare_session(resume, topic, *, visual_mode="modular"):
             if "voice" in session:
                 voice = session["voice"]
                 if (voice["audio_file"] not in ("voice.mp3", "voice.wav") or not voice["words"]
-                        or voice["duration"] <= 0 or len(voice["timings"]) != len(data["scenes"])):
+                        or voice["duration"] <= 0 or len(voice.get("clip_plan") or []) != len(data["scenes"])):
                     raise ValueError("data TTS tidak lengkap")
                 if (Path(PUBLIC_DIR) / voice["audio_file"]).stat().st_size == 0:
                     raise ValueError("audio kosong")
@@ -1644,8 +1545,6 @@ def prepare_session(resume, topic, *, visual_mode="modular"):
         pacing.tag_urgency(data["scenes"])
         session = {"version": 1, "data": data}
         save_session(session)
-        if visual_mode == "hybrid":
-            asset_generator.clear_assets(Path(PUBLIC_DIR) / "assets")
         info(f"  -> Topik dipilih: {data['title']} ({len(data['scenes'])} adegan)")
         info(f"  -> Tema warna: {THEME_NAMES[data['theme_index']]}")
 
@@ -1653,51 +1552,15 @@ def prepare_session(resume, topic, *, visual_mode="modular"):
         os.makedirs(PUBLIC_DIR, exist_ok=True)
         words, duration, audio_file = asyncio.run(generate_voices(data["scenes"]))
         session["voice"] = {"audio_file": audio_file, "duration": duration, "words": words,
-                            "timings": render_timings(data["scenes"], words, duration)}
+                            "clip_plan": render_timings(data["scenes"], words, duration)}
         save_session(session)
     return data, session["voice"]
 
 
-def prepare_modular(data, voice):
-    count = len(data["scenes"])
-    if "modular" in data:
-        try:
-            return mech_rig.validate(data["modular"], count, require_style=True)
-        except ValueError as exc:
-            info(f"  -> Rig checkpoint tidak valid ({exc}); merakit ulang.")
-    sources = build_text_sources(mech_rig.build_prompt(data, voice["timings"]))
-    for name, call in sorted(sources, key=lambda pair: not pair[0].startswith("Groq ")):
-        try:
-            plan = mech_rig.validate(extract_json(call()), count, require_style=True)
-        except Exception as exc:
-            info(f"  -> Perakit {name} dilewati: {str(exc)[:140]}")
-            continue
-        data["modular"] = plan
-        save_session({"version": 1, "data": data, "voice": voice})
-        return plan
-    raise RuntimeError("Rig modular tidak tersedia. Periksa provider teks lalu gunakan --resume.")
-
-
-def prepare_hybrid(data, voice):
-    spec, shots = asset_generator.storyboard(data, voice["timings"])
-    components = list(dict.fromkeys(s["component"] for s in shots if s["asset_id"] == "03_cutaway"))
-    cache = data.setdefault("hybrid_cache", {})
-    clients = []
-    if GEMINI_KEYS and not asset_generator.skip_gemini_image():
-        from google import genai
-        from google.genai import types
-        options = types.HttpOptions(timeout=120000, retry_options=types.HttpRetryOptions(attempts=1))
-        clients = [genai.Client(api_key=k, http_options=options) for k in GEMINI_KEYS]
-    asset_map, anchors = asset_generator.generate_scene_assets(
-        spec, Path(PUBLIC_DIR) / "assets", data["title"], components, cache,
-        lambda: save_session({"version": 1, "data": data, "voice": voice}), clients, vision_caller(), info)
-    asset_generator.apply_anchors(shots, anchors)
-    return {"assetMap": asset_map, "shots": shots}
-
-
 def main():
     parser = argparse.ArgumentParser(description="AI YouTube Agent")
-    parser.add_argument("--visual", choices=("modular", "hybrid"), default="modular", help="Mesin visual (bawaan: modular)")
+    parser.add_argument("--tahap", type=int, choices=(1, 2), default=None,
+                        help="1: naskah+TTS+storyboard saja; 2: render dari klip yang sudah ditaruh di video_engine/public/clips/")
     parser.add_argument("--resume", action="store_true", help="Lanjutkan checkpoint terakhir tanpa mengulang tahap yang sudah selesai")
     parser.add_argument("--tanpa-upload", action="store_true", help="Buat video saja, jangan diunggah")
     parser.add_argument("--unggah-saja", action="store_true",
@@ -1724,19 +1587,34 @@ def main():
             upload_video(VIDEO_PATH, notes, args.privasi, publish_at)
             return
 
-        data, voice = prepare_session(args.resume, args.topik, visual_mode=args.visual)
+        data, voice = prepare_session(args.resume, args.topik)
         words, duration, audio_file = voice["words"], voice["duration"], voice["audio_file"]
         info(f"  -> Durasi video: {duration} detik, {len(words)} kata")
 
-        if args.visual == "hybrid":
-            info("[3/5] Menyiapkan ilustrasi hybrid dan mencari jangkar komponen...")
-            visual = {"hybrid": prepare_hybrid(data, voice)}
-        else:
-            info("[3/5] Merakit rig mekanis dari naskah...")
-            visual = {"modular": prepare_modular(data, voice)}
+        # Tahap 1: ekspor daftar klip yang dibutuhkan (prompt EN + durasi per adegan).
+        info("[3/5] Mengekspor storyboard (daftar klip per adegan)...")
+        clips_dir = Path(PUBLIC_DIR) / "clips"
+        plan = storyboard_exporter.build_clip_plan(data["scenes"], clips_dir)
+        txt_path, html_path = storyboard_exporter.write_storyboard(data["scenes"], plan, Path(OUT_DIR), data["title"])
+        voice["clip_plan"] = plan
+        save_session({"version": 1, "data": data, "voice": voice})
+        info(f"  -> Storyboard: {txt_path} dan {html_path}")
+        if args.tahap == 1:
+            info("Tahap 1 selesai. Buat/kurasi klipnya, taruh di video_engine/public/clips/ "
+                 "(scene_01.mp4, scene_02.mp4, ...), lalu jalankan: jalankan_agen.bat --tahap 2 --resume --tanpa-upload")
+            return
+        missing = storyboard_exporter.missing_clips(plan)
+        if missing:
+            info("  -> Klip belum lengkap, render ditunda. Yang masih kosong:")
+            for item in missing:
+                info(f"     - public/clips/{item['id']}.mp4 (atau .png/.jpg), {item['seconds']:.1f} detik")
+            info("Taruh klip di atas, lalu jalankan: jalankan_agen.bat --tahap 2 --resume --tanpa-upload")
+            return
+
+        # Tahap 2: semua klip siap -> rakit video.
         final_video = render_remotion_video(
             words, data["scenes"], duration, data["theme_index"], data.get("music"), data.get("bg_seed", 0), audio_file,
-            {k: data.get(k) for k in ("environment", "hook_question", "hook_highlight", "claim")}, timings=voice["timings"], **visual
+            {k: data.get(k) for k in ("hook_question", "hook_highlight")}, clip_plan=plan
         )
         info(f"  -> Video selesai: {final_video}")
         render_thumbnail(data, data["scenes"])

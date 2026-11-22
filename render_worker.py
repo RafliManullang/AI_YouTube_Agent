@@ -11,7 +11,7 @@ Saat render gagal, galat dibaca lalu dipilih tindakan pemulihan yang sesuai, dan
   - model 3D macet       -> buang model 3D luar dari adegan
   - animasi 3D gagal     -> ganti adegan 3D jadi kartu 2D bawaan
   - masih gagal          -> buang semua visual tambahan (gambar, klip, model) sebagai langkah terakhir
-Bentuk dan gerak tidak ditulis oleh LLM (lihat director.py), jadi 'self-healing' di sini memperbaiki lingkungan dan data, bukan karangan kode."""
+Visual berasal dari klip kurasi pengguna di public/clips; 'self-healing' di sini memperbaiki lingkungan dan data, bukan mengarang visual."""
 
 import json
 import os
@@ -102,32 +102,10 @@ def diagnose(output):
     return "generic"
 
 
-def _strip_models(props):
-    n = 0
-    for sc in props["scenes"]:
-        if sc.pop("model", None):
-            n += 1
-    return n
-
-
-def _strip_3d(props):
-    n = 0
-    for sc in props["scenes"]:
-        if sc.pop("sim", None):
-            n += 1
-            if sc.get("type") == "mechanism" and not sc.get("mechanism"):
-                sc["type"] = "flow"
-                sc["points"] = [str(i.get("label") or "") for i in (sc.get("items") or [])][:4] or sc.get("points") or ["Cara kerja"]
-    return n
-
-
 def _strip_extras(props):
+    """Pemulihan terakhir: klip bermasalah diganti placeholder (prompt tetap tampil sebagai panduan)."""
     for sc in props["scenes"]:
-        for k in ("model", "artUrls", "clips", "video", "videoSeconds", "sim"):
-            sc.pop(k, None)
-        if sc.get("type") in ("mechanism", "footage"):
-            sc["type"] = "flow"
-            sc["points"] = sc.get("points") or [sc.get("title") or "Cara kerja"]
+        sc["clipPath"] = ""
 
 
 def render(props, output_mp4, remotion_dir, callers=None, log=print, max_attempts=5):
@@ -147,8 +125,6 @@ def render(props, output_mp4, remotion_dir, callers=None, log=print, max_attempt
         with open(props_path, "w", encoding="utf-8") as f:
             json.dump(props, f, ensure_ascii=False)
         cmd = [npx, "remotion", "render", "src/index.ts", "ShortsComp", output_mp4, "--props=render_props.json"]
-        if any(sc.get("sim") or sc.get("model") for sc in props["scenes"]):
-            cmd.append("--gl=" + (os.getenv("GL_MODE") or GL_LADDER[gl_step]))
         if concurrency:
             cmd.append(f"--concurrency={concurrency}")
         code, last_out = _run(cmd, remotion_dir)
@@ -169,16 +145,10 @@ def render(props, output_mp4, remotion_dir, callers=None, log=print, max_attempt
         elif kind == "gl" and gl_step < len(GL_LADDER) - 1 and not os.getenv("GL_MODE"):
             gl_step += 1
             log(f"     Pemulihan: ganti mode GL ke {GL_LADDER[gl_step]}.")
-        elif kind == "timeout" and "models" not in done and _strip_models(props):
-            done.add("models")
-            log("     Pemulihan: model 3D luar dibuang dari adegan.")
-        elif "3d" not in done and _strip_3d(props):
-            done.add("3d")
-            log("     Pemulihan: animasi 3D diganti kartu 2D bawaan.")
         elif "extras" not in done:
             done.add("extras")
             _strip_extras(props)
-            log("     Pemulihan terakhir: semua visual tambahan dibuang, memakai kartu 2D bawaan.")
+            log("     Pemulihan terakhir: klip diganti placeholder supaya render tetap selesai.")
         else:
             break
     raise RuntimeError("Render gagal setelah pemulihan otomatis. Galat terakhir:\n" + (last_out or "")[-800:])

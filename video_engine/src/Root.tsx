@@ -10,72 +10,15 @@ const FPS = 30;
 // Contoh isi untuk pratinjau di Remotion Studio (npm run studio)
 const defaultProps: ShortsProps = {
   audioUrl: "",
-  themeIndex: 0,
   sfx: true,
+  hookQuestion: "Kok bisa mati sendiri?",
+  hookHighlight: "mati sendiri",
   scenes: [
-    {
-      type: "flow",
-      title: "Cara kerja lift",
-      points: ["Motor menarik kabel", "Beban penyeimbang", "Rem pengaman"],
-      start: 0,
-      end: 6,
-    },
-    {
-      type: "timeline",
-      title: "Sejarah lift",
-      points: [],
-      items: [
-        { label: "236 SM", value: "Archimedes membuat katrol" },
-        { label: "1853", value: "Otis memasang rem pengaman" },
-        { label: "1889", value: "Lift listrik pertama" },
-        { label: "Kini", value: "Lift tercepat dunia" },
-      ],
-      start: 6,
-      end: 13,
-    },
-    {
-      type: "barchart",
-      title: "Kecepatan lift",
-      points: [],
-      items: [
-        { label: "Gedung kantor", value: 5 },
-        { label: "Mal besar", value: 8 },
-        { label: "Pencakar langit", value: 20 },
-      ],
-      unit: "m/detik",
-      start: 13,
-      end: 19,
-    },
-    {
-      type: "compare",
-      title: "Rem pengaman",
-      points: [],
-      items: [
-        { label: "Tanpa rem", value: "Kabel putus, lift jatuh bebas" },
-        { label: "Dengan rem", value: "Penjepit mengunci rel seketika" },
-      ],
-      start: 19,
-      end: 25,
-    },
-    {
-      type: "mindmap",
-      title: "Rem aman",
-      points: ["Sensor kecepatan", "Penjepit rel", "Pegas kuat", "Otomatis"],
-      start: 25,
-      end: 31,
-    },
-    {
-      type: "counter",
-      title: "Kecepatan lift",
-      points: ["Super cepat", "Tetap aman"],
-      number: 60,
-      unit: "kilometer per jam",
-      start: 31,
-      end: 37,
-    },
+    { id: "scene_01", narration: "Contoh narasi adegan pertama.", visualPrompt: "Photorealistic vertical 9:16 shot of the object in its real environment, cinematic light", clipPath: "", startFrame: 0, durationInFrames: 180 },
+    { id: "scene_02", narration: "Contoh narasi adegan kedua.", visualPrompt: "Photorealistic vertical 9:16 close-up of the key moving part in action", clipPath: "", startFrame: 180, durationInFrames: 180, sfx: "clank" },
   ],
   words: [],
-  durationInSeconds: 37,
+  durationInSeconds: 12,
 };
 
 const thumbnailDefaults: ThumbnailProps = {

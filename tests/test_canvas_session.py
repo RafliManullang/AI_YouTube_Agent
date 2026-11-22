@@ -5,33 +5,9 @@ from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import main_agent as agent
-import svg_composer as svg
 
 
 class CanvasTests(unittest.TestCase):
-    def test_prompt_limits_include_repairs_and_last_scene(self):
-        scenes = [dict(start=i, end=i + 1, narration='panjang ' * 1000) for i in range(10)]
-        timings = svg.build_timings(scenes, [])
-        for name, cap in [('Groq model #1', 4900), ('Gemini model #1', 6500)]:
-            for code in [None, 'old small', 'old large' * 10000]:
-                prompt = svg.canvas_prompt(name, 'topik' * 100, scenes, timings, code, ['error' * 1000] if code else [])
-                self.assertLessEqual(len(prompt), cap)
-                self.assertIn('\n9 |', prompt)
-                self.assertEqual('Ringkasan gaya:' in prompt, name.startswith('Gemini'))
-                if code:
-                    self.assertIn('error', prompt)
-                    self.assertEqual(code in prompt, code == 'old small')
-
-    def test_debug_files(self):
-        with tempfile.TemporaryDirectory() as tmp, patch.object(svg, 'DEBUG_DIR', Path(tmp)):
-            svg.request_canvas('Groq model', lambda p: 'hasil', 'abc', Mock())
-            self.assertIn('3 karakter\n\nabc', (Path(tmp) / 'debug_last_prompt.txt').read_text())
-            response = Path(tmp) / 'debug_last_response.txt'
-            self.assertEqual(response.read_text(), 'hasil')
-            with self.assertRaises(RuntimeError):
-                svg.request_canvas('Groq model', Mock(side_effect=RuntimeError('413')), 'xyz', Mock())
-            self.assertIn('tidak ada jawaban', response.read_text())
-
     def test_groq_request_budget(self):
         with patch.object(agent.requests, 'post') as post:
             post.return_value.status_code = 200
@@ -77,7 +53,7 @@ class ResumeTests(unittest.TestCase):
             audio.write_bytes(b'voice')
             session = agent.prepare_session(True, None)
             self.assertEqual(agent.prepare_session(True, None), session)
-            self.assertEqual(session[1]['timings'][0]['endFrame'], 30)
+            self.assertEqual(session[1]['clip_plan'][0]['durationInFrames'], 30)
             audio.unlink()
             with self.assertRaisesRegex(RuntimeError, 'Checkpoint/audio'):
                 agent.prepare_session(True, None)

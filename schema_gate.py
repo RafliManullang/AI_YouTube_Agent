@@ -60,31 +60,24 @@ def _run_validator_file(node, remotion_dir, src, log, props):
 
 
 def auto_fix(props):
-    """Perbaikan pasti yang tidak perlu LLM: angka berupa teks, adegan tidak berurutan, melewati durasi."""
+    """Perbaikan pasti yang tidak perlu LLM: urutan frame adegan, id berurutan, batas durasi."""
     dur = float(props.get("durationInSeconds") or 0) or 40.0
     props["durationInSeconds"] = min(180.0, max(3.0, dur))
+    total_frames = int(round(props["durationInSeconds"] * 30))
     scenes = props.get("scenes") or []
-    for s in scenes:
-        for k in ("start", "end", "number"):
-            if isinstance(s.get(k), str):
-                try:
-                    s[k] = float(s[k].replace(",", "."))
-                except ValueError:
-                    s.pop(k, None)
-        if s.get("number") is None:
-            s.pop("number", None)
-        if s.get("unit") is None:
-            s.pop("unit", None)
-        s["title"] = str(s.get("title") or "")[:80]
-        s["points"] = [str(p)[:60] for p in (s.get("points") or [])][:8]
-    scenes.sort(key=lambda s: s.get("start", 0))
-    prev = 0.0
-    for s in scenes:
-        s["start"] = max(prev, float(s.get("start", 0)))
-        s["end"] = min(props["durationInSeconds"], float(s.get("end", s["start"] + 3)))
-        if s["end"] <= s["start"]:
-            s["end"] = s["start"] + 0.5
-        prev = s["end"]
+    scenes.sort(key=lambda sc: sc.get("startFrame", 0))
+    prev = 0
+    for i, sc in enumerate(scenes):
+        sc["id"] = f"scene_{i + 1:02d}"
+        sc["narration"] = str(sc.get("narration") or "")[:600]
+        sc["visualPrompt"] = str(sc.get("visualPrompt") or "")[:600]
+        if not isinstance(sc.get("clipPath"), str):
+            sc["clipPath"] = ""
+        start = max(prev, int(sc.get("startFrame") or prev))
+        duration = int(sc.get("durationInFrames") or 90)
+        sc["startFrame"] = start
+        sc["durationInFrames"] = max(1, min(duration, max(1, total_frames - start)))
+        prev = start + sc["durationInFrames"]
     for w in props.get("words") or []:
         if isinstance(w.get("end"), (int, float)) and isinstance(w.get("start"), (int, float)) and w["end"] < w["start"]:
             w["end"] = w["start"]
@@ -93,8 +86,7 @@ def auto_fix(props):
 
 
 # Bidang pelengkap: kalau isinya tidak sah, cukup dibuang (video tetap jadi) daripada menggagalkan seluruh video.
-PRUNABLE = {"who", "emphasis", "mood", "weather", "sound", "variant", "mechanism", "sfx", "unit", "number", "transition",
-            "urgency", "model", "video", "videoSeconds", "artUrls", "clips", "items", "sim", "label", "kind", "ease", "opacity", "labels"}
+PRUNABLE = {"who", "emphasis", "sfx"}
 
 
 def prune_invalid(props, errors, log=print):
@@ -140,9 +132,10 @@ def llm_repair(props, errors, callers, log=print):
     ask = (
         "Kamu pemeriksa data video. JSON adegan di bawah DITOLAK oleh skema ketat dengan kesalahan ini:\n"
         + "\n".join("- " + e for e in errors[:15])
-        + "\n\nPerbaiki HANYA adegan yang salah. Pakai nilai yang sah: type salah satu dari flow, mindmap, counter, timeline, barchart, "
-        "compare, gauge, footage, cutaway, microscale, story, mechanism; warna berbentuk #rrggbb; angka berupa angka, bukan teks; "
-        "end harus lebih besar dari start. Jawab HANYA dengan JSON berbentuk {\"scenes\": {\"<nomor adegan>\": {...adegan lengkap yang sudah benar...}}}.\n\n"
+        + "\n\nPerbaiki HANYA adegan yang salah. Tiap adegan hanya boleh berisi: id (scene_01, scene_02, ...), "
+        "narration, visualPrompt (prompt visual Bahasa Inggris), clipPath (clips/scene_XX.mp4 atau kosong), "
+        "startFrame dan durationInFrames (bilangan bulat, berurutan tanpa tumpang tindih), sfx opsional. "
+        "Jawab HANYA dengan JSON berbentuk {\"scenes\": {\"<nomor adegan>\": {...adegan lengkap yang sudah benar...}}}.\n\n"
         + json.dumps({str(i): props["scenes"][i] for i in bad if i < len(props["scenes"])}, ensure_ascii=False)[:9000]
     )
     for name, call in callers:
@@ -161,10 +154,10 @@ def llm_repair(props, errors, callers, log=print):
 
 
 def to_safe_scene(scene):
-    """Cadangan terakhir: adegan rusak diganti kartu teks sederhana dengan waktu yang sama."""
-    pts = [str(p)[:60] for p in (scene.get("points") or []) if str(p).strip()][:4] or ["Cara kerja"]
-    return {"type": "flow", "title": str(scene.get("title") or "Cara kerja")[:80], "points": pts,
-            "start": float(scene.get("start", 0)), "end": float(scene.get("end", 1))}
+    """Cadangan terakhir: adegan rusak diganti placeholder dengan waktu yang sama (klip menyusul)."""
+    return {"id": str(scene.get("id") or "scene_01"), "narration": str(scene.get("narration") or "")[:600],
+            "visualPrompt": str(scene.get("visualPrompt") or "")[:600], "clipPath": "",
+            "startFrame": int(scene.get("startFrame") or 0), "durationInFrames": max(1, int(scene.get("durationInFrames") or 90))}
 
 
 def validate_or_repair(props, remotion_dir, callers=None, log=print, max_rounds=2):
