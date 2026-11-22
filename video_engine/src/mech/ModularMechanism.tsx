@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Img, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { MechTiming } from "../types";
 import { RigAtmosphere } from "./RigAtmosphere";
 import { RenderMechNode, RenderMechPipe } from "./MechanicalKit";
@@ -28,7 +28,8 @@ export const ModularMechanism: React.FC<{
   timings: MechTiming[];
   index: number;
   clean: boolean;
-}> = ({ plan, timings, index, clean }) => {
+  exterior?: string;
+}> = ({ plan, timings, index, clean, exterior }) => {
   const frame = useCurrentFrame(),
     { fps } = useVideoConfig();
   const { nodes, pipes } = plan.mech_rig,
@@ -180,6 +181,13 @@ export const ModularMechanism: React.FC<{
           </g>
         )}
       </svg>
+      {/* Babak 1 & penutup: wujud benda asli. Memudar seiring cutaway membuka jeroan modular. */}
+      {exterior && cut < 0.98 ? (
+        <Img
+          src={staticFile(exterior)}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: Math.pow(1 - cut, 1.15) }}
+        />
+      ) : null}
     </AbsoluteFill>
   );
 };

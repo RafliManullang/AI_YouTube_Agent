@@ -372,6 +372,63 @@ export function RenderMechNode({
         </>
       );
       break;
+    case "push_button":
+      art = (
+        <>
+          <rect x="14" y="58" width="72" height="34" rx="9" fill={metal} />
+          <g transform={`translate(0 ${act * 13})`}>
+            <rect x="26" y="22" width="48" height="30" rx="12" fill={coat} />
+            <ellipse cx="50" cy="24" rx="24" ry="7" fill={act > 0.5 ? "#fbbf24" : "#e2e8f0"} />
+          </g>
+          <path
+            d={`M50 ${6 + (frame % 22) / 3}v10m0 0l-5 -5m5 5l5 -5`}
+            stroke={act > 0.5 ? "#fbbf24" : "#e2e8f0"}
+            strokeWidth="3.5"
+            fill="none"
+            opacity={0.45 + act * 0.55}
+          />
+          <path d="M22 92h56" stroke="#94a3b8" strokeWidth="3" />
+        </>
+      );
+      break;
+    case "float_ball":
+      art = (
+        <>
+          <path d="M50 4v18" strokeWidth="6" />
+          <circle cx="50" cy="26" r="6" fill={metal} />
+          <g transform={`rotate(${-14 + act * 16} 50 26)`}>
+            <rect x="47" y="26" width="6" height="42" rx="3" fill={metal} />
+          </g>
+          <g transform={`translate(0 ${30 - act * 30})`}>
+            <path d="M8 74q14 -6 28 0t28 0 28 0" fill="none" stroke="#7dd3fc" strokeWidth="3" opacity=".8" />
+            <circle cx="50" cy="66" r="19" fill={coat} />
+            <ellipse cx="43" cy="59" rx="7" ry="5" fill="#f0fdff" stroke="none" opacity=".8" />
+          </g>
+          <path d="M50 4h34" strokeWidth="5" />
+        </>
+      );
+      break;
+    case "siphon_pipe":
+      art = (
+        <>
+          <path
+            d="M22 94V40Q22 16 44 16Q66 16 66 40V52Q66 68 82 70"
+            fill="none"
+            strokeWidth="17"
+          />
+          <path
+            d="M22 94V40Q22 16 44 16Q66 16 66 40V52Q66 68 82 70"
+            fill="none"
+            stroke={node.color ?? "#38bdf8"}
+            strokeWidth="9"
+            strokeDasharray="7 9"
+            strokeDashoffset={-frame * (0.4 + act * 1.6)}
+            opacity={0.35 + act * 0.65}
+          />
+          <path d="M14 94h16M74 62l10 3 -3 10" fill="none" strokeWidth="4" />
+        </>
+      );
+      break;
     case "bimetal":
       art = (
         <>

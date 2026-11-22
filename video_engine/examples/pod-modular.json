@@ -32,7 +32,7 @@
       {"sceneIndex":0,"focusNode":"body","zoom":1,"cutaway":0,"active":{"tank":0.9}},
       {"sceneIndex":1,"focusNode":"plunger","zoom":1.42,"cutaway":1,"active":{"tank":0.9,"plunger":1,"pod":0.35}},
       {"sceneIndex":2,"focusNode":"heater","zoom":1.58,"cutaway":1,"active":{"tank":0.7,"plunger":1,"heater":1,"cold":1,"hot":1}},
-      {"sceneIndex":3,"focusNode":"cup","zoom":1.34,"cutaway":1,"active":{"tank":0.5,"heater":1,"pod":0.7,"plunger":1,"cold":1,"hot":1,"brew":1,"cup":0.85}}
+      {"sceneIndex":3,"focusNode":"cup","zoom":1.4,"cutaway":1,"active":{"tank":0.5,"heater":1,"pod":0.7,"plunger":1,"cold":1,"hot":1,"brew":1,"cup":0.85}}
     ]
   }
 }

@@ -404,6 +404,11 @@ NAMA BENDA WAJIB DI AWAL (supaya penonton awam langsung tahu benda apa yang diba
 3-5 kata pertama kalimat pembuka WAJIB menyebut nama benda/alatnya secara konkret (contoh: "Di dalam mesin cuci piring...",
 "Pentil ban motor itu...", "Saat kamu menekan tombol flush..."). DILARANG membuka dengan kalimat abstrak yang belum menyebut
 bendanya ("Air panas meluncur di dalam mesin...", "Sesuatu bergerak cepat di balik logam...").
+AKURASI MEKANIS WAJIB (jangan mengarang cara kerja): hanya sebut komponen fisik yang BENAR-BENAR ADA di benda aslinya.
+Kalau benda bekerja karena gravitasi, pegas, katup, pelampung, atau sifon, sebut mekanisme ITU — dilarang mengarang
+piston/turbin/motor yang tidak ada (contoh salah: toilet tidak punya piston; air turun karena gravitasi saat katup
+flapper terangkat). Pastikan ARAH aliran benar: sifon toilet menyedot air dan kotoran KE saluran pembuangan,
+bukan kembali ke tangki; air tangki mengisi mangkuk lewat lubang rim dan sifon jet, bukan didorong piston.
 SATU ALAT, SATU ANATOMI (dilarang mencampur bagian dari dua alat berbeda yang mirip tapi beda fungsi): kalau topiknya mesin cuci
 PIRING, komponennya rak piring, baling-baling semprot, pemanas air, filter saringan -- BUKAN drum berputar (itu milik mesin cuci
 BAJU). Pastikan setiap nama komponen yang disebut benar-benar bagian asli dari benda yang sedang dibahas, bukan tertukar dari
@@ -759,7 +764,8 @@ def polish_script(data, base_prompt):
         "6. CEK FAKTA: perbaiki atau hapus klaim yang tidak pasti benar. Jangan mengarang angka; kalau ragu "
         "pakai \"sekitar\" atau buang klaimnya.\n"
         "7. Obrolan Shela dan Flay terdengar natural dan lucu-ringan, bukan membaca teks.\n"
-        "8. Penutup menyambung ke hook atau mengajak penonton berkomentar.\n"
+        "8. Penutup menyambung ke hook (seamless loop). DILARANG ajakan komentar dalam bentuk apa pun.\n"
+        "8b. CEK KOMPONEN NYATA: hapus/ganti komponen karangan yang tidak ada di benda aslinya (mis. piston di toilet) dan betulkan arah aliran fisika yang terbalik.\n"
         "9. Pilih tipe adegan dan keywords yang paling pas untuk tiap kalimat. Ganti kartu teks "
         "(\"flow\", \"mindmap\") dengan animasi konkret (\"mechanism\", \"cutaway\", \"microscale\", \"story\") bila bisa.\n"
         "10. Pastikan kalimat terakhir tersambung secara tata bahasa dengan kalimat pertama (seamless loop).\n"
@@ -980,6 +986,22 @@ def finish_screen_fields(data):
     data["claim"] = {"source": source, "text": text} if ok else {"source": "", "text": ""}
 
 
+CTA_MARKS = ("komentar", "komen di", "tulis pendapat", "pendapatmu", "bagikan pendapat")
+
+
+def strip_comment_cta(scenes):
+    """Buang kalimat ajakan komentar dari adegan terakhir (aturan prompt saja tidak cukup)."""
+    if not scenes:
+        return
+    last = scenes[-1]
+    for line in last["lines"]:
+        parts = re.split(r"(?<=[.!?])\s+", line["text"])
+        kept = [t for t in parts if not any(m in t.lower() for m in CTA_MARKS)]
+        line["text"] = " ".join(kept).strip()
+    last["lines"] = [l for l in last["lines"] if len(l["text"].split()) >= 2] or last["lines"][:1]
+    last["narration"] = " ".join(l["text"] for l in last["lines"])
+
+
 def validate_content(data):
     data["assets"] = asset_generator.validate_assets(data.get("assets"))
     for key in ("title", "description", "tags", "scenes"):
@@ -1060,6 +1082,7 @@ def validate_content(data):
 
     fix_opener(scenes)
     enforce_loop(scenes)
+    strip_comment_cta(scenes)
     data["scenes"] = scenes
     data["full_script"] = " ".join(s["narration"] for s in scenes)
     if len(data["full_script"].split()) < 20:
@@ -1382,7 +1405,7 @@ def render_timings(scenes, words, duration):
     return timings
 
 
-def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, timings=None, *, modular=None, hybrid=None):
+def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, timings=None, *, modular=None, hybrid=None, exterior=None):
     info("[4/5] Menjalankan Remotion (membuat video beranimasi)...")
     npm = shutil.which("npm")
     npx = shutil.which("npx")
@@ -1433,6 +1456,8 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
         info(f"  -> Musik latar bawaan: {music}.")
 
     props["mechScenes"] = timings or render_timings(scenes, words, duration)
+    if exterior:
+        props["exterior"] = exterior
     if modular is not None:
         props["modular"] = modular
     elif hybrid is not None:
@@ -1678,6 +1703,26 @@ def prepare_modular(data, voice):
     raise RuntimeError("Rig modular tidak tersedia. Periksa provider teks lalu gunakan --resume.")
 
 
+def prepare_exterior(data, voice):
+    """Satu gambar benda asli untuk pembuka/penutup modular. Gagal = lanjut tanpa gambar (bukan fatal)."""
+    if os.getenv("EXTERIOR", "on").strip().lower() == "off":
+        return None
+    try:
+        clients = []
+        if GEMINI_KEYS and not asset_generator.skip_gemini_image():
+            from google import genai
+            from google.genai import types
+            options = types.HttpOptions(timeout=120000, retry_options=types.HttpRetryOptions(attempts=1))
+            clients = [genai.Client(api_key=k, http_options=options) for k in GEMINI_KEYS]
+        cache = data.setdefault("exterior_cache", {})
+        return asset_generator.generate_exterior(
+            data, Path(PUBLIC_DIR) / "assets", cache,
+            lambda: save_session({"version": 1, "data": data, "voice": voice}), clients, info)
+    except Exception as exc:
+        info(f"  -> Gambar benda asli dilewati ({str(exc)[:120]}); memakai siluet archetype saja.")
+        return None
+
+
 def prepare_hybrid(data, voice):
     spec, shots = asset_generator.storyboard(data, voice["timings"])
     components = list(dict.fromkeys(s["component"] for s in shots if s["asset_id"] == "03_cutaway"))
@@ -1734,6 +1779,9 @@ def main():
         else:
             info("[3/5] Merakit rig mekanis dari naskah...")
             visual = {"modular": prepare_modular(data, voice)}
+            exterior = prepare_exterior(data, voice)
+            if exterior:
+                visual["exterior"] = exterior
         final_video = render_remotion_video(
             words, data["scenes"], duration, data["theme_index"], data.get("music"), data.get("bg_seed", 0), audio_file,
             {k: data.get(k) for k in ("environment", "hook_question", "hook_highlight", "claim")}, timings=voice["timings"], **visual

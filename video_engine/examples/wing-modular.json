@@ -132,8 +132,8 @@
           "type": "piston",
           "x": 790,
           "y": 844,
-          "w": 60,
-          "h": 85,
+          "w": 95,
+          "h": 110,
           "label": "Aktuator flap",
           "visibleScenes": [
             2
@@ -150,6 +150,36 @@
           "label": "Analogi kertas",
           "visibleScenes": [
             3
+          ]
+        },
+        {
+          "id": "flap",
+          "type": "valve",
+          "x": 700,
+          "y": 800,
+          "w": 110,
+          "h": 110,
+          "label": "Flap aktuator",
+          "visibleScenes": [
+            0,
+            1,
+            2,
+            4
+          ]
+        },
+        {
+          "id": "airsensor",
+          "type": "sensor",
+          "x": 360,
+          "y": 760,
+          "w": 95,
+          "h": 95,
+          "label": "Sensor aliran",
+          "visibleScenes": [
+            0,
+            1,
+            2,
+            4
           ]
         }
       ],
@@ -168,7 +198,9 @@
         "focusNode": "wing",
         "zoom": 1.14,
         "cutaway": 0,
-        "active": {}
+        "active": {
+          "airsensor": 0.8
+        }
       },
       {
         "sceneIndex": 2,
@@ -176,7 +208,8 @@
         "zoom": 1.7,
         "cutaway": 1,
         "active": {
-          "rod": 1
+          "rod": 1,
+          "flap": 0.9
         }
       },
       {

@@ -225,6 +225,31 @@ def generate_scene_assets(spec, directory, title, components, cache, checkpoint,
     return dict(asset_map), records['03_cutaway']['vision']['anchors']
 
 
+def generate_exterior(data, directory, cache, checkpoint, clients=(), log=print):
+    """Hanya 01_exterior: wujud benda asli untuk babak pembuka/penutup mode modular.
+
+    Tanpa Vision (tidak ada komponen yang perlu dicari titiknya) dan tanpa analogy/cutaway;
+    kegagalan provider dibiarkan melempar supaya pemanggil bisa lanjut tanpa gambar ini.
+    """
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / '01_exterior.png'
+    record = cache.setdefault('exterior', {})
+    png = path.read_bytes() if path.exists() else b''
+    if png and hashlib.sha256(png).hexdigest() == record.get('sha256'):
+        return 'assets/01_exterior.png'
+    item = next((a for a in data.get('assets') or [] if isinstance(a, dict) and a.get('id') == '01_exterior'), None)
+    subject = (item or {}).get('prompt') or data['title']
+    seed = topic_seed(data['title'])
+    log('  -> Membuat gambar benda asli (01_exterior)...')
+    png = generate_picture(build_image_prompt(subject, 'exterior', seed), seed, clients, log)
+    pending = path.with_suffix('.tmp')
+    pending.write_bytes(png)
+    pending.replace(path)
+    record.update(sha256=hashlib.sha256(png).hexdigest())
+    checkpoint()
+    return 'assets/01_exterior.png'
+
+
 def bounded(raw, default, lo, hi):
     if type(raw) not in (int, float) or not math.isfinite(raw):
         return default
