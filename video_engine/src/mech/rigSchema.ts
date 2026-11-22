@@ -8,7 +8,16 @@ const color = z
   .string()
   .regex(/^#[0-9a-f]{6}$/i)
   .optional();
-const archetype = z.enum(["appliance_box", "aerodynamic_wing", "cylinder_tube", "disc_rotary", "open_frame"]);
+const archetype = z.enum([
+  "appliance_box",
+  "aerodynamic_wing",
+  "cylinder_tube",
+  "disc_rotary",
+  "open_frame",
+  "bottle_tank",
+  "handle_nozzle",
+  "dome_pot",
+]);
 const atmosphere = z.object({
   bgTop: color.unwrap(),
   bgBottom: color.unwrap(),
@@ -50,6 +59,10 @@ const node = z
       "turbine",
       "chamber",
       "spring",
+      "lever",
+      "bimetal",
+      "sensor",
+      "filter",
       "context_object",
     ]),
     x,

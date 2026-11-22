@@ -11,13 +11,26 @@ NODE_TYPES = (
     "turbine",
     "chamber",
     "spring",
+    "lever",
+    "bimetal",
+    "sensor",
+    "filter",
     "context_object",
     "custom_shape",
 )
 CONTEXT = ("cup", "plate", "tire", "hand", "shower", "paper")
 
 
-ARCHETYPES = ("appliance_box", "aerodynamic_wing", "cylinder_tube", "disc_rotary", "open_frame")
+ARCHETYPES = (
+    "appliance_box",
+    "aerodynamic_wing",
+    "cylinder_tube",
+    "disc_rotary",
+    "open_frame",
+    "bottle_tank",
+    "handle_nozzle",
+    "dome_pot",
+)
 GRIDS = ("blueprint", "radial_glow", "clean")
 PARTICLES = ("wind_lines", "bubbles", "sparks", "steam", "dots")
 
@@ -44,10 +57,11 @@ def valid_color(value):
 
 
 def build_prompt(data, timings=()):
-    brief = """Rakit JSON (bukan TSX/markup): {"mech_rig":{"archetype":"aerodynamic_wing","atmosphere":{"bgTop":"#0c4a6e","bgBottom":"#020617","accent":"#38bdf8","gridStyle":"clean","particle":"wind_lines"},"nodes":[],"pipes":[]},"scene_states":[]}.
-Pilih archetype sesuai fisika: appliance_box alat rumah, aerodynamic_wing sayap, cylinder_tube pompa, disc_rotary cakram, open_frame tanpa bodi. Warna bebas #rrggbb; gridStyle blueprint/radial_glow/clean; particle wind_lines/bubbles/sparks/steam/dots.
-Utamakan SATU node custom_shape sebagai siluet khas topik, 2–5 paths [{"d":"M0 50 Q70 0 200 50 L0 50 Z","fill":"#cbd5e1"}], viewBox "0 0 400 200" (ukuran 1..400). Hanya MLHVQCZ absolut, satu segmen per perintah, koordinat 0..400. Jangan tambah casing kotak di belakangnya. Jika tidak perlu custom, casing memakai archetype. Tempel tank/piston/heater/valve/turbine/chamber/spring di atas siluet. context_object variant cup/plate/tire/hand/shower/paper; analogi WAJIB visibleScenes:[indeks analogi saja].
-Node {id,type,x,y,w,h,label}; pusat dan titik pipa x180..900 y420..1280, w/h24..1000. Pipa {id,points:[[x,y],[x,y]],color}, ujung menyentuh komponen. ID unik. Satu state per adegan berurutan {sceneIndex,focusNode,zoom,cutaway,active:{id:nilai}}; fokus node terlihat, zoom 1..2.2, cutaway/aktif 0..1. JSON ringkas."""
+    brief = """Rakit JSON (bukan TSX/markup): {"mech_rig":{"archetype":"bottle_tank","atmosphere":{"bgTop":"#0c4a6e","bgBottom":"#020617","accent":"#38bdf8","gridStyle":"blueprint","particle":"bubbles"},"nodes":[],"pipes":[]},"scene_states":[]}.
+Pilih archetype bodi paling pas: bottle_tank tangki/toilet/ketel, dome_pot panci/rice cooker, handle_nozzle nozel/pegangan, cylinder_tube pompa/silinder, disc_rotary roda/rem/turbin, appliance_box mesin kotak, aerodynamic_wing sayap, open_frame rangka terbuka. Warna #rrggbb unik per topik; gridStyle blueprint/radial_glow/clean; particle wind_lines/bubbles/sparks/steam/dots.
+WAJIB rakit 5–9 node nyata: 1 node casing besar di tengah + 4–8 komponen kerja (tank,piston,heater,valve,turbine,chamber,spring,lever,bimetal,sensor,filter) yang tersusun rapi di dalam/sekitar casing, plus 2–6 pipes jika ada aliran. JANGAN cuma pakai 1 custom_shape kosong. context_object variant cup/plate/tire/hand/shower/paper; analogi WAJIB visibleScenes:[indeks analogi saja].
+Node {id,type,x,y,w,h,label}; pusat dan titik pipa x180..900 y420..1280, w/h24..1000. Pipa {id,points:[[x,y],[x,y]],color}, ujung menyentuh komponen. ID unik.
+Satu state per adegan berurutan {sceneIndex,focusNode,zoom,cutaway,active:{id:nilai}}: adegan 0 & terakhir cutaway 0..0.2 (bodi utuh), adegan tengah cutaway 0.85..1 (X-ray). WAJIB ganti focusNode (minimal 3 node berbeda) dan ubah nilai active (0..1) mengikuti komponen/pipa yang sedang beraksi. JSON ringkas."""
     # Sertakan setiap adegan bahkan saat resume dengan naskah panjang. Batasi byte UTF-8, bukan token perkiraan.
     title = data["title"].encode()[:110].decode(errors="ignore")
     rows = []
@@ -164,6 +178,18 @@ def validate(plan, count, *, require_style=False):
             and all(k in ids and num(v, 0, 1) for k, v in s["active"].items()),
             "id atau nilai active tidak valid",
         )
+
+    # Gerbang anti-visual-beku untuk video penuh (>= 4 adegan)
+    if count >= 4:
+        working = [n for n in nodes if n["type"] not in ("casing", "custom_shape")]
+        require(len(nodes) >= 4 and len(working) >= 3, "terlalu sedikit komponen kerja (butuh minimal 4 node)")
+        focuses = {s["focusNode"] for s in states}
+        require(len(focuses) >= 3, "kamera beku (butuh minimal 3 focusNode berbeda)")
+        moving = sum(1 for s in states if any(v >= 0.4 for v in s["active"].values()))
+        require(moving >= max(2, count // 2), "animasi terlalu pasif (active kosong)")
+        cutaways = [s["cutaway"] for s in states]
+        require(max(cutaways) - min(cutaways) >= 0.5, "tidak ada transisi bodi utuh ke X-ray/cutaway")
+
     return {
         "mech_rig": {k: rig[k] for k in ("nodes", "pipes", "archetype", "atmosphere") if k in rig},
         "scene_states": states,

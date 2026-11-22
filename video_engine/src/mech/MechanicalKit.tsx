@@ -200,6 +200,45 @@ export function RenderMechNode({
         );
         break;
       }
+      if (archetype === "bottle_tank") {
+        art = (
+          <>
+            <rect x="28" y="4" width="44" height="10" rx="4" fill={metal} />
+            <path d="M18 18Q18 12 28 12H72Q82 12 82 18V84Q82 94 70 94H30Q18 94 18 84Z" fill={coat} />
+            <rect x="26" y="22" width="48" height="62" rx="8" fill="#1e3a4c" />
+            <path d="M31 28V78" stroke="#bae6fd" opacity=".45" />
+            <rect x="82" y="26" width="12" height="7" rx="3" fill={metal} />
+            {bolt(24, 18)}
+            {bolt(76, 18)}
+          </>
+        );
+        break;
+      }
+      if (archetype === "handle_nozzle") {
+        art = (
+          <>
+            <path d="M8 22H62L94 14L96 24L66 36H42L32 90H12L20 42H8Z" fill={coat} />
+            <path d="M38 42H60L54 62H34Z" fill="none" strokeWidth="3.5" />
+            <path d="M18 28H58" stroke="#e2e8f0" opacity=".6" />
+            {bolt(24, 30)}
+            {bolt(52, 30)}
+          </>
+        );
+        break;
+      }
+      if (archetype === "dome_pot") {
+        art = (
+          <>
+            <path d="M14 44Q14 10 50 10Q86 10 86 44Z" fill={metal} />
+            <rect x="42" y="4" width="16" height="8" rx="3" fill={coat} />
+            <path d="M12 44H88V80Q88 94 72 94H28Q12 94 12 80Z" fill={coat} />
+            <rect x="22" y="52" width="56" height="30" rx="6" fill="#233b4a" />
+            <circle cx="50" cy="67" r="5" fill="#fbbf24" />
+            <path d="M4 50H12V64H4Z M88 50H96V64H88Z" fill={metal} />
+          </>
+        );
+        break;
+      }
       art = (
         <>
           <path d={shell} fill={coat} />
@@ -317,6 +356,86 @@ export function RenderMechNode({
             compression={act}
             color={node.color ?? "#e5b75b"}
           />
+        </>
+      );
+      break;
+    case "lever":
+      art = (
+        <>
+          <path d="M36 86L50 54L64 86Z" fill={metal} />
+          <g transform={`rotate(${-22 + act * 44} 50 54)`}>
+            <rect x="10" y="48" width="80" height="12" rx="6" fill={coat} />
+            <circle cx="16" cy="54" r="9" fill="#f59e0b" />
+            <circle cx="84" cy="54" r="12" fill={node.color ?? "#38bdf8"} />
+          </g>
+          <circle cx="50" cy="54" r="5" fill="#fef08a" />
+        </>
+      );
+      break;
+    case "bimetal":
+      art = (
+        <>
+          <rect x="6" y="34" width="16" height="36" rx="4" fill={metal} />
+          <path
+            d={`M22 48Q55 ${48 - act * 22} 86 ${48 - act * 30}`}
+            fill="none"
+            stroke="#f59e0b"
+            strokeWidth="7"
+          />
+          <path
+            d={`M22 55Q55 ${55 - act * 22} 86 ${55 - act * 30}`}
+            fill="none"
+            stroke="#94a3b8"
+            strokeWidth="7"
+          />
+          <circle cx="86" cy="58" r="7" fill={act < 0.45 ? "#22c55e" : "#ef4444"} />
+          <circle cx="86" cy={50 - act * 30} r="5" fill={hot} />
+        </>
+      );
+      break;
+    case "sensor":
+      art = (
+        <>
+          <rect x="24" y="28" width="52" height="56" rx="10" fill={metal} />
+          <rect x="32" y="38" width="36" height="36" rx="6" fill="#1e293b" />
+          <circle cx="50" cy="56" r="11" fill={hot} />
+          {[1, 2, 3].map((k) => {
+            const r = 14 + ((frame * 0.9 + k * 14) % 34);
+            return (
+              <circle
+                key={k}
+                cx="50"
+                cy="24"
+                r={r}
+                fill="none"
+                stroke={node.color ?? "#38bdf8"}
+                strokeWidth="2.5"
+                opacity={act * Math.max(0, 1 - r / 48)}
+              />
+            );
+          })}
+        </>
+      );
+      break;
+    case "filter":
+      art = (
+        <>
+          <rect x="14" y="12" width="72" height="76" rx="10" fill={metal} />
+          <rect x="22" y="20" width="56" height="60" rx="6" fill="#163242" />
+          {[32, 44, 56, 68].map((y) => (
+            <path key={y} d={`M24 ${y}H76`} stroke="#cbd5e1" strokeWidth="2.5" strokeDasharray="5 4" />
+          ))}
+          {[32, 50, 68].map((x, i) => (
+            <circle
+              key={x}
+              cx={x}
+              cy={24 + ((frame * 0.8 + i * 18) % 52)}
+              r="3"
+              fill={node.color ?? "#38bdf8"}
+              stroke="none"
+              opacity={0.25 + act * 0.75}
+            />
+          ))}
         </>
       );
       break;
