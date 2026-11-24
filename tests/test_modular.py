@@ -118,9 +118,8 @@ class AntiWeirdTests(unittest.TestCase):
         self.assertEqual(mech_rig.validate(toilet_plan(), 4)["mech_rig"]["archetype"], "bottle_tank")
         self.assertIn("push_button", mech_rig.build_prompt({"title": "Toilet", "scenes": []}))
 
-    def test_tiny_floating_and_lazy_zoom_rejected(self):
+    def test_floating_and_lazy_zoom_rejected(self):
         for change in [
-            lambda p: p["mech_rig"]["nodes"][2].update(w=40, h=40),          # tombol sekecil titik
             lambda p: p["mech_rig"]["nodes"][4].update(x=880, y=460),          # katup melayang di pojok luar bodi
             lambda p: p["scene_states"][1].update(zoom=1.1),                   # adegan inti tidak mendekat
         ]:
@@ -247,22 +246,38 @@ class SyncAndCleanTests(unittest.TestCase):
         self.assertEqual(svg_composer.view_mode(5, 9, 0.60, "Katup pelepas membuka jalur oli."), "blueprint")
         self.assertEqual(svg_composer.view_mode(0, 9, 0.0, "Seperti inilah bentuknya."), "konteks")
 
-    def test_generic_labels_and_funnel_cylinder_rejected(self):
+    def test_generic_label_auto_sanitized_not_rejected(self):
         plan = toilet_plan()
-        plan["mech_rig"]["nodes"][1]["label"] = "Benda Utama"
-        with self.assertRaises(ValueError):
-            mech_rig.validate(plan, 4)
+        plan["mech_rig"]["nodes"][1]["label"] = "Benda Utama"  # node tank id "water"
+        out = mech_rig.validate(plan, 4)
+        node = next(n for n in out["mech_rig"]["nodes"] if n["id"] == "water")
+        self.assertEqual(node["label"], "Water")
+        plan = toilet_plan()
+        plan["mech_rig"]["nodes"][0]["label"] = "Benda Utama"  # casing
+        out = mech_rig.validate(plan, 4)
+        self.assertEqual(out["mech_rig"]["nodes"][0]["label"], "Rangka Utama")
+
+    def test_funnel_cylinder_still_rejected(self):
         plan = toilet_plan()
         tank = next(n for n in plan["mech_rig"]["nodes"] if n["type"] == "tank")
         tank["label"] = "Silinder Utama"
         with self.assertRaises(ValueError):
             mech_rig.validate(plan, 4)
 
-    def test_lifting_piston_requires_up_direction_and_load(self):
+    def test_small_component_auto_enlarged_not_rejected(self):
+        plan = toilet_plan()
+        plan["mech_rig"]["nodes"][2]["w"] = 70  # tombol flush terlalu kecil
+        plan["mech_rig"]["nodes"][2]["h"] = 60
+        out = mech_rig.validate(plan, 4)
+        node = next(n for n in out["mech_rig"]["nodes"] if n["id"] == "btn")
+        self.assertGreaterEqual(node["w"], 85)
+        self.assertGreaterEqual(node["h"], 85)
+
+    def test_lifting_piston_direction_and_load_auto_filled(self):
         plan = toilet_plan()
         piston = {"id": "lift", "type": "piston", "x": 540, "y": 700, "w": 150, "h": 150, "label": "Piston Angkat"}
         plan["mech_rig"]["nodes"].append(piston)
-        with self.assertRaises(ValueError):
-            mech_rig.validate(plan, 4)
-        piston.update(direction="up", load="car")
-        mech_rig.validate(plan, 4)  # tidak meledak
+        out = mech_rig.validate(plan, 4)  # tidak meledak walau LLM lupa direction/load
+        node = next(n for n in out["mech_rig"]["nodes"] if n["id"] == "lift")
+        self.assertEqual(node["direction"], "up")
+        self.assertEqual(node["load"], "weight")
