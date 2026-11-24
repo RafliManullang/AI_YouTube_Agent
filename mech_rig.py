@@ -61,10 +61,10 @@ def valid_color(value):
 
 def build_prompt(data, timings=()):
     brief = """Rakit JSON (bukan TSX/markup): {"mech_rig":{"archetype":"bottle_tank","atmosphere":{"bgTop":"#0c4a6e","bgBottom":"#020617","accent":"#38bdf8","gridStyle":"blueprint","particle":"bubbles"},"nodes":[],"pipes":[]},"scene_states":[]}.
-Archetype: bottle_tank tangki/toilet, dome_pot panci, handle_nozzle nozel, cylinder_tube pompa, disc_rotary roda/rem, appliance_box mesin kotak, aerodynamic_wing sayap, open_frame rangka. Warna #rrggbb unik per topik; gridStyle blueprint/radial_glow/clean; particle wind_lines/bubbles/sparks/steam/dots.
-WAJIB rakit 5–9 node nyata: 1 node casing besar di tengah + 4–8 komponen kerja (tank,piston,heater,valve,turbine,chamber,spring,lever,push_button,float_ball,siphon_pipe,bimetal,sensor,filter) rapi DI DALAM casing (pusat di dalam bodi atau menempel ujung pipa; anti melayang), plus 2–6 pipes bila ada aliran. JANGAN cuma pakai 1 custom_shape kosong. Hanya komponen ASLI benda itu (toilet: push_button,float_ball,valve,siphon_pipe,tank; tanpa piston karangan). context_object variant cup/plate/tire/hand/shower/paper; analogi WAJIB visibleScenes:[indeks analogi saja].
+Archetype: bottle_tank tangki/toilet, dome_pot panci, handle_nozzle nozel, cylinder_tube pompa, disc_rotary roda/rem, appliance_box kotak, aerodynamic_wing sayap, open_frame rangka. Warna #rrggbb; gridStyle blueprint/radial_glow/clean; particle wind_lines/bubbles/sparks/steam/dots.
+WAJIB rakit 5–9 node nyata: 1 node casing besar di tengah + 4–8 komponen kerja (tank,piston,heater,valve,turbine,chamber,spring,lever,push_button,float_ball,siphon_pipe,bimetal,sensor,filter) rapi DI DALAM casing (pusat di dalam bodi atau menempel ujung pipa; anti melayang), plus 2–6 pipes bila ada aliran. JANGAN cuma pakai 1 custom_shape kosong. Hanya komponen ASLI benda itu (toilet: push_button,float_ball,valve,siphon_pipe,tank; tanpa piston karangan). lever/piston/spring WAJIB bersentuhan tepi (gap<=20px) dgn node/ujung pipa lain; node analogi (balon/spons/kertas) WAJIB visibleScenes=[adegan analogi saja]. context_object variant cup/plate/tire/hand/shower/paper; analogi WAJIB visibleScenes:[indeks analogi saja].
 Node {id,type,x,y,w,h,label}; pusat dan titik pipa x180..900 y420..1280, w/h24..1000, komponen kerja (selain casing/custom_shape/context_object) w/h MINIMAL 85. Pipa {id,points:[[x,y],[x,y]],color}, ujung menyentuh komponen. ID unik.
-Satu state per adegan berurutan {sceneIndex,focusNode,zoom,cutaway,active:{id:nilai}}: adegan 0 & terakhir cutaway 0..0.2 (bodi utuh), adegan tengah cutaway 0.85..1 (X-ray) DAN zoom 1.35..1.9 supaya komponen yang dibahas memenuhi layar. WAJIB ganti focusNode (minimal 3 node berbeda) dan ubah nilai active (0..1) mengikuti komponen/pipa yang sedang beraksi. JSON ringkas."""
+Satu state per adegan berurutan {sceneIndex,focusNode,zoom,cutaway,active:{id:nilai}}: adegan 0 & terakhir cutaway 0..0.2 (bodi utuh), adegan tengah cutaway 0.85..1 (X-ray) DAN zoom 1.35..1.9 agar fokus memenuhi layar. WAJIB >=3 focusNode berbeda; active (0..1) mengikuti aksi. JSON ringkas."""
     # Sertakan setiap adegan bahkan saat resume dengan naskah panjang. Batasi byte UTF-8, bukan token perkiraan.
     title = data["title"].encode()[:110].decode(errors="ignore")
     rows = []
@@ -74,7 +74,7 @@ Satu state per adegan berurutan {sceneIndex,focusNode,zoom,cutaway,active:{id:ni
     bp = data.get("mechanism_blueprint") or {}
     locks = ", ".join(bp.get("components") or []) or "-"
     chains = " -> ".join(bp.get("chain") or []) or "-"
-    head = f"{brief}\nTopik: {title}\nBLUEPRINT TERKUNCI (label node persis nama ini, tanpa komponen kerja lain): {locks}. Rantai: {chains}\n"
+    head = f"{brief}\nTopik: {title}\nBLUEPRINT TERKUNCI (label=peta nama ini, tanpa komponen lain): {locks}. Rantai: {chains}\n"
     budget = (2000 - len(head.encode())) // max(1, len(rows)) - 1
     return head + "\n".join(row.encode()[:budget].decode(errors="ignore") for row in rows)
 
@@ -200,9 +200,27 @@ def validate(plan, count, *, require_style=False):
         require(max(cutaways) - min(cutaways) >= 0.5, "tidak ada transisi bodi utuh ke X-ray/cutaway")
         require(all(1.35 <= s["zoom"] <= 1.9 for s in states if s["cutaway"] >= 0.5),
                 "adegan inti (cutaway>=0.5) wajib zoom 1.35..1.9")
+        endpoints = [pt for pipe in pipes for pt in pipe["points"]]
+        # Label analogi tidak boleh bocor: node analogi wajib dibatasi visibleScenes.
+        ANALOGY_MARKS = ("balon", "spons", "analogi", "ibarat", "perumpamaan")
+        for n in nodes:
+            text = f"{n.get('label', '')} {n.get('variant', '')}".lower()
+            if n["type"] == "context_object" and any(m in text for m in ANALOGY_MARKS):
+                require("visibleScenes" in n and len(n["visibleScenes"]) < count,
+                        f"node analogi {n['id']} wajib visibleScenes terbatas pada adegan analogi")
+        # Sambungan mekanis: tuas/piston/pegas harus bersentuhan tepi dengan node lain atau pipa.
+        def edge_gap(a, b):
+            dx = max(0.0, abs(a["x"] - b["x"]) - (a["w"] + b["w"]) / 2)
+            dy = max(0.0, abs(a["y"] - b["y"]) - (a["h"] + b["h"]) / 2)
+            return (dx * dx + dy * dy) ** 0.5
+        for n in nodes:
+            if n["type"] in ("lever", "piston", "spring"):
+                touching = any(m is not n and m["type"] not in ("casing", "custom_shape") and edge_gap(n, m) <= 24
+                               for m in nodes)
+                attached = any(abs(n["x"] - ex) <= 90 and abs(n["y"] - ey) <= 90 for ex, ey in endpoints)
+                require(touching or attached, f"{n['type']} {n['id']} tidak bersentuhan dengan komponen/pipa lain")
         # Anti komponen melayang: internal harus di dalam bodi atau menempel ujung pipa.
         bodies = [n for n in nodes if n["type"] in ("casing", "custom_shape")]
-        endpoints = [pt for pipe in pipes for pt in pipe["points"]]
         for n in nodes:
             if n["type"] in ("casing", "custom_shape", "context_object"):
                 continue

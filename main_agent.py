@@ -61,7 +61,7 @@ if load_dotenv:
 
 SESSION_PATH = Path(BASE_DIR) / "cache" / "last_session.json"
 
-END_PAD = 1.5  # detik jeda setelah suara selesai (45 bingkai pada 30 fps)
+END_PAD = 0.3  # jeda akhir rapat (9 bingkai) supaya loop Shorts menyambung tanpa hening panjang
 
 
 def split_keys(*values):
@@ -1765,7 +1765,7 @@ def prepare_exterior(data, voice):
         cache = data.setdefault("exterior_cache", {})
         return asset_generator.generate_exterior(
             data, Path(PUBLIC_DIR) / "assets", cache,
-            lambda: save_session({"version": 1, "data": data, "voice": voice}), clients, info)
+            lambda: save_session({"version": 1, "data": data, "voice": voice}), clients, vision_caller(), info)
     except Exception as exc:
         info(f"  -> Gambar benda asli dilewati ({str(exc)[:120]}); memakai siluet archetype saja.")
         return None

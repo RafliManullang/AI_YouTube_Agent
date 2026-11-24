@@ -26,6 +26,12 @@ Komponen baru di `MechanicalKit.tsx`: `push_button` (tombol besar yang benar-ben
 
 Gerbang anti-aneh di `mech_rig.validate()` (dan skema Zod): komponen kerja wajib w/h minimal 85 (tidak ada lagi tombol sekecil titik), adegan inti (`cutaway>=0.5`) wajib zoom 1.35–1.9, dan komponen internal harus berada di dalam bodi atau menempel ujung pipa (anti melayang). Prompt naskah juga ditegakkan kode: hanya komponen fisik nyata, arah aliran harus benar, dan kalimat ajakan komentar otomatis dibuang dari penutup (`strip_comment_cta`).
 
+### Prompt pembuka terkunci, auto-fit rig, dan zona aman Shorts
+
+Gambar pembuka kini selalu memakai prompt terkunci (`asset_generator.exterior_prompt`: ilustrasi teknis cel-shaded benda aslinya, latar studio slate polos, tanpa teks/pemandangan/gua) dan dicek Gemini Vision dengan pertanyaan ya/tidak; penolakan memicu satu regenerasi. Saat `cutaway > 0.5`, gambar pembuka hilang total (bukan bayangan samar), latar blueprint bersih tampil dengan kerangka casing putus-putus yang membungkus semua komponen, dan auto-fit bounding box memperbesar rig hingga mengisi area tengah. Komponen non-fokus hanya turun ke opasitas 0.58.
+
+Validator juga menolak label analogi (balon/spons/dsb.) tanpa `visibleScenes` terbatas, dan tuas/piston/pegas yang tidak bersentuhan tepi dengan komponen atau pipa lain. HUD status kini maksimal dua kata di tengah atas; subtitle berada di 69% tinggi layar; fokus kamera di zona aman 22–66% (`layout/SafeLayout.tsx`). `END_PAD` dipangkas ke 0.3 detik agar loop menyambung rapat; BGM otomatis ducking ke 0.085 saat narator bicara (0.16 di jeda), dan whoosh halus berbunyi saat transisi masuk X-ray atau lompatan zoom besar.
+
 ## Mode opsional: gambar hybrid (`--visual hybrid`)
 
 Pipeline hybrid membuat Shorts dengan **3–4 ilustrasi AI per topik** dan motion graphics Remotion. Anatomi benda tidak lagi dibuat dengan meminta LLM menulis TSX. Bagian riwayat tahap di bawah juga mendokumentasikan mesin visual versi lama.

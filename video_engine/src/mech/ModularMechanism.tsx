@@ -46,7 +46,13 @@ export const ModularMechanism: React.FC<{
   });
   const from = nodes.find((n) => n.id === prev.focusNode)!,
     to = nodes.find((n) => n.id === now.focusNode)!;
-  const zoom = mix(prev.zoom, now.zoom, t),
+  // Auto-fit bounding box semua node: rig tidak pernah tampil kecil melayang di tengah layar.
+  const xs = nodes.flatMap((n) => [n.x - n.w / 2, n.x + n.w / 2]),
+    ys = nodes.flatMap((n) => [n.y - n.h / 2, n.y + n.h / 2]);
+  const bw = Math.max(1, Math.max(...xs) - Math.min(...xs)),
+    bh = Math.max(1, Math.max(...ys) - Math.min(...ys));
+  const fit = Math.min(1.5, Math.max(0.75, Math.min(810 / bw, 850 / bh)));
+  const zoom = mix(prev.zoom, now.zoom, t) * fit,
     cut = mix(prev.cutaway, now.cutaway, t);
   const cx = mix(from.x, to.x, t),
     cy = mix(from.y, to.y, t);
@@ -106,6 +112,10 @@ export const ModularMechanism: React.FC<{
           </>
         )}
         <g transform={`translate(${540 - cx * zoom} ${860 - cy * zoom}) scale(${zoom})`}>
+          {cut > 0.5 && (
+            <rect x={Math.min(...xs) - 24} y={Math.min(...ys) - 24} width={bw + 48} height={bh + 48} rx="36"
+              fill="none" stroke="#7dd3fc" strokeWidth="3" strokeDasharray="14 10" opacity="0.5" />
+          )}
           {hero && <g opacity={1 - 0.38 * cut}>{nodeArt(hero)}</g>}
           <g opacity={exposed ? 1 : cut}>
             {pipes.map((p) => (
@@ -117,7 +127,7 @@ export const ModularMechanism: React.FC<{
             .map((n) => {
               const isFocus = to.id === n.id;
               const lit = (focus: typeof to) =>
-                focus.type === "custom_shape" || focus.type === "casing" || focus.id === n.id ? 1 : 0.38;
+                focus.type === "custom_shape" || focus.type === "casing" || focus.id === n.id ? 1 : 0.58;
               return (
                 <g
                   key={n.id}
@@ -191,12 +201,12 @@ export const ModularMechanism: React.FC<{
               {!clean && (
                 <g>
                   {(() => {
-                    const txt = `${(to.label || to.id).toUpperCase().slice(0, 12)}: ${statusText}`;
+                    const txt = `${(to.label || to.id).toUpperCase().split(/\s+/).slice(0, 2).join(" ")}: ${statusText}`;
                     const w = 40 + txt.length * 17.5;
                     return (
                       <>
-                        <rect x={1052 - w} y="128" width={w} height="58" rx="12" fill="#102632" stroke="#90d9be" strokeWidth="2" opacity="0.92" />
-                        <text x={1070 - w} y="166" fill="#effbf6" fontSize="24" fontWeight="bold">{txt}</text>
+                        <rect x={(1080 - w) / 2} y="104" width={w} height="58" rx="12" fill="#102632" stroke="#90d9be" strokeWidth="2" opacity="0.92" />
+                        <text x={(1080 - w) / 2 + 18} y="142" fill="#effbf6" fontSize="24" fontWeight="bold">{txt}</text>
                       </>
                     );
                   })()}
@@ -240,11 +250,21 @@ export const ModularMechanism: React.FC<{
         )}
       </svg>
       {/* Babak 1 & penutup: wujud benda asli. Memudar seiring cutaway membuka jeroan modular. */}
-      {exterior && cut < 0.98 ? (
-        <Img
-          src={staticFile(exterior)}
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: Math.pow(1 - cut, 1.15) }}
-        />
+      {exterior && cut < 0.5 ? (
+        <>
+          <Img
+            src={staticFile(exterior)}
+            style={{
+              position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
+              opacity: 1 - cut * 2,
+              transform: `scale(${1 + 0.08 * Math.min(1, frame / (2 * fps))})`,
+            }}
+          />
+          {/* Lingkaran sorot berdenyut di titik fokus supaya frame pertama tidak diam kaku. */}
+          <svg width="100%" height="100%" viewBox="0 0 1080 1920" style={{ position: "absolute", inset: 0 }}>
+            <circle cx={targetX} cy={targetY} r={54 + 10 * Math.sin(frame / 6)} fill="none" stroke="#ffd678" strokeWidth="5" opacity={0.75 * (1 - cut * 2)} />
+          </svg>
+        </>
       ) : null}
     </AbsoluteFill>
   );
