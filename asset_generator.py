@@ -234,6 +234,58 @@ def exterior_prompt(subject):
     return EXTERIOR_PROMPT.format(subject=str(subject).strip())
 
 
+def _story_image(data, directory, cache, checkpoint, clients, vision, log, key, subject):
+    """Satu gambar bercerita dengan prompt terkunci + cek Vision; kandidat lama dari cache dipakai ulang."""
+    path = directory / f'{key}.png'
+    record = cache.setdefault(key, {})
+    png = path.read_bytes() if path.exists() else b''
+    if png and hashlib.sha256(png).hexdigest() == record.get('sha256'):
+        return f'assets/{key}.png'
+    seed = topic_seed(data['title'] + key)
+    log(f'  -> Membuat gambar cerita {key}...')
+    png = generate_picture(exterior_prompt(subject), seed, clients, log)
+    if vision:
+        for attempt in (1, 2):
+            try:
+                answer = vision(f"Apakah gambar ini jelas menampilkan {subject} tanpa latar aneh? "
+                                'Jawab JSON saja: {"ok": boolean}', [png])
+                import json as _json
+                ok = _json.loads(answer[answer.find('{'):answer.rfind('}') + 1]).get('ok')
+            except Exception as exc:
+                log(f'  -> Cek Vision {key} dilewati ({str(exc)[:80]}).')
+                break
+            if ok or attempt == 2:
+                break
+            log(f'  -> Vision menolak {key}; membuat ulang satu kali...')
+            png = generate_picture(exterior_prompt(subject) + ' Show the whole object clearly.', seed + 1, clients, log)
+    pending = path.with_suffix('.tmp')
+    pending.write_bytes(png)
+    pending.replace(path)
+    record.update(sha256=hashlib.sha256(png).hexdigest())
+    checkpoint()
+    return f'assets/{key}.png'
+
+
+def generate_story_images(data, directory, cache, checkpoint, clients=(), vision=None, log=print):
+    """3 gambar bercerita: hook aksi (benda bekerja), analogi, dan payoff (hasil akhir)."""
+    directory.mkdir(parents=True, exist_ok=True)
+    by_id = {a.get('id'): a for a in data.get('assets') or [] if isinstance(a, dict)}
+    title = data['title']
+    analogy_scene = next((s for s in data['scenes'] if 'ibarat' in (s.get('narration') or '').lower()
+                          or 'analogi' in (s.get('title') or '').lower()), None)
+    analogy_subject = (by_id.get('02_analogy') or {}).get('prompt') or (
+        analogy_scene['narration'] if analogy_scene else title + ' everyday analogy')
+    return {
+        'exterior': _story_image(data, directory, cache, checkpoint, clients, vision, log, '01_exterior',
+                                 (by_id.get('01_exterior') or {}).get('prompt') or
+                                 title + ', the object actively doing its real job on the real thing it works on'),
+        'analogy': _story_image(data, directory, cache, checkpoint, clients, vision, log, '02_analogy', analogy_subject),
+        'payoff': _story_image(data, directory, cache, checkpoint, clients, vision, log, '03_payoff',
+                               (by_id.get('04_closeup') or {}).get('prompt') or
+                               title + ', the successful final result after the mechanism finishes its job'),
+    }
+
+
 def generate_exterior(data, directory, cache, checkpoint, clients=(), vision=None, log=print):
     """Hanya 01_exterior: wujud benda asli untuk babak pembuka/penutup mode modular.
 

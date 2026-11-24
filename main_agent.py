@@ -641,8 +641,8 @@ def call_llm_with_smart_wait(name, fn, tries=3, log=None, rotate_on_503=False):
                 raise
             if attempt >= tries - 1:
                 raise
-            wait = (hint + 1.5) if hint is not None else 10 * (attempt + 1)
-            wait = min(wait, 40)
+            wait = (hint + 1.5) if hint is not None else 3 * (attempt + 1)
+            wait = min(wait, 6)
             log(f"     {name} sibuk, menunggu {wait:.0f} detik lalu mencoba lagi ({attempt + 2}/{tries})...")
             time.sleep(wait)
     raise last
@@ -668,7 +668,7 @@ def llm_callers(raw=False):
         from google import genai
         from google.genai import types
 
-        options = types.HttpOptions(timeout=240000 if raw else 120000)
+        options = types.HttpOptions(timeout=240000 if raw else 30000)  # teks/rig: 30 detik, jangan menggantung di 504
         if raw:
             options.retry_options = types.HttpRetryOptions(attempts=1)
         clients = [genai.Client(api_key=k, http_options=options) for k in GEMINI_KEYS]
@@ -677,12 +677,12 @@ def llm_callers(raw=False):
         def gemini_call(prompt, model, index, config, name):
             try:
                 text = call_llm_with_smart_wait(name, lambda: clients[index].models.generate_content(
-                    model=model, contents=prompt, config=config).text, rotate_on_503=raw)
+                    model=model, contents=prompt, config=config).text, tries=2, rotate_on_503=True)
             except Exception as exc:
-                if raw and unavailable(exc):
+                if unavailable(exc):
                     if model in last_busy_key and last_busy_key[model] != index:
                         blocked.add(f"Gemini {model}")
-                        info(f"  -> {model}: dua key berturut-turut 503; lewati model selama sesi kanvas.")
+                        info(f"  -> {model}: dua key berturut-turut 503 (server penuh, bukan key salah); lewati model ini selama sesi.")
                     last_busy_key[model] = index
                 else:
                     last_busy_key.pop(model, None)
@@ -1419,7 +1419,7 @@ def render_timings(scenes, words, duration):
     return timings
 
 
-def assemble_props(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, timings=None, *, modular=None, hybrid=None, exterior=None):
+def assemble_props(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, timings=None, *, modular=None, hybrid=None, exterior=None, analogy=None, payoff=None):
     """Satu-satunya tempat props Remotion disusun (dipakai render penuh dan gerbang Vision)."""
     props = {
         "audioUrl": audio_file,
@@ -1454,6 +1454,10 @@ def assemble_props(words, scenes, duration, theme_index=0, music=None, bg_seed=0
     props["mechScenes"] = timings or render_timings(scenes, words, duration)
     if exterior:
         props["exterior"] = exterior
+    if analogy:
+        props["analogy"] = analogy
+    if payoff:
+        props["payoff"] = payoff
     if modular is not None:
         props["modular"] = modular
     elif hybrid is not None:
@@ -1463,7 +1467,7 @@ def assemble_props(words, scenes, duration, theme_index=0, music=None, bg_seed=0
     return props
 
 
-def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, timings=None, *, modular=None, hybrid=None, exterior=None):
+def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, timings=None, *, modular=None, hybrid=None, exterior=None, analogy=None, payoff=None):
     info("[4/5] Menjalankan Remotion (membuat video beranimasi)...")
     if not shutil.which("npm") or not shutil.which("npx"):
         raise RuntimeError("Node.js belum terpasang. Unduh dari https://nodejs.org lalu jalankan ulang.")
@@ -1473,7 +1477,7 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
     if os.path.exists(output_mp4):
         os.remove(output_mp4)
     props = assemble_props(words, scenes, duration, theme_index, music, bg_seed, audio_file, screen, timings,
-                           modular=modular, hybrid=hybrid, exterior=exterior)
+                           modular=modular, hybrid=hybrid, exterior=exterior, analogy=analogy, payoff=payoff)
     render_worker.render(props, output_mp4, REMOTION_DIR, None, info)
     if not os.path.exists(output_mp4) or os.path.getsize(output_mp4) < 10_000:
         raise RuntimeError("Video hasil render tidak ditemukan atau rusak.")
@@ -1654,6 +1658,24 @@ def save_session(session):
     pending.replace(SESSION_PATH)
 
 
+def cleanup_public_stale():
+    """Buang sisa klip/gambar gerbang topik lama dari public/ (Remotion menyalin folder ini tiap bundling)."""
+    removed = 0
+    clips = Path(PUBLIC_DIR) / "clips"
+    if clips.is_dir():
+        for f in clips.iterdir():
+            if f.is_file():
+                f.unlink(missing_ok=True)
+                removed += 1
+    for name in ("gate_0.png", "gate_1.png", "gate_2.png", "thumb_bg.jpg"):
+        f = Path(PUBLIC_DIR) / name
+        if f.exists():
+            f.unlink()
+            removed += 1
+    if removed:
+        info(f"  -> {removed} berkas sisa di public/ dibersihkan agar bundling ringan.")
+
+
 def prepare_session(resume, topic, *, visual_mode="modular"):
     if resume:
         try:
@@ -1672,6 +1694,7 @@ def prepare_session(resume, topic, *, visual_mode="modular"):
             raise RuntimeError(f"Checkpoint/audio tidak dapat dipakai: {exc}. Mulai ulang tanpa --resume.") from exc
         info(f"  -> Melanjutkan sesi: {data['title']}")
     else:
+        cleanup_public_stale()
         data = research_and_write(topic)
         pacing.tag_urgency(data["scenes"])
         session = {"version": 1, "data": data}
@@ -1712,7 +1735,7 @@ def vision_gate(props, data, voice):
         for i, fr in enumerate(frames):
             out = os.path.join(OUT_DIR, f"gate_{i}.png")
             subprocess.run([shutil.which("npx"), "remotion", "still", "src/index.ts", "ShortsComp", out,
-                            "--props=gate_props.json", f"--frame={fr}", "--image-format=png"],
+                            "--props=gate_props.json", f"--frame={fr}", "--image-format=png", "--scale=0.5"],
                            cwd=REMOTION_DIR, check=True, capture_output=True, timeout=300)
             pngs.append(Path(out).read_bytes())
         answer = vision(
@@ -1763,7 +1786,7 @@ def prepare_exterior(data, voice):
             options = types.HttpOptions(timeout=120000, retry_options=types.HttpRetryOptions(attempts=1))
             clients = [genai.Client(api_key=k, http_options=options) for k in GEMINI_KEYS]
         cache = data.setdefault("exterior_cache", {})
-        return asset_generator.generate_exterior(
+        return asset_generator.generate_story_images(
             data, Path(PUBLIC_DIR) / "assets", cache,
             lambda: save_session({"version": 1, "data": data, "voice": voice}), clients, vision_caller(), info)
     except Exception as exc:
@@ -1827,14 +1850,14 @@ def main():
         else:
             info("[3/5] Merakit rig mekanis dari naskah...")
             visual = {"modular": prepare_modular(data, voice)}
-            exterior = prepare_exterior(data, voice)
-            if exterior:
-                visual["exterior"] = exterior
+            story = prepare_exterior(data, voice)
+            if story:
+                visual.update(story)
         if args.visual != "hybrid":
             gate_props = assemble_props(
                 words, data["scenes"], duration, data["theme_index"], data.get("music"), data.get("bg_seed", 0), audio_file,
                 {k: data.get(k) for k in ("environment", "hook_question", "hook_highlight", "claim")},
-                timings=voice["timings"], **visual)
+                timings=voice["timings"], **{k: visual[k] for k in ("modular", "exterior", "analogy", "payoff") if k in visual})
             revised = vision_gate(gate_props, data, voice)
             if revised is not None:
                 visual["modular"] = revised

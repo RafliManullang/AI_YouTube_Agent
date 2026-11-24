@@ -74,7 +74,8 @@ Satu state per adegan berurutan {sceneIndex,focusNode,zoom,cutaway,active:{id:ni
     bp = data.get("mechanism_blueprint") or {}
     locks = ", ".join(bp.get("components") or []) or "-"
     chains = " -> ".join(bp.get("chain") or []) or "-"
-    head = f"{brief}\nTopik: {title}\nBLUEPRINT TERKUNCI (label=peta nama ini, tanpa komponen lain): {locks}. Rantai: {chains}\n"
+    head = (f"{brief}\nTopik: {title}\nBLUEPRINT TERKUNCI (label=peta nama ini, tanpa komponen lain): {locks}. Rantai: {chains}\n"
+            f"WAJIB TEPAT {len(data['scenes'])} objek di scene_states (sceneIndex 0..{len(data['scenes']) - 1}), tidak boleh kurang/lebih.\n")
     budget = (2000 - len(head.encode())) // max(1, len(rows)) - 1
     return head + "\n".join(row.encode()[:budget].decode(errors="ignore") for row in rows)
 
@@ -147,6 +148,8 @@ def validate(plan, count, *, require_style=False):
         else:
             require("paths" not in n and "viewBox" not in n, "paths khusus custom_shape")
         require(n.get("type") in NODE_TYPES, "tipe node tidak dikenal")
+        require("direction" not in n or n["direction"] in ("up", "down", "left", "right"), "direction tidak valid")
+        require("load" not in n or n["load"] in ("tire", "car", "weight", "lid", "box"), "load tidak valid")
         require(
             num(n.get("x"), 180, 900) and num(n.get("y"), 420, 1280), f"pusat {n['id']} di luar area aman"
         )
@@ -194,6 +197,10 @@ def validate(plan, count, *, require_style=False):
         require(len(nodes) >= 4 and len(working) >= 3, "terlalu sedikit komponen kerja (butuh minimal 4 node)")
         focuses = {s["focusNode"] for s in states}
         require(len(focuses) >= 3, "kamera beku (butuh minimal 3 focusNode berbeda)")
+        run = 1
+        for prev_s, cur_s in zip(states, states[1:]):
+            run = run + 1 if cur_s["focusNode"] == prev_s["focusNode"] else 1
+            require(run <= 2, "satu focusNode dipakai >2 adegan berturut-turut (ritme visual beku)")
         moving = sum(1 for s in states if any(v >= 0.4 for v in s["active"].values()))
         require(moving >= max(2, count // 2), "animasi terlalu pasif (active kosong)")
         cutaways = [s["cutaway"] for s in states]
