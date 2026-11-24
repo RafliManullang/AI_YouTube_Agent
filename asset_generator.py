@@ -386,3 +386,66 @@ def apply_anchors(shots, anchors):
         if not point:  # Jangan menunjuk ruang kosong jika komponen tidak dikenali.
             shot['unlocated'] = True
             shot['overlay']['type'] = 'badge_only'
+
+
+STORYBOARD_STYLE = ("Cel-shaded educational explainer illustration, bold dark navy ink outlines, warm orange "
+                    "and teal palette, soft daylight, clean simple environment that fits the scene (sky, runway, "
+                    "room, road or workshop), vertical 9:16 composition with the subject large in frame. "
+                    "Keep the main object's design and signature colors identical in every scene of this video. "
+                    "Simple bold graphic arrows are allowed only to show force or flow direction. "
+                    "Absolutely no text, letters, numbers, logos, labels or watermark anywhere in the image.")
+
+
+def storyboard_prompt(visual, topic):
+    """Prompt storyboard satu adegan: ilustrasi spesifik kalimat itu, gaya disatukan STORYBOARD_STYLE."""
+    subject = str(visual or "").strip() or f"the main subject of '{topic}' in action"
+    return f"{subject}. The video is about: {topic} - keep its design consistent with that subject. {STORYBOARD_STYLE}"
+
+
+def generate_storyboard_images(data, directory, cache, checkpoint, clients=(), vision=None, log=print):
+    """Satu ilustrasi layar penuh per adegan (gaya storyboard channel edukasi): sb_00.png, sb_01.png, ...
+
+    Cache sha256 per adegan supaya --resume tidak membayar generate ulang; cek Vision maksimal
+    1 regenerasi per adegan. Adegan yang gagal total memakai gambar adegan sebelumnya agar
+    jumlah gambar selalu sama dengan jumlah adegan (sinkron ke indeks adegan tidak bergeser).
+    """
+    directory.mkdir(parents=True, exist_ok=True)
+    out = []
+    for i, scene in enumerate(data["scenes"]):
+        key = f"sb_{i:02d}"
+        path = directory / f"{key}.png"
+        record = cache.setdefault(key, {})
+        png = path.read_bytes() if path.exists() else b""
+        if png and hashlib.sha256(png).hexdigest() == record.get("sha256"):
+            out.append(f"assets/{key}.png")
+            continue
+        subject = storyboard_prompt(scene.get("visual"), data["title"])
+        log(f"  -> Membuat storyboard adegan {i + 1}/{len(data['scenes'])}: {scene.get('title', '')[:40]}")
+        try:
+            png = generate_picture(subject, topic_seed(data["title"] + key), clients, log)
+            if vision:
+                for attempt in (1, 2):
+                    try:
+                        answer = vision(f"Apakah gambar ini jelas menampilkan adegan berikut tanpa teks/huruf/angka: {scene.get('visual') or scene.get('title', '')}? "
+                                        'Jawab JSON saja: {"ok": boolean}', [png])
+                        import json as _json
+                        ok = _json.loads(answer[answer.find("{"):answer.rfind("}") + 1]).get("ok")
+                    except Exception as exc:
+                        log(f"  -> Cek Vision {key} dilewati ({str(exc)[:80]}).")
+                        break
+                    if ok or attempt == 2:
+                        break
+                    log(f"  -> Vision menolak {key}; membuat ulang satu kali...")
+                    png = generate_picture(subject + " Show the action more clearly, larger subject.", topic_seed(data["title"] + key) + 1, clients, log)
+            pending = path.with_suffix(".tmp")
+            pending.write_bytes(png)
+            pending.replace(path)
+            record.update(sha256=hashlib.sha256(png).hexdigest())
+            checkpoint()
+            out.append(f"assets/{key}.png")
+        except Exception as exc:
+            if not out:
+                raise
+            log(f"  -> Storyboard adegan {i + 1} gagal ({str(exc)[:100]}); memakai gambar adegan sebelumnya.")
+            out.append(out[-1])
+    return out

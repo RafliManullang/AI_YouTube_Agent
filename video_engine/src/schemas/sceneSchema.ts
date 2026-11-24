@@ -184,6 +184,7 @@ export const shortsPropsSchema = z.object({
   claim: z.object({ source: text(40), text: text(30) }).optional(),
   modular: modularSchema.optional(),
   exterior: text(200).optional(),
+  storyboard: z.array(text(200)).max(20).optional(),
   analogy: text(200).optional(),
   payoff: text(200).optional(),
   hybrid: hybridSchema.optional(),

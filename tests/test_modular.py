@@ -281,3 +281,30 @@ class SyncAndCleanTests(unittest.TestCase):
         node = next(n for n in out["mech_rig"]["nodes"] if n["id"] == "lift")
         self.assertEqual(node["direction"], "up")
         self.assertEqual(node["load"], "weight")
+
+
+class StoryboardModeTests(unittest.TestCase):
+    def test_storyboard_images_one_per_scene_with_shared_style(self):
+        data = {"title": "Cara sayap pesawat mengangkat 300 ton",
+                "scenes": [{"title": f"Adegan {i}", "visual": f"scene {i} visual", "narration": "x"} for i in range(4)]}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(assets, "generate_picture", return_value=b"png") as gen:
+            out = assets.generate_storyboard_images(data, Path(tmp), {}, lambda: None, [], None, lambda *a: None)
+            self.assertEqual(out, [f"assets/sb_{i:02d}.png" for i in range(4)])
+            prompts = " ".join(c.args[0] for c in gen.call_args_list)
+            self.assertIn("scene 2 visual", prompts)
+            self.assertIn("Absolutely no text", prompts)
+            self.assertIn("identical in every scene", prompts)
+
+    def test_validate_content_keeps_visual_and_short_scenes(self):
+        data = {"title": "Uji", "description": "Deskripsi uji.", "tags": ["sains"], "assets": [
+            {"id": "01_exterior", "view_type": "exterior", "prompt": "airplane on runway"},
+            {"id": "02_analogy", "view_type": "analogy", "prompt": "hand out of a car window"},
+            {"id": "03_cutaway", "view_type": "cutaway", "prompt": "wing cross-section"}], "scenes": [
+            {"lines": [{"speaker": "flay", "text": "Bukan mesinnya."}], "title": "Bukan Mesin", "visual": "close-up of a jet engine crossed by light"},
+            {"lines": [{"speaker": "flay", "text": "Yang mengangkat itu sayap pesawat."}], "title": "Sayap", "visual": "top-down view of an airplane wing"},
+            {"lines": [{"speaker": "flay", "text": "Sayap miring mendorong udara ke bawah kuat."}], "title": "Dorong", "visual": "side view of a tilted wing pushing air down"},
+            {"lines": [{"speaker": "flay", "text": "Udaranya balik mendorong sayap ke atas."}], "title": "Angkat", "visual": "side view of a wing with a bold arrow pointing up"},
+        ]}
+        agent.validate_content(data)
+        self.assertEqual(len(data["scenes"]), 4)  # kalimat 2 kata tidak lagi dibuang
+        self.assertIn("jet engine", data["scenes"][0]["visual"])
