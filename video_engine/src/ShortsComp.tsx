@@ -151,16 +151,35 @@ export const ShortsComp: React.FC<ShortsProps> = ({
     <AbsoluteFill style={{ backgroundColor: "#0b0f19" }}>
       {/* Satu kanvas berkelanjutan dari detik 0 sampai akhir: benda yang sama, hanya kamera dan geraknya yang berubah */}
       {storyboard && mi >= 0 && storyboard[mi] ? (
-        <StoryboardShot
-          src={storyboard[mi]}
-          title={safeScenes[mi]?.title ?? ""}
-          hud={mechScenes[mi]?.hud}
-          index={mi}
-          startFrame={mechScenes[mi].startFrame}
-          endFrame={mechScenes[mi].endFrame}
-          triggerFrame={mechScenes[mi].triggerFrame}
-          clean={clean}
-        />
+        (() => {
+          // Whip-pan 8 frame antar-adegan storyboard: adegan lama meluncur keluar, adegan baru masuk.
+          const ageW = frame - mechScenes[mi].startFrame;
+          const w = Math.min(1, Math.max(0, ageW / 8));
+          const ease = 1 - Math.pow(1 - w, 3);
+          const shot = (j: number) => (
+            <StoryboardShot
+              src={storyboard[j]}
+              title={safeScenes[j]?.title ?? ""}
+              hud={mechScenes[j]?.hud}
+              forceLevel={mechScenes[j]?.forceLevel}
+              index={j}
+              startFrame={mechScenes[j].startFrame}
+              endFrame={mechScenes[j].endFrame}
+              triggerFrame={mechScenes[j].triggerFrame}
+              clean={clean}
+            />
+          );
+          return (
+            <>
+              {mi > 0 && storyboard[mi - 1] && ageW < 8 ? (
+                <div style={{ position: "absolute", inset: 0, transform: `translateX(${-ease * 100}%)` }}>{shot(mi - 1)}</div>
+              ) : null}
+              <div style={{ position: "absolute", inset: 0, transform: ageW < 8 && mi > 0 ? `translateX(${(1 - ease) * 100}%)` : undefined }}>
+                {shot(mi)}
+              </div>
+            </>
+          );
+        })()
       ) : modular && mi >= 0 ? (
         <ModularMechanism plan={modular} timings={mechScenes} index={mi} clean={clean} exterior={exterior} analogy={analogy} payoff={payoff} />
       ) : hybrid && mi >= 0 ? (
