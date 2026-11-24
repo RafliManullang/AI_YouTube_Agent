@@ -29,7 +29,9 @@ export const ModularMechanism: React.FC<{
   index: number;
   clean: boolean;
   exterior?: string;
-}> = ({ plan, timings, index, clean, exterior }) => {
+  analogy?: string;
+  payoff?: string;
+}> = ({ plan, timings, index, clean, exterior, analogy, payoff }) => {
   const frame = useCurrentFrame(),
     { fps } = useVideoConfig();
   const { nodes, pipes } = plan.mech_rig,
@@ -84,6 +86,12 @@ export const ModularMechanism: React.FC<{
   );
   const label = (to.label || to.id.replace(/_/g, " ")).toUpperCase();
   const labelWidth = Math.min(720, Math.max(210, 34 + label.length * 22));
+  // Anti-tabrakan label: kotak-kotak label/overlay yang terlihat tidak boleh berjarak vertikal <55px;
+  // yang kedua digeser ke bawah sampai aman (HUD y104-162 vs PiP, label fokus vs gauge).
+  const hasGauge = !clean && !!(timings[index].hud && (timings[index].hud.load || timings[index].hud.force));
+  const pipTop = !clean ? Math.max(196, 162 + 55) : 196; // di bawah HUD + jarak aman 55px
+  const gaugeBottom = 880 + 118;
+  const labelY = hasGauge && 1160 - gaugeBottom < 55 ? gaugeBottom + 55 : 1160;
   return (
     <AbsoluteFill style={{ background: "#102c38" }}>
       <svg width="100%" height="100%" viewBox="0 0 1080 1920" fontFamily="Arial,sans-serif">
@@ -175,9 +183,11 @@ export const ModularMechanism: React.FC<{
           // Micro-juice: getaran 2-3px sesaat setelah kata pemicu pada adegan berdampak besar.
           const sinceTrig = frame - timings[index].triggerFrame;
           const shake = (now.active[to.id] ?? 0) >= 0.8 && sinceTrig >= 0 && sinceTrig < 9 ? Math.sin(sinceTrig * 2.4) * (3 - sinceTrig / 3) : 0;
-          const kind = to.type === "heater" || to.type === "bimetal" || to.type === "sensor" ? "heat"
+          const kind = to.direction === "up" || to.direction === "down" || to.direction === "left" || to.direction === "right" ? "dir"
+            : to.type === "heater" || to.type === "bimetal" || to.type === "sensor" ? "heat"
             : to.type === "siphon_pipe" || to.type === "tank" || to.type === "float_ball" ? "flow" : "push";
-          const arrowColor = kind === "heat" ? "#fb923c" : kind === "flow" ? "#38bdf8" : "#f87171";
+          const arrowColor = to.direction === "up" ? "#4ade80" : to.direction === "down" ? "#f87171" : kind === "heat" ? "#fb923c" : "#38bdf8";
+          const dirAngle = { up: -90, down: 90, left: 180, right: 0 }[to.direction ?? "down"];
           const STATUS: Record<string, [string, string]> = {
             push_button: ["DITEKAN", "SIAGA"], valve: ["TERBUKA", "TERTUTUP"], heater: ["MEMANAS", "DINGIN"],
             tank: ["TERISI", "PENUH"], float_ball: ["NAIK", "TURUN"], siphon_pipe: ["MENYEDOT", "DIAM"],
@@ -185,7 +195,11 @@ export const ModularMechanism: React.FC<{
           const statusText = STATUS[to.type] ? STATUS[to.type][(now.active[to.id] ?? 0) >= 0.5 ? 0 : 1] : (now.active[to.id] ?? 0) >= 0.5 ? "AKTIF" : "SIAGA";
           return (
             <g transform={`translate(${shake} 0)`}>
-              {kind === "heat" ? (
+              {kind === "dir" ? (
+                <g transform={`translate(${targetX} ${targetY - 96}) rotate(${dirAngle})`} opacity={0.35 + 0.65 * act(to.id)}>
+                  <path d="M52 0H-30m0 0l14 -13m-14 13l14 13" stroke={arrowColor} strokeWidth="10" fill="none" strokeLinecap="round" />
+                </g>
+              ) : kind === "heat" ? (
                 <path d={`M${targetX} ${targetY - 90}v-56m0 0l-13 15m13 -15l13 15`} stroke={arrowColor} strokeWidth="9" fill="none" strokeLinecap="round" opacity={0.35 + 0.65 * act(to.id)} />
               ) : kind === "flow" ? (
                 <path d={`M${targetX - 64} ${targetY - 70}q64 -34 128 0m0 0l-4 -17m4 17l-18 -8`} stroke={arrowColor} strokeWidth="9" fill="none" strokeLinecap="round" opacity={0.35 + 0.65 * act(to.id)} />
@@ -215,11 +229,11 @@ export const ModularMechanism: React.FC<{
             </g>
           );
         })()}
-        {!clean && (
+        {!clean && cut >= 0.35 && (
           <g opacity={index === 0 ? 1 : t}>
             {cut > 0.05 && (
               <path
-                d={`M${targetX} ${targetY} L${targetX - 32} ${targetY + 32} L96 1174`}
+                d={`M${targetX} ${targetY} L${targetX - 32} ${targetY + 32} L96 ${labelY + 14}`}
                 fill="none"
                 stroke={atmosphere?.accent ?? "#b7fcdb"}
                 strokeWidth="3"
@@ -228,7 +242,7 @@ export const ModularMechanism: React.FC<{
             )}
             <rect
               x="68"
-              y="1160"
+              y={labelY}
               width={labelWidth}
               height="65"
               rx="12"
@@ -236,10 +250,10 @@ export const ModularMechanism: React.FC<{
               stroke="#90d9be"
               strokeWidth="2"
             />
-            <rect x="79" y="1174" width="5" height="36" rx="2" fill={atmosphere?.accent ?? "#ffbd64"} />
+            <rect x="79" y={labelY + 14} width="5" height="36" rx="2" fill={atmosphere?.accent ?? "#ffbd64"} />
             <text
               x="98"
-              y="1204"
+              y={labelY + 44}
               fill="#effbf6"
               fontSize={Math.min(33, (labelWidth - 48) / (label.length * 0.77))}
               fontWeight="bold"
@@ -250,21 +264,37 @@ export const ModularMechanism: React.FC<{
         )}
       </svg>
       {/* Babak 1 & penutup: wujud benda asli. Memudar seiring cutaway membuka jeroan modular. */}
-      {exterior && cut < 0.5 ? (
-        <>
-          <Img
-            src={staticFile(exterior)}
-            style={{
-              position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
-              opacity: 1 - cut * 2,
-              transform: `scale(${1 + 0.08 * Math.min(1, frame / (2 * fps))})`,
-            }}
-          />
-          {/* Lingkaran sorot berdenyut di titik fokus supaya frame pertama tidak diam kaku. */}
-          <svg width="100%" height="100%" viewBox="0 0 1080 1920" style={{ position: "absolute", inset: 0 }}>
-            <circle cx={targetX} cy={targetY} r={54 + 10 * Math.sin(frame / 6)} fill="none" stroke="#ffd678" strokeWidth="5" opacity={0.75 * (1 - cut * 2)} />
-          </svg>
-        </>
+      {(() => {
+        // Satu gambar cerita menutupi layar pada fasenya; di luar itu opacity HARUS 0 (tidak ada hantu X-ray).
+        const isAnalogy = timings[index].mode === "analogi" && !!analogy;
+        const isPayoff = index === plan.scene_states.length - 1 && !!payoff && cut < 0.35;
+        const src = isAnalogy ? analogy : isPayoff ? payoff : exterior;
+        const show = isAnalogy || cut < 0.35;
+        if (!src || !show) return null;
+        return (
+          <>
+            <Img src={staticFile(src)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: `scale(${1 + 0.08 * Math.min(1, frame / (2 * fps))})` }} />
+            <svg width="100%" height="100%" viewBox="0 0 1080 1920" style={{ position: "absolute", inset: 0 }}>
+              <circle cx={targetX} cy={targetY} r={54 + 10 * Math.sin(frame / 6)} fill="none" stroke="#ffd678" strokeWidth="5" opacity="0.75" />
+            </svg>
+          </>
+        );
+      })()}
+      {/* Picture-in-picture: pemicu luar tetap terlihat saat kamera di dalam X-ray. */}
+      {exterior && cut >= 0.5 && timings[index].mode !== "analogi" ? (
+        <div style={{ position: "absolute", left: 34, top: pipTop, width: 252, height: 336, borderRadius: 18, overflow: "hidden", border: "4px solid #ffd678", boxShadow: "0 10px 30px rgba(0,0,0,0.45)" }}>
+          <Img src={staticFile(exterior)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "6px 10px", background: "rgba(8,20,30,0.78)", color: "#ffe9b8", fontFamily: "Arial,sans-serif", fontSize: 22, fontWeight: 700 }}>AKSI LUAR</div>
+        </div>
+      ) : null}
+      {/* Gauge angka kunci (beban/tekanan dari timing HUD) muncul mengikuti aktivasi fokus. */}
+      {hasGauge ? (
+        <div style={{ position: "absolute", right: 40, top: 880, width: 300, padding: "16px 18px", borderRadius: 16, background: "rgba(8,20,30,0.85)", border: "2px solid #90d9be", color: "#effbf6", fontFamily: "Arial,sans-serif" }}>
+          <div style={{ fontSize: 40, fontWeight: 800 }}>{timings[index].hud?.load || timings[index].hud?.force}</div>
+          <div style={{ height: 14, borderRadius: 7, background: "#28444e", marginTop: 10, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${Math.round(act(to.id) * 100)}%`, background: act(to.id) > 0.75 ? "#f87171" : "#4ade80" }} />
+          </div>
+        </div>
       ) : null}
     </AbsoluteFill>
   );

@@ -184,6 +184,8 @@ export const shortsPropsSchema = z.object({
   claim: z.object({ source: text(40), text: text(30) }).optional(),
   modular: modularSchema.optional(),
   exterior: text(200).optional(),
+  analogy: text(200).optional(),
+  payoff: text(200).optional(),
   hybrid: hybridSchema.optional(),
   mechScenes: z.array(mechTimingSchema).max(40).optional(),
   clean: z.boolean().optional(),

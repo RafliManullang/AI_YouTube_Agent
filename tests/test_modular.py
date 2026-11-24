@@ -202,3 +202,35 @@ class ExteriorAndConnectionTests(unittest.TestCase):
 
     def test_end_pad_is_tight_for_loop(self):
         self.assertLessEqual(agent.END_PAD, 0.35)
+
+
+class PerformanceAndStoryTests(unittest.TestCase):
+    def test_prompt_states_exact_scene_count_and_focus_not_stuck(self):
+        data = {"title": "Dongkrak", "scenes": [{"title": str(i), "narration": "x"} for i in range(8)],
+                "mechanism_blueprint": {"components": ["tuas"], "chain": []}}
+        self.assertIn("WAJIB TEPAT 8 objek di scene_states (sceneIndex 0..7)", mech_rig.build_prompt(data))
+        plan = toilet_plan()
+        plan["scene_states"][0].update(focusNode="btn")  # btn,btn,btn = 3 berturut-turut
+        plan["scene_states"][2].update(focusNode="btn")
+        plan["scene_states"][1].update(focusNode="btn")
+        with self.assertRaises(ValueError):
+            mech_rig.validate(plan, 4)
+
+    def test_cleanup_public_stale_removes_clips_only(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(agent, "PUBLIC_DIR", tmp):
+            clips = Path(tmp) / "clips"
+            clips.mkdir()
+            (clips / "scene_01.mp4").write_bytes(b"x" * 10)
+            (Path(tmp) / "bgm.mp3").write_bytes(b"keep")
+            agent.cleanup_public_stale()
+            self.assertEqual(list(clips.iterdir()), [])
+            self.assertTrue((Path(tmp) / "bgm.mp3").exists())
+
+    def test_story_images_three_locked_subjects(self):
+        data = {"title": "Dongkrak hidrolik", "assets": [], "scenes": [{"narration": "Ibarat pompa tangan.", "title": "Analogi"}]}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(assets, "generate_picture", return_value=b"png") as gen:
+            out = assets.generate_story_images(data, Path(tmp), {}, lambda: None, [], None, lambda *a: None)
+            self.assertEqual(set(out), {"exterior", "analogy", "payoff"})
+            subjects = " ".join(c.args[0] for c in gen.call_args_list)
+            self.assertIn("actively doing its real job", subjects)
+            self.assertIn("successful final result", subjects)

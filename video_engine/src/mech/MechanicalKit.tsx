@@ -270,21 +270,29 @@ export function RenderMechNode({
         </>
       );
       break;
-    case "piston":
+    case "piston": {
+      const up = node.direction === "up";
+      const loadIcon =
+        node.load === "tire" ? <g><circle cx="50" cy="-2" r="15" fill="#263545" /><circle cx="50" cy="-2" r="7" fill="#94a3b8" /></g>
+        : node.load === "car" ? <path d="M22 6L30 -6H62L74 4L76 10H24Z" fill="#e0653a" />
+        : node.load === "weight" ? <rect x="28" y="-8" width="44" height="16" rx="4" fill="#475569" />
+        : node.load ? <rect x="30" y="-4" width="40" height="12" rx="5" fill="#b45309" /> : null;
       art = (
         <>
           <rect x="24" y="4" width="52" height="65" rx="9" fill={metal} />
           <rect x="31" y="12" width="38" height="50" rx="4" fill="#203340" />
-          <g transform={`translate(0 ${act * 29})`}>
+          <g transform={`translate(0 ${up ? -act * 24 : act * 29})`}>
             <path d="M44 24h12v42H44Z" fill={metal} />
             <rect x="32" y="14" width="36" height="12" rx="3" fill={coat} />
-            <path d="M38 64h24l-12 7Z" fill="#d6e1df" />
+            {up ? loadIcon : <path d="M38 64h24l-12 7Z" fill="#d6e1df" />}
           </g>
+          {up && <path d="M50 96v14m0 0l-5 -6m5 6l5 -6" stroke="#4ade80" strokeWidth="4" fill="none" opacity={act} />}
           {bolt(29, 9)}
           {bolt(71, 9)}
         </>
       );
       break;
+    }
     case "heater":
       art = (
         <>

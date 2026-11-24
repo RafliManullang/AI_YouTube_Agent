@@ -85,6 +85,8 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   hybrid,
   modular,
   exterior,
+  analogy,
+  payoff,
   hookQuestion = "",
   hookHighlight = "",
   claim,
@@ -147,7 +149,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
     <AbsoluteFill style={{ backgroundColor: "#0b0f19" }}>
       {/* Satu kanvas berkelanjutan dari detik 0 sampai akhir: benda yang sama, hanya kamera dan geraknya yang berubah */}
       {modular && mi >= 0 ? (
-        <ModularMechanism plan={modular} timings={mechScenes} index={mi} clean={clean} exterior={exterior} />
+        <ModularMechanism plan={modular} timings={mechScenes} index={mi} clean={clean} exterior={exterior} analogy={analogy} payoff={payoff} />
       ) : hybrid && mi >= 0 ? (
         <HybridMechanism plan={hybrid} timings={mechScenes} index={mi} clean={clean} />
       ) : (
@@ -190,7 +192,11 @@ export const ShortsComp: React.FC<ShortsProps> = ({
             const fadeOut = Math.min(1, Math.max(0, (total - sec) / 1.5));
             // Ducking: pelan saat narator bicara, sedikit naik di jeda antar kalimat.
             const speaking = safeWords.some((w) => sec >= w.start - 0.05 && sec <= w.end + 0.25);
-            return (speaking ? 0.085 : 0.16) * Math.min(fadeIn, fadeOut);
+            const trigSecs = mechScenes.map((m) => m.triggerFrame / fps);
+            const beforeClimax = trigSecs.some((ts) => sec >= ts - 0.35 && sec < ts);
+            const afterClimax = trigSecs.some((ts) => sec >= ts && sec < ts + 0.8);
+            const level = beforeClimax ? 0.045 : afterClimax ? 0.17 : speaking ? 0.085 : 0.16;
+            return level * Math.min(fadeIn, fadeOut);
           }}
         />
       ) : null}

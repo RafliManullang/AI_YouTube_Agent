@@ -79,6 +79,8 @@ const node = z
       .min(1)
       .max(5)
       .optional(),
+    direction: z.enum(["up", "down", "left", "right"]).optional(),
+    load: z.enum(["tire", "car", "weight", "lid", "box"]).optional(),
     visibleScenes: z.array(z.number().int().nonnegative()).min(1).max(40).optional(),
     label: z.string().max(40).optional(),
     variant: z.enum(["cup", "plate", "tire", "hand", "shower", "paper"]).optional(),
