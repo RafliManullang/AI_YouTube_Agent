@@ -339,3 +339,12 @@ class StoryboardRunFixTests(unittest.TestCase):
             assets.generate_picture("p", 3, [object()], lambda *a: None)
             self.assertEqual(len(calls), first_round * 2)  # putaran ketiga: semua model sudah diblokir
             self.assertTrue(assets._IMAGE_MODEL_BLOCKED)
+
+
+class StoryboardSettingLockTests(unittest.TestCase):
+    def test_storyboard_prompt_locks_real_setting(self):
+        prompt = assets.storyboard_prompt("a hand pressing the shower power button", "Rahasia Pemanas Air Shower", "domestic_room")
+        self.assertIn("SETTING LOCK", prompt)
+        self.assertIn("bathroom", prompt)
+        self.assertIn("no roads, highways or outdoors unless the object truly belongs there", prompt)
+        self.assertIn("Show literally what the sentence describes", prompt)

@@ -407,10 +407,24 @@ STORYBOARD_STYLE = ("Cel-shaded educational explainer illustration, bold dark na
                     "Absolutely no text, letters, numbers, logos, labels or watermark anywhere in the image.")
 
 
-def storyboard_prompt(visual, topic):
+ENVIRONMENT_SETTINGS = {
+    "domestic_room": "inside the home room where this object is normally used (bathroom, kitchen or living room as fits the object)",
+    "outdoor_motion": "outdoors with the vehicle or object in its real motion environment (road, runway, sky or track as fits)",
+    "industrial_pipe": "an industrial or utility setting with pipes, valves and machinery",
+    "micro_circuit": "a clean macro view of electronics, circuit boards and sensors",
+    "anatomical_fluid": "a clean medical or biological setting",
+    "deep_pressure": "a heavy industrial or underwater pressure setting",
+}
+
+
+def storyboard_prompt(visual, topic, environment=None):
     """Prompt storyboard satu adegan: ilustrasi spesifik kalimat itu, gaya disatukan STORYBOARD_STYLE."""
     subject = str(visual or "").strip() or f"the main subject of '{topic}' in action"
-    return f"{subject}. The video is about: {topic} - keep its design consistent with that subject. {STORYBOARD_STYLE}"
+    setting = ENVIRONMENT_SETTINGS.get(str(environment or ""), "the real place where this object is normally used")
+    return (f"{subject}. Show literally what the sentence describes, with the named object large, recognizable "
+            f"and physically doing the action in its real setting. The video is about: {topic} - keep its design "
+            f"consistent with that subject. SETTING LOCK: every scene happens in {setting}; never switch to an "
+            f"unrelated place (no roads, highways or outdoors unless the object truly belongs there). {STORYBOARD_STYLE}")
 
 
 def generate_storyboard_images(data, directory, cache, checkpoint, clients=(), vision=None, log=print):
@@ -431,7 +445,7 @@ def generate_storyboard_images(data, directory, cache, checkpoint, clients=(), v
         if png and hashlib.sha256(png).hexdigest() == record.get("sha256"):
             out.append(f"assets/{key}.png")
             continue
-        subject = storyboard_prompt(scene.get("visual"), data["title"])
+        subject = storyboard_prompt(scene.get("visual"), data["title"], data.get("environment"))
         log(f"  -> Membuat storyboard adegan {i + 1}/{len(data['scenes'])}: {scene.get('title', '')[:40]}")
         try:
             png = generate_picture(subject, topic_seed(data["title"] + key), clients, log)
