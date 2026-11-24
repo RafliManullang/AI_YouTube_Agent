@@ -286,7 +286,7 @@ export function RenderMechNode({
             <rect x="32" y="14" width="36" height="12" rx="3" fill={coat} />
             {up ? loadIcon : <path d="M38 64h24l-12 7Z" fill="#d6e1df" />}
           </g>
-          {up && <path d="M50 96v14m0 0l-5 -6m5 6l5 -6" stroke="#4ade80" strokeWidth="4" fill="none" opacity={act} />}
+          {up && <path d="M50 110V96m0 0l-5 6m5 -6l5 6" stroke="#4ade80" strokeWidth="4" fill="none" opacity={act} />}
           {bolt(29, 9)}
           {bolt(71, 9)}
         </>

@@ -61,10 +61,10 @@ def valid_color(value):
 
 def build_prompt(data, timings=()):
     brief = """Rakit JSON (bukan TSX/markup): {"mech_rig":{"archetype":"bottle_tank","atmosphere":{"bgTop":"#0c4a6e","bgBottom":"#020617","accent":"#38bdf8","gridStyle":"blueprint","particle":"bubbles"},"nodes":[],"pipes":[]},"scene_states":[]}.
-Archetype: bottle_tank tangki/toilet, dome_pot panci, handle_nozzle nozel, cylinder_tube pompa, disc_rotary roda/rem, appliance_box kotak, aerodynamic_wing sayap, open_frame rangka. Warna #rrggbb; gridStyle blueprint/radial_glow/clean; particle wind_lines/bubbles/sparks/steam/dots.
-WAJIB rakit 5–9 node nyata: 1 node casing besar di tengah + 4–8 komponen kerja (tank,piston,heater,valve,turbine,chamber,spring,lever,push_button,float_ball,siphon_pipe,bimetal,sensor,filter) rapi DI DALAM casing (pusat di dalam bodi atau menempel ujung pipa; anti melayang), plus 2–6 pipes bila ada aliran. JANGAN cuma pakai 1 custom_shape kosong. Hanya komponen ASLI benda itu (toilet: push_button,float_ball,valve,siphon_pipe,tank; tanpa piston karangan). lever/piston/spring WAJIB bersentuhan tepi (gap<=20px) dgn node/ujung pipa lain; node analogi (balon/spons/kertas) WAJIB visibleScenes=[adegan analogi saja]. context_object variant cup/plate/tire/hand/shower/paper; analogi WAJIB visibleScenes:[indeks analogi saja].
-Node {id,type,x,y,w,h,label}; pusat dan titik pipa x180..900 y420..1280, w/h24..1000, komponen kerja (selain casing/custom_shape/context_object) w/h MINIMAL 85. Pipa {id,points:[[x,y],[x,y]],color}, ujung menyentuh komponen. ID unik.
-Satu state per adegan berurutan {sceneIndex,focusNode,zoom,cutaway,active:{id:nilai}}: adegan 0 & terakhir cutaway 0..0.2 (bodi utuh), adegan tengah cutaway 0.85..1 (X-ray) DAN zoom 1.35..1.9 agar fokus memenuhi layar. WAJIB >=3 focusNode berbeda; active (0..1) mengikuti aksi. JSON ringkas."""
+Archetype: bottle_tank tangki/toilet, dome_pot panci, handle_nozzle nozel, cylinder_tube pompa, disc_rotary roda, appliance_box kotak, aerodynamic_wing sayap, open_frame rangka. Warna #rrggbb; gridStyle blueprint/radial_glow/clean; particle wind_lines/bubbles/sparks/steam/dots.
+WAJIB rakit 5–9 node nyata: 1 node casing besar di tengah + 4–8 komponen kerja (tank,piston,heater,valve,turbine,chamber,spring,lever,push_button,float_ball,siphon_pipe,bimetal,sensor,filter) DI DALAM casing (menempel bodi/pipa; anti melayang), plus 2–6 pipes bila ada aliran. Hanya komponen ASLI benda itu (toilet: push_button,float_ball,valve,siphon_pipe,tank; tanpa piston karangan). lever/piston/spring WAJIB bersentuhan tepi (gap<=20px) dgn node/ujung pipa lain; node analogi (balon/spons/kertas) WAJIB visibleScenes=[adegan analogi saja]. context_object variant cup/plate/tire/hand/shower/paper.
+Node {id,type,x,y,w,h,label}; label=nama fisik nyata (Katup Pelepas/Piston Angkat), BUKAN generik (Benda Utama/Komponen/Alat). Silinder pengangkat=piston direction:"up"+load:car/tire/weight. pusat/pipa x180..900 y420..1280; w/h24..1000, komponen kerja min 85. Pipa {id,points:[[x,y],[x,y]],color}, ujung menyentuh komponen. ID unik.
+State per adegan {sceneIndex,focusNode,zoom,cutaway,active:{id:nilai}}: adegan 0 & terakhir cutaway 0..0.2 (bodi utuh), tengah cutaway 0.85..1 (X-ray) DAN zoom 1.35..1.9. WAJIB >=3 focusNode berbeda; active (0..1) mengikuti aksi. JSON ringkas."""
     # Sertakan setiap adegan bahkan saat resume dengan naskah panjang. Batasi byte UTF-8, bukan token perkiraan.
     title = data["title"].encode()[:110].decode(errors="ignore")
     rows = []
@@ -160,6 +160,15 @@ def validate(plan, count, *, require_style=False):
         require(
             "label" not in n or isinstance(n["label"], str) and len(n["label"]) <= 40, "label tidak valid"
         )
+        label_low = str(n.get("label") or "").strip().lower()
+        require(label_low not in ("benda utama", "komponen", "alat", "benda", "objek", "bagian", "mesin"),
+                f"label generik {n.get('label')!r} dilarang - wajib nama komponen fisik nyata")
+        if "silinder" in label_low or "cylinder" in label_low:
+            require(n["type"] == "piston",
+                    "silinder pengangkat wajib node piston (batangnya memanjang), bukan tank/chamber")
+        if n["type"] == "piston" and "angkat" in label_low:
+            require(n.get("direction") == "up" and n.get("load"),
+                    "piston angkat wajib direction:up dan load yang ikut naik")
         require(
             ("variant" not in n and n["type"] != "context_object") or n.get("variant") in CONTEXT,
             "variant konteks tidak dikenal",
