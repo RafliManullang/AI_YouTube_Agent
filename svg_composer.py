@@ -441,16 +441,19 @@ ANALOGY_WORDS = ("ibarat", "bagaikan", "layaknya", "seperti", "mirip", "sama sep
 
 
 def view_mode(index, count, start_fraction, narration=""):
-    """Empat babak: adegan 0 benda utuh (konteks), 12-30% menembus cangkang (xray), 30-90% mekanisme inti (blueprint),
-    penutup kembali ke benda utuh. Satu adegan di babak 3 yang memuat perumpamaan ("ibarat", "seperti") memakai tampilan analogi."""
+    """Empat babak: adegan 0 benda utuh (konteks), awal menembus cangkang (xray), tengah mekanisme inti (blueprint),
+    penutup kembali ke benda utuh. Adegan yang narasinya memuat perumpamaan ("ibarat", "seperti") SELALU memakai
+    tampilan analogi tepat di adegan itu, di posisi durasi mana pun."""
     if index == 0 or (index == count - 1 and count >= 5):
         return "konteks"
+    # Analogi dikunci ke adegan yang narasinya SENDIRI memuat kata perumpamaan,
+    # di posisi durasi berapa pun - bukan slot persen yang bisa meleset dari ucapan narator.
+    low = " " + str(narration or "").lower() + " "
+    if any(f" {w} " in low for w in ANALOGY_WORDS):
+        return "analogi"
     if start_fraction < 0.30:
         return "xray"
     if start_fraction < 0.90:
-        low = " " + str(narration or "").lower() + " "
-        if count >= 5 and any(f" {w} " in low for w in ANALOGY_WORDS):
-            return "analogi"
         return "blueprint"
     return "konteks"
 

@@ -230,8 +230,14 @@ EXTERIOR_PROMPT = ("Clean 2D cel-shaded technical illustration of {subject}, iso
                    "no text, no scenery, no cave, no fantasy background")
 
 
+STYLE_ANCHOR = ("Style anchor for every image in this video: solid dark slate studio background (#1e293b), "
+                "bold dark navy cel-shaded ink outlines, one warm light from the upper left, the main object "
+                "always in its exact same signature color in every scene, clean modern educational look. "
+                "Never a brick wall, stone wall, cave, orange circle backdrop, or scenery.")
+
+
 def exterior_prompt(subject):
-    return EXTERIOR_PROMPT.format(subject=str(subject).strip())
+    return EXTERIOR_PROMPT.format(subject=str(subject).strip()) + " " + STYLE_ANCHOR
 
 
 def _story_image(data, directory, cache, checkpoint, clients, vision, log, key, subject):
@@ -278,11 +284,15 @@ def generate_story_images(data, directory, cache, checkpoint, clients=(), vision
     return {
         'exterior': _story_image(data, directory, cache, checkpoint, clients, vision, log, '01_exterior',
                                  (by_id.get('01_exterior') or {}).get('prompt') or
-                                 title + ', the object actively doing its real job on the real thing it works on'),
+                                 title + ', together in ONE frame with the real object it acts on, positioned '
+                                 'against that target and actively starting its real job on it - the interaction '
+                                 'between the two objects clearly visible, never the object alone on an empty floor'),
         'analogy': _story_image(data, directory, cache, checkpoint, clients, vision, log, '02_analogy', analogy_subject),
         'payoff': _story_image(data, directory, cache, checkpoint, clients, vision, log, '03_payoff',
                                (by_id.get('04_closeup') or {}).get('prompt') or
-                               title + ', the successful final result after the mechanism finishes its job'),
+                               title + ', the SAME object and the SAME target together in one frame, the job fully '
+                               'finished and the final result unmistakable (raised, opened, pressed or filled to '
+                               'its final state) - never the target alone without the object that caused it'),
     }
 
 

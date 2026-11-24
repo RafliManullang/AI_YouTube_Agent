@@ -376,7 +376,7 @@ def build_prompt(forced_topic, done_titles):
     else:
         style_rule = (
             "FORMAT NARASI: SATU narator manusia yang bercerita langsung ke penonton (speaker selalu \"flay\"), "
-            "tiap adegan punya \"lines\" berisi 1 sampai 2 kalimat (10 sampai 25 kata). Gaya bertutur seperti "
+            "tiap adegan punya \"lines\" berisi TEPAT 1 kalimat pendek (8 sampai 14 kata, sekitar 3-4 detik bicara) - "
             "kreator yang sedang bercerita ke teman: ekspresif, ada penekanan, boleh bertanya ke penonton, tanpa "
             "basa-basi dan tanpa tanya-jawab dengan orang lain."
         )
@@ -437,7 +437,7 @@ BUNYI MOMEN PUNCAK ("sfx"): hanya satu bunyi di momen puncak adegan, harus cocok
 "hiss" (desis udara), "zap" (listrik), "thud" (hantaman berat), "sizzle" (panas), "bubble" (cairan), "ding" (berhasil), "bell"
 (momen sejarah), "impact" (kejutan), "chain" (rantai), "swell" (tekanan besar), "creak" (derit struktur). Kosongkan ("") kalau tidak
 ada kejadian yang pas. Jangan memakai bunyi yang sama di dua adegan berturutan.
-TEMPO PADAT: kalimat pendek, tanpa pengantar bertele-tele, tanpa pengulangan. Setiap kalimat membawa informasi baru. Adegan terakhir
+TEMPO PADAT: kalimat pendek yang kontras dan bernada ngobrol, tanpa pengantar bertele-tele, tanpa pengulangan. Pecah kalimat majemuk panjang menjadi kalimat pendek; pakai tanda pisah (—) tepat sebelum fakta paling mengejutkan agar narator berhenti sekejap sebelum menghantam. Setiap kalimat membawa informasi baru. Adegan terakhir
 penutup singkat yang bikin orang ingin menonton ulang. Ucapan hanya berisi kalimat yang diucapkan: tanpa instruksi panggung,
 tanpa emoji, tanpa tanda bintang, tanpa hashtag.
 LARANGAN KLISE: jangan memakai "Tapi tunggu", "bayangkan kamu", "rahasianya adalah", "inilah rahasia". Judul adegan spesifik

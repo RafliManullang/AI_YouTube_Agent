@@ -54,7 +54,12 @@ export const ModularMechanism: React.FC<{
   const bw = Math.max(1, Math.max(...xs) - Math.min(...xs)),
     bh = Math.max(1, Math.max(...ys) - Math.min(...ys));
   const fit = Math.min(1.5, Math.max(0.75, Math.min(810 / bw, 850 / bh)));
-  const zoom = mix(prev.zoom, now.zoom, t) * fit,
+  // Zoom-into-Xray: 8 frame pertama adegan dalam, kamera menembus masuk (zoom ekstra meluruh cepat).
+  const sceneAge = Math.max(0, frame - timings[index].startFrame);
+  const prevMode = index > 0 ? timings[index - 1].mode : "konteks";
+  const enteringXray = (timings[index].mode === "blueprint" || timings[index].mode === "xray") && prevMode !== timings[index].mode;
+  const punch = enteringXray ? 1 + 0.1 * Math.max(0, 1 - sceneAge / 8) : 1;
+  const zoom = mix(prev.zoom, now.zoom, t) * fit * punch,
     cut = mix(prev.cutaway, now.cutaway, t);
   const cx = mix(from.x, to.x, t),
     cy = mix(from.y, to.y, t);
@@ -84,12 +89,13 @@ export const ModularMechanism: React.FC<{
       frame={frame}
     />
   );
-  const label = (to.label || to.id.replace(/_/g, " ")).toUpperCase();
+  const GENERIC_LABELS = ["BENDA UTAMA", "KOMPONEN", "ALAT", "BENDA", "OBJEK", "BAGIAN", "MESIN"];
+  const rawLabel = (to.label || to.id.replace(/_/g, " ")).toUpperCase();
+  const label = GENERIC_LABELS.includes(rawLabel) ? to.type.replace(/_/g, " ").toUpperCase() : rawLabel;
   const labelWidth = Math.min(720, Math.max(210, 34 + label.length * 22));
   // Anti-tabrakan label: kotak-kotak label/overlay yang terlihat tidak boleh berjarak vertikal <55px;
   // yang kedua digeser ke bawah sampai aman (HUD y104-162 vs PiP, label fokus vs gauge).
   const hasGauge = !clean && !!(timings[index].hud && (timings[index].hud.load || timings[index].hud.force));
-  const pipTop = !clean ? Math.max(196, 162 + 55) : 196; // di bawah HUD + jarak aman 55px
   const gaugeBottom = 880 + 118;
   const labelY = hasGauge && 1160 - gaugeBottom < 55 ? gaugeBottom + 55 : 1160;
   return (
@@ -187,7 +193,7 @@ export const ModularMechanism: React.FC<{
             : to.type === "heater" || to.type === "bimetal" || to.type === "sensor" ? "heat"
             : to.type === "siphon_pipe" || to.type === "tank" || to.type === "float_ball" ? "flow" : "push";
           const arrowColor = to.direction === "up" ? "#4ade80" : to.direction === "down" ? "#f87171" : kind === "heat" ? "#fb923c" : "#38bdf8";
-          const dirAngle = { up: -90, down: 90, left: 180, right: 0 }[to.direction ?? "down"];
+          const dirAngle = { up: 90, down: -90, left: 0, right: 180 }[to.direction ?? "down"]; // panah dasar menunjuk kiri; rotasi SVG searah jarum jam
           const STATUS: Record<string, [string, string]> = {
             push_button: ["DITEKAN", "SIAGA"], valve: ["TERBUKA", "TERTUTUP"], heater: ["MEMANAS", "DINGIN"],
             tank: ["TERISI", "PENUH"], float_ball: ["NAIK", "TURUN"], siphon_pipe: ["MENYEDOT", "DIAM"],
@@ -266,27 +272,20 @@ export const ModularMechanism: React.FC<{
       {/* Babak 1 & penutup: wujud benda asli. Memudar seiring cutaway membuka jeroan modular. */}
       {(() => {
         // Satu gambar cerita menutupi layar pada fasenya; di luar itu opacity HARUS 0 (tidak ada hantu X-ray).
-        const isAnalogy = timings[index].mode === "analogi" && !!analogy;
+        // Tanpa lingkaran penunjuk di sini - penyorot hanya hidup di adegan X-ray pada komponen spesifik.
+        const sceneLen = Math.max(1, timings[index].endFrame - timings[index].startFrame);
+        const analogyAge = frame - timings[index].startFrame;
+        // Gambar analogi masuk tepat di adegannya (whip-pan 8 frame), tampil maks 4 detik, lalu potong balik ke X-ray.
+        const isAnalogy = timings[index].mode === "analogi" && !!analogy && analogyAge < Math.min(4 * fps, sceneLen);
         const isPayoff = index === plan.scene_states.length - 1 && !!payoff && cut < 0.35;
         const src = isAnalogy ? analogy : isPayoff ? payoff : exterior;
         const show = isAnalogy || cut < 0.35;
         if (!src || !show) return null;
+        const whip = isAnalogy ? -140 * Math.max(0, 1 - analogyAge / 8) : 0;
         return (
-          <>
-            <Img src={staticFile(src)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: `scale(${1 + 0.08 * Math.min(1, frame / (2 * fps))})` }} />
-            <svg width="100%" height="100%" viewBox="0 0 1080 1920" style={{ position: "absolute", inset: 0 }}>
-              <circle cx={targetX} cy={targetY} r={54 + 10 * Math.sin(frame / 6)} fill="none" stroke="#ffd678" strokeWidth="5" opacity="0.75" />
-            </svg>
-          </>
+          <Img src={staticFile(src)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: `translateX(${whip}px) scale(${1 + 0.08 * Math.min(1, frame / (2 * fps))})` }} />
         );
       })()}
-      {/* Picture-in-picture: pemicu luar tetap terlihat saat kamera di dalam X-ray. */}
-      {exterior && cut >= 0.5 && timings[index].mode !== "analogi" ? (
-        <div style={{ position: "absolute", left: 34, top: pipTop, width: 252, height: 336, borderRadius: 18, overflow: "hidden", border: "4px solid #ffd678", boxShadow: "0 10px 30px rgba(0,0,0,0.45)" }}>
-          <Img src={staticFile(exterior)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "6px 10px", background: "rgba(8,20,30,0.78)", color: "#ffe9b8", fontFamily: "Arial,sans-serif", fontSize: 22, fontWeight: 700 }}>AKSI LUAR</div>
-        </div>
-      ) : null}
       {/* Gauge angka kunci (beban/tekanan dari timing HUD) muncul mengikuti aktivasi fokus. */}
       {hasGauge ? (
         <div style={{ position: "absolute", right: 40, top: 880, width: 300, padding: "16px 18px", borderRadius: 16, background: "rgba(8,20,30,0.85)", border: "2px solid #90d9be", color: "#effbf6", fontFamily: "Arial,sans-serif" }}>

@@ -232,5 +232,37 @@ class PerformanceAndStoryTests(unittest.TestCase):
             out = assets.generate_story_images(data, Path(tmp), {}, lambda: None, [], None, lambda *a: None)
             self.assertEqual(set(out), {"exterior", "analogy", "payoff"})
             subjects = " ".join(c.args[0] for c in gen.call_args_list)
-            self.assertIn("actively doing its real job", subjects)
-            self.assertIn("successful final result", subjects)
+            self.assertIn("together in ONE frame with the real object it acts on", subjects)
+            self.assertIn("never the object alone on an empty floor", subjects)
+            self.assertIn("SAME object and the SAME target together in one frame", subjects)
+            self.assertIn("Style anchor for every image in this video", subjects)
+            self.assertIn("Never a brick wall", subjects)
+
+
+class SyncAndCleanTests(unittest.TestCase):
+    def test_analogy_mode_follows_narration_at_any_position(self):
+        import svg_composer
+        # Analogi di awal (14/49 detik) tetap mode analogi; adegan tanpa kata perumpamaan tidak.
+        self.assertEqual(svg_composer.view_mode(2, 9, 0.28, "Ibarat pompa tangan yang memompa air."), "analogi")
+        self.assertEqual(svg_composer.view_mode(5, 9, 0.60, "Katup pelepas membuka jalur oli."), "blueprint")
+        self.assertEqual(svg_composer.view_mode(0, 9, 0.0, "Seperti inilah bentuknya."), "konteks")
+
+    def test_generic_labels_and_funnel_cylinder_rejected(self):
+        plan = toilet_plan()
+        plan["mech_rig"]["nodes"][1]["label"] = "Benda Utama"
+        with self.assertRaises(ValueError):
+            mech_rig.validate(plan, 4)
+        plan = toilet_plan()
+        tank = next(n for n in plan["mech_rig"]["nodes"] if n["type"] == "tank")
+        tank["label"] = "Silinder Utama"
+        with self.assertRaises(ValueError):
+            mech_rig.validate(plan, 4)
+
+    def test_lifting_piston_requires_up_direction_and_load(self):
+        plan = toilet_plan()
+        piston = {"id": "lift", "type": "piston", "x": 540, "y": 700, "w": 150, "h": 150, "label": "Piston Angkat"}
+        plan["mech_rig"]["nodes"].append(piston)
+        with self.assertRaises(ValueError):
+            mech_rig.validate(plan, 4)
+        piston.update(direction="up", load="car")
+        mech_rig.validate(plan, 4)  # tidak meledak
