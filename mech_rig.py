@@ -55,6 +55,9 @@ def valid_path(d):
     return any(cmd in d for cmd in "LHVQC")
 
 
+GENERIC_LABELS = ("benda utama", "komponen", "alat", "benda", "objek", "objek utama", "bagian", "mesin")
+
+
 def valid_color(value):
     return isinstance(value, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", value)
 
@@ -154,21 +157,28 @@ def validate(plan, count, *, require_style=False):
             num(n.get("x"), 180, 900) and num(n.get("y"), 420, 1280), f"pusat {n['id']} di luar area aman"
         )
         require(all(num(n.get(k), 24, 1000) for k in ("w", "h")), "ukuran blok tidak valid")
+        # Auto-perbaiki ukuran: komponen kerja yang terlalu kecil diperbesar ke minimum 85,
+        # bukan menggugurkan seluruh rig hanya karena satu kotak selebar 70px.
         if n.get("type") not in ("casing", "custom_shape", "context_object"):
-            require(all(num(n.get(k), 85, 1000) for k in ("w", "h")),
-                    f"komponen kerja {n['id']} terlalu kecil (w/h minimal 85)")
+            n["w"] = max(85, min(1000, n["w"]))
+            n["h"] = max(85, min(1000, n["h"]))
         require(
             "label" not in n or isinstance(n["label"], str) and len(n["label"]) <= 40, "label tidak valid"
         )
         label_low = str(n.get("label") or "").strip().lower()
-        require(label_low not in ("benda utama", "komponen", "alat", "benda", "objek", "bagian", "mesin"),
-                f"label generik {n.get('label')!r} dilarang - wajib nama komponen fisik nyata")
+        # Auto-perbaiki label generik: casing menjadi Rangka Utama, node lain memakai nama id-nya
+        # yang diformat rapi - rig tidak dibuang hanya karena LLM menulis "Benda Utama".
+        if label_low in GENERIC_LABELS:
+            n["label"] = "Rangka Utama" if n["type"] == "casing" else n["id"].replace("_", " ").title()[:40]
+            label_low = n["label"].lower()
         if "silinder" in label_low or "cylinder" in label_low:
             require(n["type"] == "piston",
                     "silinder pengangkat wajib node piston (batangnya memanjang), bukan tank/chamber")
+        # Auto-isi arah piston angkat: LLM yang lupa direction/load dilengkapi, bukan digugurkan.
         if n["type"] == "piston" and "angkat" in label_low:
-            require(n.get("direction") == "up" and n.get("load"),
-                    "piston angkat wajib direction:up dan load yang ikut naik")
+            n.setdefault("direction", "up")
+            if n["direction"] == "up":
+                n.setdefault("load", "weight")
         require(
             ("variant" not in n and n["type"] != "context_object") or n.get("variant") in CONTEXT,
             "variant konteks tidak dikenal",
