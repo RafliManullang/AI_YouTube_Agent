@@ -376,7 +376,7 @@ def build_prompt(forced_topic, done_titles):
     else:
         style_rule = (
             "FORMAT NARASI: SATU narator manusia yang bercerita langsung ke penonton (speaker selalu \"flay\"), "
-            "tiap adegan punya \"lines\" berisi TEPAT 1 kalimat pendek (8 sampai 14 kata, sekitar 3-4 detik bicara) - "
+            "tiap adegan punya \"lines\" berisi TEPAT 1 kalimat pendek (5 sampai 14 kata, sekitar 2-4 detik bicara; kalimat penegas boleh sangat pendek seperti \"Bukan mesinnya.\") - "
             "kreator yang sedang bercerita ke teman: ekspresif, ada penekanan, boleh bertanya ke penonton, tanpa "
             "basa-basi dan tanpa tanya-jawab dengan orang lain."
         )
@@ -386,7 +386,7 @@ Kamu adalah scriptwriter YouTube Shorts edukasi berbahasa Indonesia, gaya Kok Bi
 {topic_rule}
 {avoid}
 
-Pecah video menjadi 8 sampai 10 ADEGAN berurutan. Setiap adegan punya ucapan dan visual beranimasi.
+Pecah video menjadi 12 sampai 14 ADEGAN pendek berurutan (alur storyboard: satu kalimat, satu gambar, potong, gambar berikutnya). Setiap adegan punya ucapan dan satu ilustrasi layar penuh sendiri.
 PANJANG NASKAH WAJIB antara 105 sampai 118 kata (maksimal mutlak 120 kata) agar durasi bicara tidak melebihi 55 detik dan kalimat
 penutup tuntas sebelum video berakhir. Naskah padat, langsung ke inti, dan alurnya
 runtut dari awal sampai akhir.
@@ -467,6 +467,7 @@ tangga, elektronik rumah, korek, setrika, AC, regulator, detektor), "industrial_
 "claim" adalah SATU klaim fisik berangka yang DIUCAPKAN di naskah beserta lembaga sumbernya, contoh {{"source": "SAE", "text": "±290 km/jam"}}.
 Isi hanya kalau kamu YAKIN angka dan sumbernya benar (lembaga nyata seperti SAE, IEEE, BSN, FAA, NASA, WHO). Kalau ragu, kosongkan
 keduanya. Dilarang mengarang sumber.
+Per adegan WAJIB ada "visual": deskripsi ilustrasi layar penuh untuk kalimat adegan itu SAJA, dalam bahasa Inggris, satu adegan satu gambar yang berbeda. Tulis subjek + aksi + sudut kamera (variasikan: close-up, side view, top-down, wide shot, point-of-view dari jendela/kokpit/tangan manusia). Gambar harus menceritakan kalimatnya tanpa perlu teks: kalau kalimat soal gaya/aliran, gambarkan panah tebal sederhana (tanpa huruf/angka) yang arahnya benar. DILARANG menulis teks, huruf, angka, atau label apa pun di dalam gambar (semua teks ditambah belakangan oleh program). Adegan berurutan tidak boleh mengulang subjek+sudut yang sama persis.
 Per adegan (boleh kosong): "load" adalah beban atau tekanan yang ditahan komponen dan diucapkan di adegan itu (contoh "2 TON"); "force" adalah
 label panah gaya (contoh "4x tekanan") kalau adegan itu membahas kenaikan tekanan, suhu, kecepatan, atau tegangan. Kosongkan kalau
 angkanya tidak diucapkan di adegan itu.
@@ -499,6 +500,7 @@ Keluarkan HANYA JSON murni dengan format persis ini:
       "camera":{{"fromScale":1,"toScale":1.18,"focusX":0.5,"focusY":0.5}},
       "overlay":{{"type":"badge_only","label":"BENDA UTUH"}},
       "lines": [{{"speaker": "flay", "text": "Kalimat yang diucapkan."}}],
+      "visual": "side view of the exact thing this sentence describes, one clear action, bold simple arrow if force or flow is mentioned, no text",
       "title": "Judul adegan",
       "type": "mechanism",
       "tone": "semangat",
@@ -741,7 +743,7 @@ def build_text_sources(prompt, raw=False):
 
 GREETINGS = ("halo", "hai", "hay", "selamat datang", "kali ini", "hari ini kita", "apa kabar", "teman-teman")
 HYBRID_SCENE_KEYS = ("asset_id", "component", "camera", "overlay")
-DRAFT_SCENE_KEYS = HYBRID_SCENE_KEYS + ("lines", "title", "type", "tone", "points", "items", "number", "unit", "footage_query",
+DRAFT_SCENE_KEYS = HYBRID_SCENE_KEYS + ("lines", "visual", "title", "type", "tone", "points", "items", "number", "unit", "footage_query",
                     "keywords", "variant", "mood", "weather", "sound", "mechanism", "sfx", "sim", "art", "subject", "photo", "trigger", "load", "force")
 
 
@@ -756,6 +758,7 @@ def polish_script(data, base_prompt):
     editor_prompt = (
         "===== TUGAS KAMU: EDITOR NASKAH VIDEO SHORTS BAHASA INDONESIA =====\n"
         "Pertahankan daftar assets dan koreografi hybrid tiap adegan; cocokkan component dengan bagian yang diucapkan. "
+        "Pertahankan juga \"visual\" tiap adegan; kalau kalimatmu berubah jauh, sesuaikan visualnya agar tetap menceritakan kalimat itu. "
         "kiasan jangan diterjemahkan harfiah; tipe \"footage\" tidak dipakai; kosongkan \"art\" dan \"photo\".\n"
         "Di bawah ini ada DRAF naskah. Kamu editor video viral yang sangat kritis. Tulis ulang "
         "draf itu menjadi versi yang jauh lebih menarik, dengan TOPIK YANG SAMA dan FORMAT JSON YANG SAMA PERSIS "
@@ -1019,17 +1022,17 @@ def validate_content(data):
         data["tags"] = [str(data["tags"])]
 
     spoken = 0
-    for raw in data["scenes"][:10]:
+    for raw in data["scenes"][:14]:
         for ln in (raw.get("lines") or []) if isinstance(raw, dict) else []:
             spoken += len(str((ln or {}).get("text", "")).split()) if isinstance(ln, dict) else 0
     if spoken > 135:
         raise ValueError(f"Naskah terlalu panjang ({spoken} kata); batas 120 kata supaya kalimat terakhir tidak terpotong.")
 
     scenes = []
-    for raw in data["scenes"][:10]:
+    for raw in data["scenes"][:14]:
         lines = clean_lines(raw)
         narration = " ".join(l["text"] for l in lines)
-        if len(narration.split()) < 4:
+        if len(narration.split()) < 2:
             continue
         items = [
             {"label": clean_text(it.get("label"), 24), "value": ""}
@@ -1049,6 +1052,7 @@ def validate_content(data):
             force = ""
         scenes.append({
             **{k: raw[k] for k in HYBRID_SCENE_KEYS if k in raw},
+            "visual": clean_text(raw.get("visual"), 320),
             "load": load,
             "force": force,
             "sfx": sfx_raw if sfx_raw in KEY_SOUNDS else "",
@@ -1419,7 +1423,7 @@ def render_timings(scenes, words, duration):
     return timings
 
 
-def assemble_props(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, timings=None, *, modular=None, hybrid=None, exterior=None, analogy=None, payoff=None):
+def assemble_props(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, timings=None, *, modular=None, hybrid=None, exterior=None, analogy=None, payoff=None, storyboard=None):
     """Satu-satunya tempat props Remotion disusun (dipakai render penuh dan gerbang Vision)."""
     props = {
         "audioUrl": audio_file,
@@ -1458,6 +1462,8 @@ def assemble_props(words, scenes, duration, theme_index=0, music=None, bg_seed=0
         props["analogy"] = analogy
     if payoff:
         props["payoff"] = payoff
+    if storyboard is not None:
+        props["storyboard"] = storyboard
     if modular is not None:
         props["modular"] = modular
     elif hybrid is not None:
@@ -1467,7 +1473,7 @@ def assemble_props(words, scenes, duration, theme_index=0, music=None, bg_seed=0
     return props
 
 
-def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, timings=None, *, modular=None, hybrid=None, exterior=None, analogy=None, payoff=None):
+def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg_seed=0, audio_file="voice.mp3", screen=None, timings=None, *, modular=None, hybrid=None, exterior=None, analogy=None, payoff=None, storyboard=None):
     info("[4/5] Menjalankan Remotion (membuat video beranimasi)...")
     if not shutil.which("npm") or not shutil.which("npx"):
         raise RuntimeError("Node.js belum terpasang. Unduh dari https://nodejs.org lalu jalankan ulang.")
@@ -1477,7 +1483,7 @@ def render_remotion_video(words, scenes, duration, theme_index=0, music=None, bg
     if os.path.exists(output_mp4):
         os.remove(output_mp4)
     props = assemble_props(words, scenes, duration, theme_index, music, bg_seed, audio_file, screen, timings,
-                           modular=modular, hybrid=hybrid, exterior=exterior, analogy=analogy, payoff=payoff)
+                           modular=modular, hybrid=hybrid, exterior=exterior, analogy=analogy, payoff=payoff, storyboard=storyboard)
     render_worker.render(props, output_mp4, REMOTION_DIR, None, info)
     if not os.path.exists(output_mp4) or os.path.getsize(output_mp4) < 10_000:
         raise RuntimeError("Video hasil render tidak ditemukan atau rusak.")
@@ -1667,6 +1673,11 @@ def cleanup_public_stale():
             if f.is_file():
                 f.unlink(missing_ok=True)
                 removed += 1
+    assets_dir = Path(PUBLIC_DIR) / "assets"
+    if assets_dir.is_dir():
+        for f in assets_dir.glob("sb_*.png"):
+            f.unlink(missing_ok=True)
+            removed += 1
     for name in ("gate_0.png", "gate_1.png", "gate_2.png", "thumb_bg.jpg"):
         f = Path(PUBLIC_DIR) / name
         if f.exists():
@@ -1794,6 +1805,24 @@ def prepare_exterior(data, voice):
         return None
 
 
+def prepare_storyboard(data, voice):
+    """Satu ilustrasi per adegan untuk mode storyboard. Berbeda dengan rig: tanpa panggilan LLM perakit,
+    jadi tidak ada badai retry validator - kegagalan fatal hanya bila gambar pertama pun gagal dibuat."""
+    clients = []
+    if GEMINI_KEYS and not asset_generator.skip_gemini_image():
+        from google import genai
+        from google.genai import types
+        options = types.HttpOptions(timeout=120000, retry_options=types.HttpRetryOptions(attempts=1))
+        clients = [genai.Client(api_key=k, http_options=options) for k in GEMINI_KEYS]
+    cache = data.setdefault("storyboard_cache", {})
+    images = asset_generator.generate_storyboard_images(
+        data, Path(PUBLIC_DIR) / "assets", cache,
+        lambda: save_session({"version": 1, "data": data, "voice": voice}), clients, vision_caller(), info)
+    data["storyboard"] = images
+    save_session({"version": 1, "data": data, "voice": voice})
+    return images
+
+
 def prepare_hybrid(data, voice):
     spec, shots = asset_generator.storyboard(data, voice["timings"])
     components = list(dict.fromkeys(s["component"] for s in shots if s["asset_id"] == "03_cutaway"))
@@ -1813,7 +1842,7 @@ def prepare_hybrid(data, voice):
 
 def main():
     parser = argparse.ArgumentParser(description="AI YouTube Agent")
-    parser.add_argument("--visual", choices=("modular", "hybrid"), default="modular", help="Mesin visual (bawaan: modular)")
+    parser.add_argument("--visual", choices=("storyboard", "modular", "hybrid"), default="storyboard", help="Mesin visual (bawaan: storyboard ilustrasi per adegan)")
     parser.add_argument("--resume", action="store_true", help="Lanjutkan checkpoint terakhir tanpa mengulang tahap yang sudah selesai")
     parser.add_argument("--tanpa-upload", action="store_true", help="Buat video saja, jangan diunggah")
     parser.add_argument("--unggah-saja", action="store_true",
@@ -1847,13 +1876,16 @@ def main():
         if args.visual == "hybrid":
             info("[3/5] Menyiapkan ilustrasi hybrid dan mencari jangkar komponen...")
             visual = {"hybrid": prepare_hybrid(data, voice)}
+        elif args.visual == "storyboard":
+            info("[3/5] Membuat storyboard ilustrasi per adegan...")
+            visual = {"storyboard": prepare_storyboard(data, voice)}
         else:
             info("[3/5] Merakit rig mekanis dari naskah...")
             visual = {"modular": prepare_modular(data, voice)}
             story = prepare_exterior(data, voice)
             if story:
                 visual.update(story)
-        if args.visual != "hybrid":
+        if args.visual == "modular":
             gate_props = assemble_props(
                 words, data["scenes"], duration, data["theme_index"], data.get("music"), data.get("bg_seed", 0), audio_file,
                 {k: data.get(k) for k in ("environment", "hook_question", "hook_highlight", "claim")},

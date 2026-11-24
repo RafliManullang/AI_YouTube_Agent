@@ -146,6 +146,7 @@ export type MechTiming = {
 export type ShortsProps = {
   modular?: ModularPlan;
   exterior?: string; // gambar hook aksi benda asli (assets/01_exterior.png)
+  storyboard?: string[]; // satu ilustrasi per adegan (assets/sb_00.png, ...) - mode storyboard
   analogy?: string; // gambar analogi tengah video (assets/02_analogy.png)
   payoff?: string; // gambar hasil akhir (assets/03_payoff.png)
   hybrid?: HybridPlan;

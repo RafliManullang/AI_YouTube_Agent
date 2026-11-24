@@ -52,6 +52,14 @@ Validator rig kini memperbaiki, bukan membuang: sejak run dongkrak hidrolik menu
 
 Catatan batas yang disadari: bagian tengah video tetap diagram SVG modular dan punya langit-langit kualitas "diagram 2D bersih". Mengganti mayoritas adegan tengah dengan storyboard ilustrasi per adegan (seperti channel referensi) adalah langkah besar berikutnya - fondasinya sudah disiapkan lewat gambar cerita + `STYLE_ANCHOR` yang konsisten, tetapi belum diaktifkan karena biaya dan waktu generate per adegan perlu diukur di run nyata dulu.
 
+### Mode utama sekarang: storyboard ilustrasi per adegan (`--visual storyboard`, bawaan)
+
+Mengikuti gaya channel referensi (satu kalimat, satu ilustrasi layar penuh, potong, ilustrasi berikutnya), mode bawaan pipeline sekarang adalah storyboard - bukan lagi diagram SVG modular. Naskah ditulis sebagai 12-14 adegan pendek (satu kalimat 5-14 kata per adegan; kalimat penegas dua kata seperti "Bukan mesinnya." sah dan tidak dibuang normalisasi). Setiap adegan wajib membawa kolom `"visual"`: deskripsi ilustrasi untuk kalimat itu saja (subjek + aksi + sudut kamera yang divariasikan - close-up, side view, top-down, wide, point-of-view), dengan panah tebal sederhana bila kalimatnya soal gaya/aliran, dan tanpa teks apa pun di dalam gambar.
+
+`asset_generator.generate_storyboard_images()` membuat satu gambar per adegan (`assets/sb_00.png`, `sb_01.png`, ...) dengan satu gaya terkunci (`STORYBOARD_STYLE`: cel-shaded, tinta navy tebal, palet oranye-teal, desain dan warna benda identik di semua adegan), cache sha256 per adegan untuk `--resume`, cek Vision dengan maksimal satu regenerasi, dan gambar adegan sebelumnya sebagai cadangan bila satu adegan gagal agar indeks tidak bergeser. Karena mode ini tidak memanggil LLM perakit rig, badai retry validator tidak ada lagi di jalur bawaan.
+
+Di Remotion, `StoryboardShot.tsx` memutar tiap gambar dengan gerak Ken Burns (zoom + drift menyamping bergantian arah), judul adegan besar bergaya teks hook di atas, dan badge angka kunci (load/force dari naskah) yang meletup tepat di frame kata pemicu - semua teks digambar program, gambar AI-nya bebas teks. Mode lama tetap tersedia: `--visual modular` (diagram X-ray SVG) dan `--visual hybrid`.
+
 ## Mode opsional: gambar hybrid (`--visual hybrid`)
 
 Pipeline hybrid membuat Shorts dengan **3–4 ilustrasi AI per topik** dan motion graphics Remotion. Anatomi benda tidak lagi dibuat dengan meminta LLM menulis TSX. Bagian riwayat tahap di bawah juga mendokumentasikan mesin visual versi lama.
