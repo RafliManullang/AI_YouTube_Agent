@@ -769,7 +769,7 @@ def polish_script(data, base_prompt):
         "2. Rasa penasaran: apakah ada pertanyaan yang baru terjawab di akhir? Pastikan jawaban tidak bocor di awal.\n"
         "3. Titik balik di tengah video yang berlawanan dengan dugaan penonton.\n"
         "4. Paling banyak 3 angka di seluruh ucapan (satu angka per kalimat, tidak berdekatan). Kalau lebih, buang yang kurang penting dan ganti dengan perbandingan benda akrab. Jangan menumpuk istilah teknik.\n"
-        "5. Hapus kalimat pengisi; setiap kalimat harus membawa informasi baru. Total ucapan 105 sampai 118 kata (maksimal mutlak 120), tanpa dialog dua orang.\n"
+        "5. Hapus kalimat pengisi; setiap kalimat harus membawa informasi baru. Pertahankan 12 sampai 14 adegan, satu kalimat pendek (5-14 kata) per adegan, total ucapan 70 sampai 118 kata (maksimal mutlak 120), tanpa dialog dua orang.\n"
         "6. CEK FAKTA: perbaiki atau hapus klaim yang tidak pasti benar. Jangan mengarang angka; kalau ragu "
         "pakai \"sekitar\" atau buang klaimnya.\n"
         "7. Obrolan Shela dan Flay terdengar natural dan lucu-ringan, bukan membaca teks.\n"
@@ -790,7 +790,7 @@ def polish_script(data, base_prompt):
             validate_content(better)
             words = sum(len(sc["narration"].split()) for sc in better["scenes"])
             first = better["scenes"][0]["narration"].lower()
-            if not (6 <= len(better["scenes"]) <= 10 and 90 <= words <= 135):
+            if not (6 <= len(better["scenes"]) <= 14 and 60 <= words <= 135):
                 raise ValueError(f"hasil editor tidak wajar ({len(better['scenes'])} adegan, {words} kata)")
             if any(first.startswith(g) for g in GREETINGS):
                 raise ValueError("hasil editor masih dibuka dengan sapaan")
@@ -801,10 +801,10 @@ def polish_script(data, base_prompt):
             if any(x in message for x in ("404", "NOT_FOUND", "401", "403", "413", "invalid_api_key", "model_not_found")):
                 dead.add(name)
             info(f"  -> Editor ({name}) dilewati: {message[:100]}")
-    if os.getenv("ALLOW_UNEDITED", "off").strip().lower() == "on":
-        info("  -> Tahap editor tidak berhasil, memakai naskah pertama (ALLOW_UNEDITED=on).")
-        return data
-    raise RuntimeError("Tahap Editor tidak berhasil di semua sumber. Video tidak dirender dengan naskah mentah; mengulang dengan sumber lain.")
+    # Editor adalah pemoles, bukan gerbang: gagal di semua sumber tidak boleh membakar
+    # seluruh putaran penulisan ulang - naskah pertama dipakai apa adanya.
+    info("  -> Tahap editor tidak berhasil di semua sumber; memakai naskah pertama apa adanya.")
+    return data
 
 
 def research_and_write(forced_topic=None):
@@ -1468,7 +1468,7 @@ def assemble_props(words, scenes, duration, theme_index=0, music=None, bg_seed=0
         props["modular"] = modular
     elif hybrid is not None:
         props["hybrid"] = hybrid
-    else:
+    elif storyboard is None:
         raise ValueError("Rencana visual belum ada.")
     return props
 
