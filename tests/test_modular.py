@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch, Mock
 
+import asset_generator as assets
 import main_agent as agent
 import mech_rig
 
@@ -167,3 +168,37 @@ class BlueprintAndGateTests(unittest.TestCase):
     def test_vision_gate_skips_without_vision(self):
         with patch.object(agent, "vision_caller", return_value=None):
             self.assertIsNone(agent.vision_gate({"modular": {}, "mechScenes": []}, {}, {}))
+
+
+class ExteriorAndConnectionTests(unittest.TestCase):
+    def test_exterior_prompt_locked_and_vision_regenerates_once(self):
+        self.assertIn("solid dark slate studio background", assets.exterior_prompt("hand water pump"))
+        self.assertIn("no cave", assets.exterior_prompt("hand water pump"))
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(assets, "generate_picture", side_effect=[b"first", b"second"]) as gen:
+            vision = Mock(side_effect=['{"ok": false}', '{"ok": true}'])
+            out = assets.generate_exterior({"title": "Pompa air tangan", "assets": []}, Path(tmp),
+                                           {}, lambda: None, [], vision, lambda *a: None)
+            self.assertEqual(out, "assets/01_exterior.png")
+            self.assertEqual(gen.call_count, 2)
+            self.assertIn("pompa air tangan", vision.call_args_list[0].args[0].lower())
+
+    def test_analogy_label_must_be_scene_scoped(self):
+        plan = toilet_plan()
+        plan["mech_rig"]["nodes"].append({"id": "balon", "type": "context_object", "variant": "paper",
+                                          "x": 500, "y": 700, "w": 150, "h": 150, "label": "Balon analogi"})
+        with self.assertRaises(ValueError):
+            mech_rig.validate(plan, 4)
+        plan["mech_rig"]["nodes"][-1]["visibleScenes"] = [2]
+        mech_rig.validate(plan, 4)
+
+    def test_lever_must_touch_something(self):
+        plan = toilet_plan()
+        plan["mech_rig"]["nodes"].append({"id": "tuas", "type": "lever", "x": 240, "y": 500, "w": 100, "h": 100, "label": "Tuas"})
+        with self.assertRaises(ValueError):  # jauh dari semua komponen (di dalam bodi tapi tidak bersentuhan)
+            mech_rig.validate(plan, 4)
+        plan["mech_rig"]["nodes"][-1].update(x=430, y=560)  # menempel tombol/tangki
+        mech_rig.validate(plan, 4)
+
+    def test_end_pad_is_tight_for_loop(self):
+        self.assertLessEqual(agent.END_PAD, 0.35)

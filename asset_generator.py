@@ -225,11 +225,20 @@ def generate_scene_assets(spec, directory, title, components, cache, checkpoint,
     return dict(asset_map), records['03_cutaway']['vision']['anchors']
 
 
-def generate_exterior(data, directory, cache, checkpoint, clients=(), log=print):
+EXTERIOR_PROMPT = ("Clean 2D cel-shaded technical illustration of {subject}, isolated on a solid dark slate "
+                   "studio background, centered, full object visible, bold dark navy outlines, "
+                   "no text, no scenery, no cave, no fantasy background")
+
+
+def exterior_prompt(subject):
+    return EXTERIOR_PROMPT.format(subject=str(subject).strip())
+
+
+def generate_exterior(data, directory, cache, checkpoint, clients=(), vision=None, log=print):
     """Hanya 01_exterior: wujud benda asli untuk babak pembuka/penutup mode modular.
 
-    Tanpa Vision (tidak ada komponen yang perlu dicari titiknya) dan tanpa analogy/cutaway;
-    kegagalan provider dibiarkan melempar supaya pemanggil bisa lanjut tanpa gambar ini.
+    Prompt dikunci ke latar studio bersih. Bila Vision tersedia, gambar ditanya ya/tidak
+    ("apakah ini jelas {topik} tanpa latar aneh?"); jawaban tidak memicu maksimal 1 regenerasi.
     """
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / '01_exterior.png'
@@ -241,7 +250,24 @@ def generate_exterior(data, directory, cache, checkpoint, clients=(), log=print)
     subject = (item or {}).get('prompt') or data['title']
     seed = topic_seed(data['title'])
     log('  -> Membuat gambar benda asli (01_exterior)...')
-    png = generate_picture(build_image_prompt(subject, 'exterior', seed), seed, clients, log)
+    png = generate_picture(exterior_prompt(subject), seed, clients, log)
+    if vision:
+        for attempt in (1, 2):
+            try:
+                answer = vision(f"Apakah gambar ini jelas menampilkan {data['title']} tanpa latar aneh? "
+                                'Jawab JSON saja: {"ok": boolean}', [png])
+                import json as _json
+                ok = _json.loads(answer[answer.find('{'):answer.rfind('}') + 1]).get('ok')
+            except Exception as exc:
+                log(f'  -> Cek Vision gambar pembuka dilewati ({str(exc)[:80]}).')
+                break
+            if ok:
+                break
+            if attempt == 2:
+                log('  -> Vision tetap menolak gambar pembuka; memakai kandidat terakhir.')
+                break
+            log('  -> Vision menolak gambar pembuka (bukan bendanya / latar aneh); membuat ulang satu kali...')
+            png = generate_picture(exterior_prompt(subject) + ' Show the whole object clearly.', seed + 1, clients, log)
     pending = path.with_suffix('.tmp')
     pending.write_bytes(png)
     pending.replace(path)

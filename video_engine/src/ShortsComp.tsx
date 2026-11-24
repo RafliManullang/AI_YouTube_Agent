@@ -169,6 +169,14 @@ export const ShortsComp: React.FC<ShortsProps> = ({
       {/* Efek suara hanya di momen besar: dentuman hook, pergantian adegan, dan puncak animasi. Tidak ada bunyi per kata. */}
       <Sfx name="whoosh" at={0} volume={0.34} />
       <Sfx name="impact" at={10} volume={0.5} />
+      {/* Whoosh halus saat masuk X-ray dan saat kamera melompat zoom ke komponen baru. */}
+      {modular?.scene_states.map((st, i) =>
+        i > 0 && mechScenes[i] ? (
+          (st.cutaway - (modular.scene_states[i - 1]?.cutaway ?? 0) >= 0.5) || Math.abs(st.zoom - (modular.scene_states[i - 1]?.zoom ?? st.zoom)) >= 0.35 ? (
+            <Sfx key={`cw-${i}`} name="whoosh" at={mechScenes[i].startFrame} volume={0.2} />
+          ) : null
+        ) : null,
+      )}
 
       {/* Suara narasi dan musik latar */}
       {audioUrl ? <Audio src={staticFile(audioUrl)} /> : null}
@@ -180,7 +188,9 @@ export const ShortsComp: React.FC<ShortsProps> = ({
             const sec = f / fps;
             const fadeIn = Math.min(1, sec / 1.5);
             const fadeOut = Math.min(1, Math.max(0, (total - sec) / 1.5));
-            return 0.1 * Math.min(fadeIn, fadeOut);
+            // Ducking: pelan saat narator bicara, sedikit naik di jeda antar kalimat.
+            const speaking = safeWords.some((w) => sec >= w.start - 0.05 && sec <= w.end + 0.25);
+            return (speaking ? 0.085 : 0.16) * Math.min(fadeIn, fadeOut);
           }}
         />
       ) : null}
@@ -222,7 +232,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
         <div
           style={{
             position: "absolute",
-            top: "68%",
+            top: "69%",
             left: 50,
             right: 50,
             display: "flex",

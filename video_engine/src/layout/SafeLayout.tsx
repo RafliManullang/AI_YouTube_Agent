@@ -1,12 +1,16 @@
 import React from "react";
 import { AbsoluteFill } from "remotion";
 
-// Pembagian layar tegas untuk video vertikal 1080x1920:
-//  - Zona visual (0% sampai 72% tinggi): hanya untuk animasi atau objek 3D utama.
-//  - Zona subtitle (72% sampai bawah): hanya untuk teks kata demi kata dalam bantalan gelap semi-transparan.
+// Zona aman UI YouTube Shorts untuk video vertikal 1080x1920:
+//  - Fokus utama animasi: 22% sampai 66% tinggi layar (kanan bawah tertutup tombol Like/Comment/Share,
+//    20% terbawah tertutup nama channel dan judul video).
+//  - Subtitle berkotak oranye: 68% sampai 74% tinggi layar.
+//  - HUD status: tengah atas di bawah judul, jangan di pojok kanan bawah.
 export const SAFE = {
-  visualBottom: 0.8, // batas bawah zona visual
+  visualTop: 0.22,
+  visualBottom: 0.66, // batas bawah zona visual utama
   visualScale: 0.8, // isi adegan dikecilkan supaya muat di zona visual (tinggi 1920 x 0,8)
+  captionTop: 0.68,
   captionBottomPx: 120, // jarak subtitle dari tepi bawah (di atas tombol dan judul Shorts)
   captionMaxHeightPx: 150, // tinggi maksimal zona subtitle
 } as const;
