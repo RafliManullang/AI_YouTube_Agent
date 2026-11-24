@@ -131,6 +131,10 @@ def skip_gemini_image():
     return os.getenv('SKIP_GEMINI_IMAGE', '').strip() == '1'
 
 
+_IMAGE_MODEL_503 = {}
+_IMAGE_MODEL_BLOCKED = set()
+
+
 def generate_picture(prompt, seed, clients, log):
     if os.getenv('CF_ACCOUNT_ID', '').strip() and os.getenv('CF_API_TOKEN', '').strip():
         try:
@@ -146,11 +150,18 @@ def generate_picture(prompt, seed, clients, log):
     models = dict.fromkeys((primary, *GEMINI_IMAGE_MODELS[1:]))
     for index, client in enumerate(clients, 1):
         for model in models:
+            if model in _IMAGE_MODEL_BLOCKED:
+                continue
             try:
                 return picture_bytes(generate_with_gemini_image(client, prompt, model))
             except Exception as exc:
                 detail = re.sub(r'AIza[\w-]+', '[redacted]', str(exc))
                 log(f'  -> Gemini Image {model} (key #{index}) gagal: {type(exc).__name__}: {detail[:400]}')
+                if '503' in detail or 'UNAVAILABLE' in detail:
+                    _IMAGE_MODEL_503[model] = _IMAGE_MODEL_503.get(model, 0) + 1
+                    if _IMAGE_MODEL_503[model] >= 2:
+                        _IMAGE_MODEL_BLOCKED.add(model)
+                        log(f'  -> Model gambar {model} dua kali 503 (server penuh); diblokir selama sesi.')
     log('  -> Beralih ke Hugging Face.')
     return picture_bytes(generate_with_hf_flux(prompt, seed), allow_square=True)
 
@@ -411,6 +422,7 @@ def generate_storyboard_images(data, directory, cache, checkpoint, clients=(), v
     """
     directory.mkdir(parents=True, exist_ok=True)
     out = []
+    vision_down = False
     for i, scene in enumerate(data["scenes"]):
         key = f"sb_{i:02d}"
         path = directory / f"{key}.png"
@@ -423,6 +435,8 @@ def generate_storyboard_images(data, directory, cache, checkpoint, clients=(), v
         log(f"  -> Membuat storyboard adegan {i + 1}/{len(data['scenes'])}: {scene.get('title', '')[:40]}")
         try:
             png = generate_picture(subject, topic_seed(data["title"] + key), clients, log)
+            if vision and vision_down:
+                vision = None
             if vision:
                 for attempt in (1, 2):
                     try:
@@ -432,6 +446,9 @@ def generate_storyboard_images(data, directory, cache, checkpoint, clients=(), v
                         ok = _json.loads(answer[answer.find("{"):answer.rfind("}") + 1]).get("ok")
                     except Exception as exc:
                         log(f"  -> Cek Vision {key} dilewati ({str(exc)[:80]}).")
+                        if any(x in str(exc) for x in ("503", "504", "UNAVAILABLE", "DEADLINE")):
+                            vision_down = True
+                            log("  -> Layanan Vision sedang penuh; cek Vision dilewati untuk sisa adegan video ini.")
                         break
                     if ok or attempt == 2:
                         break

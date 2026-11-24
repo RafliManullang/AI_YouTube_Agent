@@ -308,3 +308,34 @@ class StoryboardModeTests(unittest.TestCase):
         agent.validate_content(data)
         self.assertEqual(len(data["scenes"]), 4)  # kalimat 2 kata tidak lagi dibuang
         self.assertIn("jet engine", data["scenes"][0]["visual"])
+
+
+class StoryboardRunFixTests(unittest.TestCase):
+    def test_assemble_props_accepts_storyboard_only(self):
+        scenes = [{"title": "A", "points": [], "items": [], "start": 0.0, "end": 2.0}]
+        props = agent.assemble_props([], scenes, 2.0, storyboard=["assets/sb_00.png"])
+        self.assertEqual(props["storyboard"], ["assets/sb_00.png"])
+
+    def test_editor_failure_falls_back_to_draft(self):
+        data = {"title": "Uji", "scenes": []}
+        with patch.object(agent, "build_text_sources", return_value=[("Sumber X", lambda: 1 / 0)]):
+            self.assertIs(agent.polish_script(data, "prompt"), data)
+
+    def test_image_model_blocked_after_two_503(self):
+        assets._IMAGE_MODEL_503.clear()
+        assets._IMAGE_MODEL_BLOCKED.clear()
+        calls = []
+
+        def boom(client, prompt, model):
+            calls.append(model)
+            raise RuntimeError("503 UNAVAILABLE: server full")
+
+        with patch.object(assets, "generate_with_gemini_image", side_effect=boom), \
+                patch.object(assets, "generate_with_hf_flux", return_value=b"png"), \
+                patch.object(assets, "picture_bytes", side_effect=lambda b, allow_square=False: b):
+            assets.generate_picture("p", 1, [object()], lambda *a: None)
+            first_round = len(calls)
+            assets.generate_picture("p", 2, [object()], lambda *a: None)
+            assets.generate_picture("p", 3, [object()], lambda *a: None)
+            self.assertEqual(len(calls), first_round * 2)  # putaran ketiga: semua model sudah diblokir
+            self.assertTrue(assets._IMAGE_MODEL_BLOCKED)
